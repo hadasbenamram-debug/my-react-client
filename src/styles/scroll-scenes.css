@@ -127,6 +127,14 @@ main > section.scene {
     line-height: 1.6;
 }
 
+.scene-caption {
+    transition: color 0.25s ease;
+}
+
+.scene-caption--light {
+    color: #f4f4f4;
+}
+
 .car-road {
     position: absolute;
     left: 0;

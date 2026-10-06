@@ -104,7 +104,7 @@ export default function App() {
                     <Route path="/app/ngo/incoming" element={<IncomingDonationsPage />} />
                     <Route path="/app/ngo/confirm" element={<ConfirmDonationReceiptPage />} />
                     <Route path="/app/ngo/history" element={<NgoHistoryPage />} />
-                    <Route path="/app/ngo/ratings" element={<NgoRatingsPage />} />
+                    <Route path="/app/ngo/ratings/:id?" element={<NgoRatingsPage />} />
                     <Route path="/app/ngo/comments" element={<NgoCommentsPage />} />
 
                     {/* ניהול */}

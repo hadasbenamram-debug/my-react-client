@@ -112,6 +112,7 @@ export const SCENES = {
         id: 'donate',
         variant: 'basket',
         maxScale: 24,
+        minScale: 0.3,
         darkFlood: true,
         title: 'יש לך עודפי מזון מאירוע, עסק או בית?',
         text: 'אל תיתן להם להתבזבז. מלא את הפרטים ונבוא לאסוף אותם באהבה עבור מי שזקוק לכך.'

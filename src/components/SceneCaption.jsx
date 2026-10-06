@@ -1,7 +1,7 @@
-export default function SceneCaption({title, text, progress}) {
+export default function SceneCaption({title, text, progress, tone = 'dark'}) {
     return (
         <div
-            className="scene-caption"
+            className={`scene-caption${tone === 'light' ? ' scene-caption--light' : ''}`}
             style={{
                 opacity: progress,
                 transform: `translateY(${(1 - progress) * 30}px)`,
