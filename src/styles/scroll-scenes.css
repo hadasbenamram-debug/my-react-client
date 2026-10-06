@@ -1,0 +1,178 @@
+main > section.scene {
+    padding: 0;
+    border-top: 0;
+}
+
+.scene--heart,
+.scene--basket {
+    height: 380vh;
+}
+
+.car-scene {
+    height: 300vh;
+}
+
+.scene-sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+.heart-stage {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: clamp(340px, 74vw, 980px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--stage);
+    pointer-events: none;
+    will-change: transform, opacity;
+}
+
+.scene-shape {
+    grid-area: 1 / 1;
+    will-change: transform;
+}
+
+.scene-shape svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.scene--heart .scene-shape {
+    width: clamp(260px, 58vw, 780px);
+}
+
+.scene--basket .scene-shape {
+    width: clamp(220px, 44vw, 620px);
+}
+
+.scene-shape.is-beating {
+    animation: beat 1.15s ease-in-out infinite;
+}
+
+.scene-flood {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.scene--heart .scene-flood {
+    background: var(--mint);
+}
+
+.scene--basket .scene-flood {
+    background: var(--charcoal);
+}
+
+.eyes-scene {
+    height: 240vh;
+    background: var(--mint-soft);
+}
+
+.eyes-scene .scene-sticky {
+    background: var(--mint-soft);
+}
+
+.eyes-stage {
+    grid-area: 1 / 1;
+    display: grid;
+    justify-items: center;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    text-align: center;
+    padding: 0 1.5rem;
+    will-change: transform, opacity;
+}
+
+.eyes-stage h2 {
+    margin: 0;
+    max-width: 18ch;
+    font-size: clamp(1.9rem, 5.2vw, 4rem);
+    line-height: 1.05;
+}
+
+.eyes-svg {
+    display: block;
+    width: min(36vw, 310px);
+    height: auto;
+}
+
+.eye-pupil {
+    transition: transform 0.12s linear;
+}
+
+.scene-caption {
+    grid-area: 1 / 1;
+    position: relative;
+    text-align: center;
+    max-width: min(46rem, 86vw);
+    will-change: transform, opacity;
+}
+
+.scene-caption h2 {
+    margin: 0 0 1.1rem;
+    font-size: clamp(2rem, 5.4vw, 4.2rem);
+    line-height: 1.03;
+}
+
+.scene-caption p {
+    margin: 0 auto;
+    max-width: 36ch;
+    font-size: clamp(1rem, 1.7vw, 1.2rem);
+    line-height: 1.6;
+}
+
+.car-road {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 2px;
+    background: repeating-linear-gradient(
+        to right,
+        var(--ink) 0 26px,
+        transparent 26px 52px
+    );
+}
+
+.car-holder {
+    grid-area: 1 / 1;
+    width: clamp(240px, 34vw, 480px);
+    will-change: transform, opacity;
+}
+
+.car-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.car-wheel {
+    transform: rotate(calc(var(--spin, 0deg) * -1));
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes beat {
+    0%, 100% { transform: scale(1); }
+    18% { transform: scale(1.07); }
+    34% { transform: scale(0.99); }
+    52% { transform: scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scene--heart,
+    .scene--basket,
+    .car-scene {
+        height: 100vh;
+    }
+
+    .scene-shape {
+        animation: none;
+    }
+}

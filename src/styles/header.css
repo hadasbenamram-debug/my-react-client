@@ -1,0 +1,101 @@
+.site-header {
+    position: fixed;
+    top: 0;
+    right: var(--edge);
+    left: 0;
+    z-index: 50;
+    direction: ltr;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1.1rem 1.6rem;
+}
+
+.logo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.logo-text {
+    font-size: 1.6rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.01em;
+}
+
+.logo-text .accent {
+    color: var(--teal);
+    font-weight: 300;
+}
+
+.logo-heart {
+    width: 0.95rem;
+    height: auto;
+}
+
+.logo-tag {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+
+.menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.2rem;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--ink);
+}
+
+.menu-word {
+    display: grid;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.06em;
+}
+
+.menu-bars {
+    display: grid;
+    gap: 4px;
+    width: 1.5rem;
+}
+
+.menu-bars span {
+    height: 3px;
+    background: var(--teal);
+    transition: width 0.25s ease;
+}
+
+.menu-bars span:nth-child(1) {
+    width: 100%;
+}
+
+.menu-bars span:nth-child(2) {
+    width: 72%;
+    justify-self: end;
+}
+
+.menu-bars span:nth-child(3) {
+    width: 100%;
+}
+
+.menu-toggle:hover .menu-bars span:nth-child(2) {
+    width: 100%;
+}
+
+/* Keep the header readable while a dark scene floods the viewport. */
+body.on-dark-scene .site-header,
+body.on-dark-scene .menu-toggle {
+    color: #f4f4f4;
+}
+
+body.on-dark-scene .logo-tag {
+    color: rgba(255, 255, 255, 0.65);
+}
