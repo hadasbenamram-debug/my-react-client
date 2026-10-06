@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function IncomingDonationsPage() {
   const [incoming, setIncoming] = useState<any[]>([]);
@@ -26,29 +32,34 @@ export function IncomingDonationsPage() {
       });
   }, []);
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: '20px' }}>טוען תרומות נכנסות מהשרת...</div>;
-  }
+  if (loading) return <LoadingBlock text="טוען תרומות נכנסות מהשרת..." />;
 
   return (
-    <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>תרומות נכנסות בדרך לעמותה</h2>
-      <p>מעקב בזמן אמת אחר מתנדבים שבדרך עם משלוחי מזון.</p>
+    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="עמותה"
+        title="תרומות נכנסות בדרך"
+        subtitle="מעקב אחר מתנדבים שבדרך עם משלוחי מזון."
+      />
 
       {incoming.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center', marginTop: '20px' }}>
-          <p style={{ color: '#666' }}>אין כרגע תרומות שנמצאות בדרכן לעמותה.</p>
-        </div>
+        <EmptyState text="אין כרגע תרומות שנמצאות בדרכן לעמותה." />
       ) : (
         incoming.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd' }}>
-            <p><strong>מזהה תרומה:</strong> #{item.id}</p>
-            <p><strong>סטטוס:</strong> <span style={{ color: '#0066cc', fontWeight: 'bold' }}>בדרך (Matched)</span></p>
-            <p><strong>מזהה מתנדב משובץ:</strong> #{item.volunteerId || 'בטיפול'}</p>
-            <p><strong>זמן הגעה משוער (ETA):</strong> 15-30 דקות</p>
-          </div>
+          <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+              <Chip size="small" color="primary" label="בדרך" />
+            </Box>
+            <Typography color="text.secondary">
+              <strong>מתנדב משובץ:</strong> #{item.volunteerId || 'בטיפול'}
+            </Typography>
+            <Typography color="text.secondary">
+              <strong>זמן הגעה משוער (ETA):</strong> 15-30 דקות
+            </Typography>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

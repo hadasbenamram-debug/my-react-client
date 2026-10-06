@@ -1,5 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import PageTitle from '../components/PageTitle.jsx';
+import { StatusAlert } from '../components/FormParts.jsx';
 
 interface AvailabilitySlot {
   day: number;
@@ -8,6 +22,16 @@ interface AvailabilitySlot {
   regionId: number;
   toRegionId: number;
 }
+
+const daysOfWeek = [
+  { label: 'ראשון', value: 0 },
+  { label: 'שני', value: 1 },
+  { label: 'שלישי', value: 2 },
+  { label: 'רביעי', value: 3 },
+  { label: 'חמישי', value: 4 },
+  { label: 'שישי', value: 5 },
+  { label: 'שבת', value: 6 },
+];
 
 export const WeeklyAvailabilityPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -42,7 +66,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
             Authorization: `Bearer ${token}`
           }
         });
-        
+
         // אם יש נתונים קיימים, נטען אותם לסטייט
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           setAvailabilitySlots(response.data.map((slot: any) => ({
@@ -99,7 +123,6 @@ export const WeeklyAvailabilityPage: React.FC = () => {
 
     const token = localStorage.getItem('token');
     try {
-      // תיקון: העברת availabilitySlots כפרמטר השני ל-axios.post
       await axios.post(`/api/volunteers/availability`, availabilitySlots, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -115,112 +138,96 @@ export const WeeklyAvailabilityPage: React.FC = () => {
   };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', marginTop: '50px' }}>טוען נתונים...</div>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (error && availabilitySlots.length === 0) {
-    return <div style={{ color: 'red', textAlign: 'center', marginTop: '50px' }}>{error}</div>;
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
   }
 
-  const daysOfWeek = [
-    { label: 'ראשון', value: 0 },
-    { label: 'שני', value: 1 },
-    { label: 'שלישי', value: 2 },
-    { label: 'רביעי', value: 3 },
-    { label: 'חמישי', value: 4 },
-    { label: 'שישי', value: 5 },
-    { label: 'שבת', value: 6 },
-  ];
-
   return (
-    <div style={{ padding: '20px', maxWidth: '700px', margin: '0 auto', direction: 'rtl', textAlign: 'right' }}>
-      <h2>ניהול זמינות מתנדב</h2>
-      <p>ברוך הבא! הגדר כאן את ימי ושעות הזמינות שלך להתנדבות:</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="מתנדב"
+        title="ניהול זמינות"
+        subtitle="הגדירו את ימי ושעות הזמינות שלכם להתנדבות."
+      />
 
-      {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
-      {successMessage && <div style={{ color: 'green', marginBottom: '15px', fontWeight: 'bold' }}>{successMessage}</div>}
-
-      <form onSubmit={handleSubmit}>
-        {availabilitySlots.map((slot, index) => (
-          <div key={index} style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '15px', borderRadius: '8px', background: '#f9f9f9' }}>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
-              
-              {/* בחירת יום */}
-              <div style={{ flex: '1', minWidth: '120px' }}>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>יום בשבוע:</label>
-                <select 
-                  value={slot.day} 
-                  onChange={(e) => handleSlotChange(index, 'day', parseInt(e.target.value))}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                >
-                  {daysOfWeek.map(d => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* שעת התחלה */}
-              <div style={{ flex: '1', minWidth: '110px' }}>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>משעה (התחלה):</label>
-                <input 
-                  type="time" 
-                  value={slot.startTime} 
-                  onChange={(e) => handleSlotChange(index, 'startTime', e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-
-              {/* שעת סיום */}
-              <div style={{ flex: '1', minWidth: '110px' }}>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>עד שעה (סיום):</label>
-                <input 
-                  type="time" 
-                  value={slot.endTime} 
-                  onChange={(e) => handleSlotChange(index, 'endTime', e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-
-              {/* מזהה אזור */}
-              <div style={{ flex: '1', minWidth: '100px' }}>
-                <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px' }}>מזהה אזור:</label>
-                <input 
-                  type="number" 
-                  value={slot.regionId} 
-                  onChange={(e) => handleSlotChange(index, 'regionId', parseInt(e.target.value) || 0)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-            </div>
-
-            <button 
-              type="button" 
-              onClick={() => handleRemoveSlot(index)}
-              style={{ background: '#ff4d4d', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSubmit}>
+          {availabilitySlots.map((slot, index) => (
+            <Box
+              key={index}
+              sx={{ p: 2.5, mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}
             >
-              מחק משבצת זו
-            </button>
-          </div>
-        ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography sx={{ fontWeight: 500 }}>משבצת {index + 1}</Typography>
+                <Tooltip title="מחק משבצת זו" arrow>
+                  <IconButton size="small" onClick={() => handleRemoveSlot(index)} aria-label="מחק משבצת">
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
 
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button 
-            type="button" 
-            onClick={handleAddSlot}
-            style={{ background: '#4CAF50', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            + הוסף משבצת זמינות
-          </button>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+                <TextField
+                  select
+                  label="יום בשבוע"
+                  value={slot.day}
+                  onChange={(e) => handleSlotChange(index, 'day', parseInt(e.target.value))}
+                >
+                  {daysOfWeek.map((d) => (
+                    <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
+                  ))}
+                </TextField>
 
-          <button 
-            type="submit" 
-            disabled={saving}
-            style={{ background: '#008CBA', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            {saving ? 'שומר...' : 'שמור שינויים'}
-          </button>
-        </div>
-      </form>
-    </div>
+                <TextField
+                  label="משעה"
+                  type="time"
+                  value={slot.startTime}
+                  onChange={(e) => handleSlotChange(index, 'startTime', e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+
+                <TextField
+                  label="עד שעה"
+                  type="time"
+                  value={slot.endTime}
+                  onChange={(e) => handleSlotChange(index, 'endTime', e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+
+                <TextField
+                  label="מזהה אזור"
+                  type="number"
+                  value={slot.regionId}
+                  onChange={(e) => handleSlotChange(index, 'regionId', parseInt(e.target.value) || 0)}
+                />
+              </Box>
+            </Box>
+          ))}
+
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddSlot}>
+              הוסף משבצת זמינות
+            </Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {saving ? 'שומר...' : 'שמור שינויים'}
+            </Button>
+          </Box>
+        </form>
+
+        {error && <StatusAlert message={error} success={false} />}
+        {successMessage && <StatusAlert message={successMessage} success />}
+      </Card>
+    </Box>
   );
 };

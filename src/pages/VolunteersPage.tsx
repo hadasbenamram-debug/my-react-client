@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection } from '../components/FormParts.jsx';
 
 interface VolunteerDto {
   id?: number;
@@ -15,7 +24,7 @@ interface VolunteerDto {
 export function VolunteersPage() {
   const [volunteers, setVolunteers] = useState<VolunteerDto[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // טופס להוספת מתנדב חדש
   const [newVolunteer, setNewVolunteer] = useState<VolunteerDto>({
     vehicleType: 'רכב פרטי',
@@ -49,7 +58,7 @@ export function VolunteersPage() {
   // שליחת מתנדב חדש לשרת (POST)
   const handleCreateVolunteer = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     fetch('/api/volunteers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -66,62 +75,84 @@ export function VolunteersPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען מתנדבים מהשרת...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <CircularProgress size={32} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>טוען מתנדבים מהשרת...</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניהול מתנדבים (מחובר למסד הנתונים)</h2>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle eyebrow="ניהול מערכת" title="ניהול מתנדבים" subtitle="הוספת מתנדב ידנית וצפייה ברשימה הקיימת." />
 
-      {/* טופס הוספת מתנדב */}
-      <form onSubmit={handleCreateVolunteer} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px' }}>
-        <h3>הוספת מתנדב חדש</h3>
-        <div style={{ marginBottom: '10px' }}>
-          <label>סוג רכב: </label>
-          <input 
-            type="text" 
-            value={newVolunteer.vehicleType} 
-            onChange={e => setNewVolunteer({ ...newVolunteer, vehicleType: e.target.value })} 
-            style={{ width: '100%', padding: '6px' }} 
-            required 
-          />
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>קיבולת מקסימלית (ק"ג): </label>
-          <input 
-            type="number" 
-            value={newVolunteer.maxCapacityKg} 
-            onChange={e => setNewVolunteer({ ...newVolunteer, maxCapacityKg: Number(e.target.value) })} 
-            style={{ width: '100%', padding: '6px' }} 
-            required 
-          />
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>תעודת זהות: </label>
-          <input 
-            type="text" 
-            value={newVolunteer.idNumber} 
-            onChange={e => setNewVolunteer({ ...newVolunteer, idNumber: e.target.value })} 
-            style={{ width: '100%', padding: '6px' }} 
-            required 
-          />
-        </div>
-        <button type="submit" style={{ padding: '10px 20px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          שמור מתנדב במסד
-        </button>
-      </form>
+      <Card sx={{ p: { xs: 3, md: 5 }, mb: 4 }}>
+        <form onSubmit={handleCreateVolunteer}>
+          <FormSection title="הוספת מתנדב חדש">
+            <TextField
+              label="סוג רכב"
+              value={newVolunteer.vehicleType}
+              onChange={(e) => setNewVolunteer({ ...newVolunteer, vehicleType: e.target.value })}
+              required
+            />
+            <TextField
+              label='קיבולת מקסימלית (ק"ג)'
+              type="number"
+              value={newVolunteer.maxCapacityKg}
+              onChange={(e) => setNewVolunteer({ ...newVolunteer, maxCapacityKg: Number(e.target.value) })}
+              required
+            />
+            <TextField
+              label="תעודת זהות"
+              value={newVolunteer.idNumber}
+              onChange={(e) => setNewVolunteer({ ...newVolunteer, idNumber: e.target.value })}
+              required
+            />
+          </FormSection>
+          <Button type="submit" variant="contained" size="large" sx={{ mt: 3 }}>
+            שמור מתנדב
+          </Button>
+        </form>
+      </Card>
 
-      {/* הצגת רשימת המתנדבים הקיימים במסד */}
-      <h3>רשימת מתנדבים קיימים</h3>
+      <Typography
+        sx={{
+          mb: 2,
+          fontSize: '0.7rem',
+          letterSpacing: '0.22em',
+          textTransform: 'uppercase',
+          color: 'primary.dark',
+          fontWeight: 500,
+        }}
+      >
+        רשימת מתנדבים קיימים
+      </Typography>
+
       {volunteers.length === 0 ? (
-        <p>אין מתנדבים רשומים במסד הנתונים.</p>
+        <Card sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">אין מתנדבים רשומים במסד הנתונים.</Typography>
+        </Card>
       ) : (
         volunteers.map((v, idx) => (
-          <div key={idx} style={{ background: '#fff', padding: '12px', borderRadius: '6px', marginBottom: '10px', border: '1px solid #ccc' }}>
-            <p><strong>מזהה:</strong> #{v.id} | <strong>ת.ז:</strong> {v.idNumber}</p>
-            <p><strong>רכב:</strong> {v.vehicleType} | <strong>קיבולת:</strong> {v.maxCapacityKg} ק"ג | <strong>זמין:</strong> {v.isAvailable ? 'כן' : 'לא'}</p>
-          </div>
+          <Card key={idx} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>מתנדב #{v.id}</Typography>
+              <Chip
+                size="small"
+                label={v.isAvailable ? 'זמין' : 'לא זמין'}
+                color={v.isAvailable ? 'primary' : 'default'}
+                variant={v.isAvailable ? 'filled' : 'outlined'}
+              />
+            </Box>
+            <Typography color="text.secondary"><strong>ת.ז:</strong> {v.idNumber}</Typography>
+            <Typography color="text.secondary">
+              <strong>רכב:</strong> {v.vehicleType} · <strong>קיבולת:</strong> {v.maxCapacityKg} ק"ג
+            </Typography>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

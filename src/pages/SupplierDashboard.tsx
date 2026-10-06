@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import PageTitle from '../components/PageTitle.jsx';
+import StatGrid from '../components/StatGrid.jsx';
 
 export function SupplierDashboard() {
   const [stats, setStats] = useState({ activeDonations: 0, completedDonations: 0 });
@@ -24,8 +32,7 @@ export function SupplierDashboard() {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('נתוני תרומות שהתקבלו מהשרת:', data);
-          
+
           if (Array.isArray(data)) {
             // שים לב לשימוש בסטטוסים המדויקים שמוחזרים מהשרת
             const active = data.filter((d: any) => d.status === 'Pending' || d.status === 'Matched').length;
@@ -47,25 +54,37 @@ export function SupplierDashboard() {
     fetchSupplierData();
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתונים מהשרת...</div>;
-  if (error) return <div style={{ textAlign: 'center', padding: '20px', color: 'red' }}>{error}</div>;
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <CircularProgress size={32} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>טוען נתונים מהשרת...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>דשבורד ארגון תורם</h2>
-      <p>ברוך הבא למערכת ניהול התרומות העסקיות.</p>
-
-      <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-        <div style={{ flex: 1, background: '#eef6fc', padding: '15px', borderRadius: '8px', border: '1px solid #b8d9f8', textAlign: 'center' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#0066cc' }}>תרומות פעילות</h3>
-          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{stats.activeDonations}</div>
-        </div>
-
-        <div style={{ flex: 1, background: '#e6f4ea', padding: '15px', borderRadius: '8px', border: '1px solid #34a853', textAlign: 'center' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#34a853' }}>תרומות שהושלמו</h3>
-          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{stats.completedDonations}</div>
-        </div>
-      </div>
-    </div>
+    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ארגון תורם"
+        title="הדשבורד שלי"
+        subtitle="ברוכים הבאים למערכת ניהול התרומות העסקיות."
+      />
+      <StatGrid
+        columns={2}
+        cards={[
+          { label: 'תרומות פעילות', value: stats.activeDonations, icon: <VolunteerActivismIcon /> },
+          { label: 'תרומות שהושלמו', value: stats.completedDonations, icon: <TaskAltIcon /> },
+        ]}
+      />
+    </Box>
   );
 }

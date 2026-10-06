@@ -1,30 +1,36 @@
 import React, { useState } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
+import PageTitle from '../components/PageTitle.jsx';
+import { StatusAlert } from '../components/FormParts.jsx';
 
 export function CompleteDeliveryPage() {
   const [loading, setLoading] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  
+  const [error, setError] = useState('');
+
   // מזהה המסלול יכול להיות מועבר כפרופ (Props) או מוגדר באופן דינמי
   const volunteerRouteId = 104;
 
   const handleCompleteDelivery = async () => {
     setLoading(true);
+    setError('');
     try {
       // שליפת טוקן ההתחברות מהאחסון המקומי
       const token = localStorage.getItem('token');
-      
-      // הוספת הדפסה כדי לוודא מה הטוקן מכיל בדיוק
-      console.log('הטוקן שנשלף מה-localStorage:', token);
 
       const response = await fetch('/api/deliverylogs', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          volunteerRouteId: volunteerRouteId, 
-          status: 'Completed' 
+        body: JSON.stringify({
+          volunteerRouteId: volunteerRouteId,
+          status: 'Completed'
         })
       });
 
@@ -32,29 +38,49 @@ export function CompleteDeliveryPage() {
         setIsCompleted(true);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(errorData.message || 'שגיאה בעדכון הנתונים מול השרת.');
+        setError(errorData.message || 'שגיאה בעדכון הנתונים מול השרת.');
       }
-    } catch (error) {
-      alert('שגיאת תקשורת.');
+    } catch (err) {
+      setError('שגיאת תקשורת.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>מסירה לעמותה (עדכון מסד נתונים)</h2>
-      {isCompleted ? (
-        <p style={{ color: '#34a853', fontWeight: 'bold' }}>הסטטוס עודכן בהצלחה במסד הנתונים כ-Completed!</p>
-      ) : (
-        <button 
-          onClick={handleCompleteDelivery} 
-          disabled={loading} 
-          style={{ width: '100%', padding: '12px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          {loading ? 'מעדכן במסד...' : 'אישור מסירה וסיום שיבוץ'}
-        </button>
-      )}
-    </div>
+    <Box sx={{ maxWidth: 560, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="מתנדב"
+        title="מסירה לעמותה"
+        subtitle="אחרי שהתרומה נמסרה, אשרו את המסירה כדי לסגור את השיבוץ."
+      />
+
+      <Card sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+        {isCompleted ? (
+          <Box>
+            <CheckCircleOutlineIcon sx={{ fontSize: 72, color: 'primary.dark', mb: 2 }} />
+            <Typography variant="h5" sx={{ mb: 1 }}>
+              המסירה הושלמה
+            </Typography>
+            <Typography color="text.secondary">
+              הסטטוס עודכן בהצלחה. תודה רבה על ההתנדבות!
+            </Typography>
+          </Box>
+        ) : (
+          <Box>
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              onClick={handleCompleteDelivery}
+              disabled={loading}
+            >
+              {loading ? 'מעדכן...' : 'אישור מסירה וסיום שיבוץ'}
+            </Button>
+            <StatusAlert message={error} success={false} />
+          </Box>
+        )}
+      </Card>
+    </Box>
   );
 }

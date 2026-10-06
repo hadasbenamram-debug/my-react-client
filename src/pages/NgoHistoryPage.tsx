@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function NgoHistoryPage() {
   const [completedDonations, setCompletedDonations] = useState<any[]>([]);
@@ -22,24 +28,26 @@ export function NgoHistoryPage() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען היסטוריה מהשרת...</div>;
+  if (loading) return <LoadingBlock text="טוען היסטוריה מהשרת..." />;
 
   return (
-    <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>היסטוריית תרומות שהתקבלו בעמותה</h2>
+    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <PageTitle eyebrow="עמותה" title="היסטוריית תרומות שהתקבלו" />
 
       {completedDonations.length === 0 ? (
-        <p>אין עדיין היסטוריית תרומות שהושלמו במסד הנתונים.</p>
+        <EmptyState text="אין עדיין היסטוריית תרומות שהושלמו במסד הנתונים." />
       ) : (
         completedDonations.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd' }}>
-            <p><strong>מזהה תרומה:</strong> #{item.id}</p>
-            <p><strong>סטטוס:</strong> <span style={{ color: '#34a853', fontWeight: 'bold' }}>הושלם (Completed)</span></p>
-            <p><strong>מזהה ספק (תורם):</strong> {item.supplierId}</p>
-            <p><strong>מזהה מתנדב:</strong> {item.volunteerId || 'לא צוין'}</p>
-          </div>
+          <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+              <Chip size="small" color="primary" label="הושלם" />
+            </Box>
+            <Typography color="text.secondary"><strong>מזהה ספק (תורם):</strong> {item.supplierId}</Typography>
+            <Typography color="text.secondary"><strong>מזהה מתנדב:</strong> {item.volunteerId || 'לא צוין'}</Typography>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

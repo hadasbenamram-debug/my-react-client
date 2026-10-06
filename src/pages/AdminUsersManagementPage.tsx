@@ -1,4 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import InputAdornment from '@mui/material/InputAdornment';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import SearchIcon from '@mui/icons-material/Search';
+import PageTitle from '../components/PageTitle.jsx';
 
 export function AdminUsersManagementPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -41,9 +51,9 @@ export function AdminUsersManagementPage() {
 
     fetch(`/api/users/${userId}/${action}`, {
       method: 'PUT',
-      headers: { 
+      headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json' 
+        'Content-Type': 'application/json'
       }
     })
       .then(res => {
@@ -57,52 +67,85 @@ export function AdminUsersManagementPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  const filteredUsers = users.filter(user => 
-    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredUsers = users.filter(user =>
+    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען רשימת משתמשים...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <CircularProgress size={32} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>טוען רשימת משתמשים...</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניהול משתמשים במערכת</h2>
-      <p>חיפוש, צפייה והשעיית משתמשים רשומים.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="ניהול משתמשים"
+        subtitle="חיפוש, צפייה והשעיית משתמשים רשומים."
+      />
 
-      <div style={{ marginBottom: '20px' }}>
-        <input 
-          type="text" 
-          placeholder="חפש לפי שם או אימייל..." 
-          value={searchTerm} 
-          onChange={e => setSearchTerm(e.target.value)} 
-          style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-        />
-      </div>
+      <TextField
+        placeholder="חפש לפי שם או אימייל..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        sx={{ mb: 3 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          },
+        }}
+      />
 
       {filteredUsers.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666' }}>לא נמצאו משתמשים התואמים את החיפוש.</p>
-        </div>
+        <Card sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">לא נמצאו משתמשים התואמים את החיפוש.</Typography>
+        </Card>
       ) : (
         filteredUsers.map((user) => (
-          <div key={user.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p><strong>שם:</strong> {user.name}</p>
-              <p><strong>תפקיד:</strong> {user.role}</p>
-              <p><strong>אימייל:</strong> {user.email}</p>
-              <p><strong>סטטוס:</strong> <span style={{ color: user.isSuspended ? '#c62828' : '#34a853', fontWeight: 'bold' }}>{user.isSuspended ? 'מושהה' : 'פעיל'}</span></p>
-            </div>
-            <div>
-              <button 
-                onClick={() => handleToggleSuspend(user.id, user.isSuspended)} 
-                style={{ padding: '8px 12px', background: user.isSuspended ? '#34a853' : '#c62828', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                {user.isSuspended ? 'הפעל מחדש' : 'השעה משתמש'}
-              </button>
-            </div>
-          </div>
+          <Card
+            key={user.id}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2,
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>{user.name}</Typography>
+                <Chip
+                  size="small"
+                  label={user.isSuspended ? 'מושהה' : 'פעיל'}
+                  color={user.isSuspended ? 'error' : 'primary'}
+                  variant={user.isSuspended ? 'filled' : 'outlined'}
+                />
+              </Box>
+              <Typography color="text.secondary"><strong>תפקיד:</strong> {user.role}</Typography>
+              <Typography color="text.secondary"><strong>אימייל:</strong> {user.email}</Typography>
+            </Box>
+            <Button
+              variant={user.isSuspended ? 'contained' : 'outlined'}
+              color={user.isSuspended ? 'primary' : 'error'}
+              onClick={() => handleToggleSuspend(user.id, user.isSuspended)}
+            >
+              {user.isSuspended ? 'הפעל מחדש' : 'השעה משתמש'}
+            </Button>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

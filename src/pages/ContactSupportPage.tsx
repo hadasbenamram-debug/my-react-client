@@ -1,4 +1,10 @@
 import React, { useState } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection, StatusAlert } from '../components/FormParts.jsx';
 
 export function ContactSupportPage() {
   const [formData, setFormData] = useState({
@@ -42,67 +48,44 @@ export function ContactSupportPage() {
   };
 
   return (
-    <div style={{ maxWidth: '500px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial' }}>
-      <h2>תמיכה וצור קשר</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div>
-          <label>שם מלא:</label>
-          <input 
-            type="text" 
-            name="name" 
-            value={formData.name} 
-            onChange={handleChange} 
-            required 
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="תמיכה" title="תמיכה וצור קשר" subtitle="נשמח לעזור. כתבו לנו ונחזור אליכם בהקדם." />
 
-        <div>
-          <label>אימייל ליצירת קשר:</label>
-          <input 
-            type="email" 
-            name="email" 
-            value={formData.email} 
-            onChange={handleChange} 
-            required 
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSubmit}>
+          <FormSection title="פרטי הפנייה">
+            <TextField name="name" label="שם מלא" value={formData.name} onChange={handleChange} required />
+            <TextField
+              name="email"
+              label="אימייל ליצירת קשר"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </FormSection>
 
-        <div>
-          <label>נושא הפנייה:</label>
-          <input 
-            type="text" 
-            name="subject" 
-            value={formData.subject} 
-            onChange={handleChange} 
-            required 
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
+          <Box sx={{ display: 'grid', gap: 3, mt: 3 }}>
+            <TextField name="subject" label="נושא הפנייה" value={formData.subject} onChange={handleChange} required />
+            <TextField
+              name="message"
+              label="תוכן ההודעה"
+              multiline
+              minRows={5}
+              value={formData.message}
+              onChange={handleChange}
+              required
+              slotProps={{ htmlInput: { maxLength: 1000 } }}
+              helperText={`${formData.message.length}/1000 תווים`}
+            />
+          </Box>
 
-        <div>
-          <label>תוכן ההודעה:</label>
-          <textarea 
-            name="message" 
-            value={formData.message} 
-            onChange={handleChange} 
-            rows={4} 
-            required 
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
-
-        <button 
-          type="submit" 
-          disabled={loading}
-          style={{ padding: '10px', background: '#0066cc', color: '#fff', border: 'none', cursor: 'pointer' }}
-        >
-          {loading ? 'שולח...' : 'שלח פנייה'}
-        </button>
-      </form>
-
-      {responseMessage && <p style={{ marginTop: '15px', color: responseMessage.includes('בהצלחה') ? 'green' : 'red' }}>{responseMessage}</p>}
-    </div>
+          <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ mt: 3 }}>
+            {loading ? 'שולח...' : 'שלח פנייה'}
+          </Button>
+        </form>
+        <StatusAlert message={responseMessage} success={responseMessage.includes('בהצלחה')} />
+      </Card>
+    </Box>
   );
 }

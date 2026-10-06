@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection } from '../components/FormParts.jsx';
+import { LoadingBlock } from '../components/PageParts.jsx';
 
 export function AdminSettingsPage() {
   const [settings, setSettings] = useState({
@@ -45,56 +52,49 @@ export function AdminSettingsPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען הגדרות מערכת...</div>;
+  if (loading) return <LoadingBlock text="טוען הגדרות מערכת..." />;
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>הגדרות מערכת ופרמטרים</h2>
-      <p>ניהול פרמטרים גלובליים למנוע השידוכים, זמני טיימאאוט ומשקלים.</p>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="הגדרות מערכת"
+        subtitle="ניהול פרמטרים גלובליים למנוע השידוכים, זמני טיימאאוט ומשקלים."
+      />
 
-      <form onSubmit={handleSave} style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>טיימאאוט לאישור שיבוץ (דקות):</label>
-          <input 
-            type="number" 
-            name="matchingTimeoutMinutes" 
-            value={settings.matchingTimeoutMinutes} 
-            onChange={handleChange} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>משקל מרחק בחישוב הציון:</label>
-          <input 
-            type="number" 
-            step="0.1" 
-            name="distanceWeight" 
-            value={settings.distanceWeight} 
-            onChange={handleChange} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>משקל דחיפות המזון בחישוב הציון:</label>
-          <input 
-            type="number" 
-            step="0.1" 
-            name="urgencyWeight" 
-            value={settings.urgencyWeight} 
-            onChange={handleChange} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        </div>
-
-        <button 
-          type="submit" 
-          style={{ width: '100%', padding: '10px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          שמור הגדרות
-        </button>
-      </form>
-    </div>
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSave}>
+          <FormSection title="פרמטרים של מנוע השידוכים" columns={1}>
+            <TextField
+              label="טיימאאוט לאישור שיבוץ (דקות)"
+              type="number"
+              name="matchingTimeoutMinutes"
+              value={settings.matchingTimeoutMinutes}
+              onChange={handleChange}
+              helperText="כמה זמן המתנדב מקבל כדי לאשר שיבוץ"
+            />
+            <TextField
+              label="משקל מרחק בחישוב הציון"
+              type="number"
+              name="distanceWeight"
+              value={settings.distanceWeight}
+              onChange={handleChange}
+              slotProps={{ htmlInput: { step: 0.1 } }}
+            />
+            <TextField
+              label="משקל דחיפות המזון בחישוב הציון"
+              type="number"
+              name="urgencyWeight"
+              value={settings.urgencyWeight}
+              onChange={handleChange}
+              slotProps={{ htmlInput: { step: 0.1 } }}
+            />
+          </FormSection>
+          <Button type="submit" variant="contained" size="large" fullWidth sx={{ mt: 4 }}>
+            שמור הגדרות
+          </Button>
+        </form>
+      </Card>
+    </Box>
   );
 }

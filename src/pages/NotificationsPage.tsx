@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as signalR from '@microsoft/signalr';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Typography from '@mui/material/Typography';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import PageTitle from '../components/PageTitle.jsx';
 
 export function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -20,7 +25,7 @@ export function NotificationsPage() {
       connection.start()
         .then(() => {
           console.log('SignalR Connected Successfully.');
-          
+
           // האזנה לאירוע הגעת התראה חדשה מהשרת
           connection.on("ReceiveNotification", (notification) => {
             setNotifications((prevNotifications) => [notification, ...prevNotifications]);
@@ -31,26 +36,33 @@ export function NotificationsPage() {
   }, [connection]);
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial' }}>
-      <h2>מרכז ההתראות בזמן אמת</h2>
-      
-      <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px', background: '#fafafa', minHeight: '250px' }}>
-        {notifications.length === 0 ? (
-          <p style={{ color: '#666' }}>אין התראות חדשות כרגע...</p>
-        ) : (
-          <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {notifications.map((notif, index) => (
-              <li key={index} style={{ background: '#fff', padding: '12px', borderRadius: '6px', borderRight: '4px solid #0066cc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{notif.subject || 'התראה מערכת'}</div>
-                <div style={{ fontSize: '14px', color: '#333' }}>{notif.content}</div>
-                <div style={{ fontSize: '11px', color: '#888', marginTop: '6px' }}>
-                  {new Date(notif.createdAt || Date.now()).toLocaleTimeString('he-IL')}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="החשבון שלי" title="מרכז ההתראות" subtitle="התראות מופיעות כאן בזמן אמת." />
+
+      {notifications.length === 0 ? (
+        <Card sx={{ p: 6, textAlign: 'center', color: 'text.secondary' }}>
+          <NotificationsNoneIcon sx={{ fontSize: 48, mb: 1, opacity: 0.6 }} />
+          <Typography>אין התראות חדשות כרגע...</Typography>
+        </Card>
+      ) : (
+        notifications.map((notif, index) => (
+          <Card
+            key={index}
+            sx={{
+              p: 2.5,
+              mb: 1.5,
+              borderInlineStart: '4px solid',
+              borderInlineStartColor: 'primary.main',
+            }}
+          >
+            <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{notif.subject || 'התראה מערכת'}</Typography>
+            <Typography>{notif.content}</Typography>
+            <Typography color="text.secondary" sx={{ fontSize: '0.75rem', mt: 1 }}>
+              {new Date(notif.createdAt || Date.now()).toLocaleTimeString('he-IL')}
+            </Typography>
+          </Card>
+        ))
+      )}
+    </Box>
   );
 }

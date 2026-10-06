@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function AdminNoShowPage() {
   const [noShows, setNoShows] = useState<any[]>([]);
@@ -43,9 +49,9 @@ export function AdminNoShowPage() {
     // שימוש ב-endpoint הקיים בשרת לשיבוץ מחדש של תרומה
     fetch(`/api/matches/assign-donation/${donationId}`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json' 
+        'Content-Type': 'application/json'
       }
     })
       .then(res => {
@@ -59,36 +65,47 @@ export function AdminNoShowPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתוני No-Show...</div>;
+  if (loading) return <LoadingBlock text="טוען נתוני No-Show..." />;
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>טיפול ב-No-Show ומעקב אירועים</h2>
-      <p>לוג אירועים של אי-התייצבות מתנדבים ומעקב אחר שיבוץ מחדש של תרומות.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="טיפול ב-No-Show"
+        subtitle="לוג אירועים של אי-התייצבות מתנדבים ומעקב אחר שיבוץ מחדש של תרומות."
+      />
 
       {noShows.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666' }}>אין אירועי No-Show פעילים כרגע.</p>
-        </div>
+        <EmptyState text="אין אירועי No-Show פעילים כרגע." />
       ) : (
         noShows.map((item) => (
-          <div key={item.id} style={{ background: '#ffebee', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ffcdd2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p><strong>מזהה שידוך:</strong> #{item.id}</p>
-              <p><strong>מתנדב:</strong> {item.volunteerName || item.volunteerId || 'לא צוין'}</p>
-              <p><strong>מזהה תרומה:</strong> #{item.donationId}</p>
-            </div>
-            <div>
-              <button 
-                onClick={() => handleReassign(item.donationId)} 
-                style={{ padding: '8px 12px', background: '#c62828', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                בצע שיבוץ מחדש
-              </button>
-            </div>
-          </div>
+          <Card
+            key={item.id}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2,
+              borderColor: 'error.light',
+              backgroundColor: '#fdf3f3',
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 500, mb: 1 }}>שידוך #{item.id}</Typography>
+              <Typography color="text.secondary">
+                <strong>מתנדב:</strong> {item.volunteerName || item.volunteerId || 'לא צוין'}
+              </Typography>
+              <Typography color="text.secondary"><strong>מזהה תרומה:</strong> #{item.donationId}</Typography>
+            </Box>
+            <Button variant="contained" color="error" onClick={() => handleReassign(item.donationId)}>
+              בצע שיבוץ מחדש
+            </Button>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

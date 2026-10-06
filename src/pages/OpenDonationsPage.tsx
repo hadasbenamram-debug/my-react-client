@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 interface DonationItem {
   id: number;
@@ -66,35 +73,48 @@ export function OpenDonationsPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען תרומות פתוחות מהשרת...</div>;
+  if (loading) return <LoadingBlock text="טוען תרומות פתוחות מהשרת..." />;
 
   return (
-    <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>רשימת תרומות פתוחות וניהולן</h2>
+    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <PageTitle eyebrow="ארגון תורם" title="תרומות פתוחות" subtitle="רשימת התרומות שלכם וניהולן." />
 
-      {donations.length === 0 ? (
-        <p>אין תרומות פתוחות כרגע במסד הנתונים.</p>
+      {!Array.isArray(donations) || donations.length === 0 ? (
+        <EmptyState text="אין תרומות פתוחות כרגע במסד הנתונים." />
       ) : (
         donations.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p><strong>מזהה תרומה:</strong> #{item.id}</p>
-              <p><strong>סטטוס:</strong> <span style={{ color: item.status === 'Pending' ? '#f57c00' : '#34a853' }}>{item.status}</span></p>
-              <p><strong>מזהה אזור:</strong> {item.regionId}</p>
-            </div>
-            <div>
-              {item.status === 'Pending' && (
-                <button 
-                  onClick={() => handleCancel(item.id)} 
-                  style={{ padding: '8px 12px', background: '#ea4335', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  ביטול תרומה
-                </button>
-              )}
-            </div>
-          </div>
+          <Card
+            key={item.id}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2,
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color={item.status === 'Pending' ? 'warning' : 'primary'}
+                  label={item.status}
+                />
+              </Box>
+              <Typography color="text.secondary"><strong>מזהה אזור:</strong> {item.regionId}</Typography>
+            </Box>
+            {item.status === 'Pending' && (
+              <Button variant="outlined" color="error" onClick={() => handleCancel(item.id)}>
+                ביטול תרומה
+              </Button>
+            )}
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

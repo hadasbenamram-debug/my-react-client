@@ -1,4 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import IconButton from '@mui/material/IconButton';
+import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection, StatusAlert } from '../components/FormParts.jsx';
 
 interface DonationCategoryLineDto {
   categoryId: number;
@@ -22,11 +33,11 @@ export function CreateDonationPage() {
   const [googlePlaceId] = useState<string>('default_place');
 
   const [latestPickupTime, setLatestPickupTime] = useState<string>('18:00');
-  
+
   const [categories, setCategories] = useState<DonationCategoryLineDto[]>([
     { categoryId: 1, quantity: 10, weightKg: 20 }
   ]);
-  
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -43,6 +54,10 @@ export function CreateDonationPage() {
 
   const handleAddCategoryLine = () => {
     setCategories([...categories, { categoryId: 1, quantity: 1, weightKg: 1 }]);
+  };
+
+  const handleRemoveCategoryLine = (index: number) => {
+    setCategories(categories.filter((_, i) => i !== index));
   };
 
   const handleCategoryChange = (index: number, field: keyof DonationCategoryLineDto, value: number) => {
@@ -78,7 +93,7 @@ export function CreateDonationPage() {
     try {
       const response = await fetch('/api/donations', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -89,8 +104,8 @@ export function CreateDonationPage() {
         setSuccessMessage('התרומה נוצרה בהצלחה ונשמרה במסד הנתונים!');
       } else {
         const errData = await response.json();
-        const errorText = errData.errors 
-          ? Object.values(errData.errors).flat().join(', ') 
+        const errorText = errData.errors
+          ? Object.values(errData.errors).flat().join(', ')
           : (errData.message || 'שגיאה בשמירת התרומה בשרת.');
         setError(errorText);
       }
@@ -103,69 +118,106 @@ export function CreateDonationPage() {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>יצירת תרומה חדשה (ארגון תורם)</h2>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ארגון תורם"
+        title="יצירת תרומה חדשה"
+        subtitle="מלאו את פרטי התרומה, והמערכת תתאים לה מתנדב ועמותה."
+      />
 
-      {error && <div style={{ color: 'red', marginBottom: '15px', whiteSpace: 'pre-wrap' }}>{error}</div>}
-      {successMessage && <div style={{ color: 'green', marginBottom: '15px', fontWeight: 'bold' }}>{successMessage}</div>}
-
-      <form onSubmit={handleSubmit} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>שעת איסוף אחרונה (Latest Pickup Time):</label>
-          <input 
-            type="time" 
-            value={latestPickupTime} 
-            onChange={e => setLatestPickupTime(e.target.value)} 
-            style={{ width: '100%', padding: '8px', fontSize: '16px' }} 
-            required 
-          />
-        </div>
-
-        <h3>פרטי מוצרים בתרומה</h3>
-        {categories.map((cat, index) => (
-          <div key={index} style={{ background: '#fff', padding: '10px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            <div style={{ marginBottom: '8px' }}>
-              <label>מזהה קטגוריה: </label>
-              <input 
-                type="number" 
-                value={cat.categoryId} 
-                onChange={e => handleCategoryChange(index, 'categoryId', Number(e.target.value))} 
-                style={{ width: '100%', padding: '4px' }} 
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSubmit}>
+          <FormSection title="זמני איסוף" columns={1}>
+            <Tooltip title="השעה האחרונה שבה אפשר לאסוף את התרומה מהמקום." placement="bottom-start" arrow>
+              <TextField
+                label="שעת איסוף אחרונה"
+                type="time"
+                value={latestPickupTime}
+                onChange={(e) => setLatestPickupTime(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                required
               />
-            </div>
-            <div style={{ marginBottom: '8px' }}>
-              <label>כמות יחידות: </label>
-              <input 
-                type="number" 
-                value={cat.quantity} 
-                onChange={e => handleCategoryChange(index, 'quantity', Number(e.target.value))} 
-                style={{ width: '100%', padding: '4px' }} 
-              />
-            </div>
-            <div>
-              <label>משקל (ק"ג): </label>
-              <input 
-                type="number" 
-                step="any"
-                value={cat.weightKg} 
-                onChange={e => handleCategoryChange(index, 'weightKg', Number(e.target.value))} 
-                style={{ width: '100%', padding: '4px' }} 
-              />
-            </div>
-          </div>
-        ))}
+            </Tooltip>
+          </FormSection>
 
-        <button type="button" onClick={handleAddCategoryLine} style={{ padding: '8px 12px', background: '#fbbc05', border: 'none', borderRadius: '4px', cursor: 'pointer', marginBottom: '15px' }}>
-          + הוסף סוג מוצר נוסף
-        </button>
+          <Typography
+            sx={{
+              mt: 4,
+              mb: 2.5,
+              fontSize: '0.7rem',
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: 'primary.dark',
+              fontWeight: 500,
+            }}
+          >
+            פרטי מוצרים בתרומה
+          </Typography>
 
-        <div>
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '10px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            {loading ? 'שומר במסד...' : 'פרסם תרומה חדשה'}
-          </button>
-        </div>
-      </form>
-    </div>
+          {categories.map((cat, index) => (
+            <Box
+              key={index}
+              sx={{
+                p: 2.5,
+                mb: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                position: 'relative',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography sx={{ fontWeight: 500 }}>מוצר {index + 1}</Typography>
+                {categories.length > 1 && (
+                  <Tooltip title="הסר מוצר" arrow>
+                    <IconButton size="small" onClick={() => handleRemoveCategoryLine(index)} aria-label="הסר מוצר">
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+                <TextField
+                  label="מזהה קטגוריה"
+                  type="number"
+                  value={cat.categoryId}
+                  onChange={(e) => handleCategoryChange(index, 'categoryId', Number(e.target.value))}
+                />
+                <TextField
+                  label="כמות יחידות"
+                  type="number"
+                  value={cat.quantity}
+                  onChange={(e) => handleCategoryChange(index, 'quantity', Number(e.target.value))}
+                  error={cat.quantity <= 0}
+                  helperText={cat.quantity <= 0 ? 'יש להזין כמות גדולה מאפס' : ' '}
+                />
+                <TextField
+                  label='משקל (ק"ג)'
+                  type="number"
+                  value={cat.weightKg}
+                  onChange={(e) => handleCategoryChange(index, 'weightKg', Number(e.target.value))}
+                  slotProps={{ htmlInput: { step: 'any' } }}
+                  error={cat.weightKg <= 0}
+                  helperText={cat.weightKg <= 0 ? 'יש להזין משקל גדול מאפס' : ' '}
+                />
+              </Box>
+            </Box>
+          ))}
+
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddCategoryLine} sx={{ mt: 1 }}>
+            הוסף סוג מוצר נוסף
+          </Button>
+
+          <Box sx={{ mt: 4 }}>
+            <Button type="submit" variant="contained" size="large" fullWidth disabled={loading}>
+              {loading ? 'שומר...' : 'פרסם תרומה חדשה'}
+            </Button>
+          </Box>
+        </form>
+
+        {error && <StatusAlert message={error} success={false} />}
+        {successMessage && <StatusAlert message={successMessage} success />}
+      </Card>
+    </Box>
   );
 }

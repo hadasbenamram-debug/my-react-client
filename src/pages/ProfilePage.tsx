@@ -1,4 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+
+const profileFields = [
+  { name: 'firstName', label: 'שם פרטי' },
+  { name: 'lastName', label: 'שם משפחה' },
+  { name: 'email', label: 'אימייל', type: 'email' },
+  { name: 'phoneNumber', label: 'טלפון' },
+];
 
 export function ProfilePage() {
   const [profile, setProfile] = useState({
@@ -15,6 +29,9 @@ export function ProfilePage() {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  // במקום alert() - הודעה מעוצבת מתחת לטופס הסיסמה
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordOk, setPasswordOk] = useState(false);
 
   // שליפת פרטי המשתמש בעת טעינת הדף
   useEffect(() => {
@@ -58,6 +75,7 @@ export function ProfilePage() {
 
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordMessage('');
     try {
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
@@ -66,59 +84,71 @@ export function ProfilePage() {
       });
 
       if (response.ok) {
-        alert('הסיסמה שונתה בהצלחה!');
+        setPasswordOk(true);
+        setPasswordMessage('הסיסמה שונתה בהצלחה!');
         setPasswords({ currentPassword: '', newPassword: '' });
       } else {
-        alert('שגיאה בשינוי הסיסמה. בדוק את הנתונים.');
+        setPasswordOk(false);
+        setPasswordMessage('שגיאה בשינוי הסיסמה. בדוק את הנתונים.');
       }
     } catch (error) {
-      alert('שגיאת תקשורת מול השרת.');
+      setPasswordOk(false);
+      setPasswordMessage('שגיאת תקשורת מול השרת.');
     }
   };
 
   return (
-    <div style={{ maxWidth: '500px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial' }}>
-      <h2>הפרופיל האישי שלי</h2>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="החשבון שלי" title="הפרופיל האישי שלי" />
 
-      <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
-        <h3>פרטים אישיים</h3>
-        <div>
-          <label>שם פרטי:</label>
-          <input type="text" name="firstName" value={profile.firstName} onChange={handleProfileChange} style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>שם משפחה:</label>
-          <input type="text" name="lastName" value={profile.lastName} onChange={handleProfileChange} style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>אימייל:</label>
-          <input type="email" name="email" value={profile.email} onChange={handleProfileChange} style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>טלפון:</label>
-          <input type="text" name="phoneNumber" value={profile.phoneNumber} onChange={handleProfileChange} style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <button type="submit" disabled={loading} style={{ padding: '8px', background: '#0066cc', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          {loading ? 'מעדכן...' : 'שמור שינויים'}
-        </button>
-      </form>
+      <Card sx={{ p: { xs: 3, md: 5 }, mb: 3 }}>
+        <form onSubmit={handleUpdateProfile}>
+          <FormSection title="פרטים אישיים">
+            {profileFields.map((f) => (
+              <TextField
+                key={f.name}
+                name={f.name}
+                label={f.label}
+                type={f.type || 'text'}
+                value={(profile as Record<string, any>)[f.name]}
+                onChange={handleProfileChange}
+              />
+            ))}
+          </FormSection>
+          <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ mt: 3 }}>
+            {loading ? 'מעדכן...' : 'שמור שינויים'}
+          </Button>
+        </form>
+        <StatusAlert message={message} success={message.includes('בהצלחה')} />
+      </Card>
 
-      <form onSubmit={handleChangePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #ccc', paddingTop: '20px' }}>
-        <h3>החלפת סיסמה</h3>
-        <div>
-          <label>סיסמה נוכחית:</label>
-          <input type="password" name="currentPassword" value={passwords.currentPassword} onChange={handlePasswordChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>סיסמה חדשה:</label>
-          <input type="password" name="newPassword" value={passwords.newPassword} onChange={handlePasswordChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <button type="submit" style={{ padding: '8px', background: '#333', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          שנה סיסמה
-        </button>
-      </form>
-
-      {message && <p style={{ marginTop: '15px', color: 'green' }}>{message}</p>}
-    </div>
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleChangePasswordSubmit}>
+          <FormSection title="החלפת סיסמה">
+            <TextField
+              name="currentPassword"
+              label="סיסמה נוכחית"
+              type="password"
+              value={passwords.currentPassword}
+              onChange={handlePasswordChange}
+              required
+            />
+            <TextField
+              name="newPassword"
+              label="סיסמה חדשה"
+              type="password"
+              value={passwords.newPassword}
+              onChange={handlePasswordChange}
+              required
+            />
+          </FormSection>
+          <Divider sx={{ mt: 3, mb: 0, borderColor: 'transparent' }} />
+          <Button type="submit" variant="outlined" size="large" sx={{ mt: 1 }}>
+            שנה סיסמה
+          </Button>
+        </form>
+        <StatusAlert message={passwordMessage} success={passwordOk} />
+      </Card>
+    </Box>
   );
 }

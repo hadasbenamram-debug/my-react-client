@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function ConfirmDonationReceiptPage() {
   const [donations, setDonations] = useState<any[]>([]);
@@ -44,31 +51,41 @@ export function ConfirmDonationReceiptPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען תרומות להמתנה...</div>;
+  if (loading) return <LoadingBlock text="טוען תרומות להמתנה..." />;
 
   return (
-    <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>אישור קבלת תרומה בפועל</h2>
+    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <PageTitle eyebrow="עמותה" title="אישור קבלת תרומה" subtitle="אשרו שהתרומה הגיעה, ואז תוכלו לדרג את המסירה." />
 
       {donations.length === 0 ? (
-        <p>אין תרומות הממתינות לאישור קבלה כרגע.</p>
+        <EmptyState text="אין תרומות הממתינות לאישור קבלה כרגע." />
       ) : (
         donations.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p><strong>מזהה תרומה:</strong> #{item.id}</p>
-              <p><strong>מזהה מתנדב:</strong> {item.volunteerId || 'לא צוין'}</p>
-              <p><strong>סטטוס:</strong> ממתין לאישור קבלה</p>
-            </div>
-            <button 
-              onClick={() => handleConfirmReceipt(item)} 
-              style={{ padding: '8px 15px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-            >
+          <Card
+            key={item.id}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2,
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+                <Chip size="small" variant="outlined" color="warning" label="ממתין לאישור קבלה" />
+              </Box>
+              <Typography color="text.secondary"><strong>מזהה מתנדב:</strong> {item.volunteerId || 'לא צוין'}</Typography>
+            </Box>
+            <Button variant="contained" onClick={() => handleConfirmReceipt(item)}>
               אשר קבלה בעת הגעה
-            </button>
-          </div>
+            </Button>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

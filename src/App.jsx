@@ -2,6 +2,7 @@ import {BrowserRouter, Route, Routes} from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import HomePage from './components/HomePage.jsx';
 import ContactPage from './components/ContactPage.jsx';
+import AppPageLayout from './components/AppPageLayout.jsx';
 
 // --- דפים כלליים (מפרויקט "secound") ---
 import {LoginPage} from './pages/LoginPage';
@@ -67,6 +68,7 @@ export default function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/contact" element={<ContactPage />} />
 
+                    <Route element={<AppPageLayout />}>
                     {/* כללי */}
                     <Route path="/app/login" element={<LoginPage />} />
                     <Route path="/app/forgot-password" element={<ForgotPasswordPage />} />
@@ -121,6 +123,7 @@ export default function App() {
                     {/* מפה ומסלול */}
                     <Route path="/app/map" element={<GeneralMapPage />} />
                     <Route path="/app/vrp-route" element={<VrpRouteVisualizationPage />} />
+                    </Route>
                 </Route>
             </Routes>
         </BrowserRouter>

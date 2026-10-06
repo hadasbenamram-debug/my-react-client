@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function AssignmentHistoryPage() {
   const [history, setHistory] = useState<any[]>([]);
@@ -25,20 +31,24 @@ export function AssignmentHistoryPage() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען היסטוריה מהשרת...</div>;
+  if (loading) return <LoadingBlock text="טוען היסטוריה מהשרת..." />;
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>היסטוריית שיבוצים (מהמסד)</h2>
-      {history.length === 0 ? (
-        <p>אין היסטוריית שיבוצים זמינה.</p>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="מתנדב" title="היסטוריית שיבוצים" />
+      {!Array.isArray(history) || history.length === 0 ? (
+        <EmptyState text="אין היסטוריית שיבוצים זמינה." />
       ) : (
         history.map((item, idx) => (
-          <div key={idx} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px', border: '1px solid #ddd' }}>
-            <p><strong>מזהה שיבוץ:</strong> #{item.id} | <strong>סטטוס:</strong> {item.status}</p>
-          </div>
+          <Card
+            key={idx}
+            sx={{ p: { xs: 2.5, md: 3 }, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 500 }}>שיבוץ #{item.id}</Typography>
+            <Chip size="small" variant="outlined" color="primary" label={item.status} />
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

@@ -1,4 +1,25 @@
 import React, { useState } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+
+const userFields = [
+  { name: 'name', label: 'שם מלא' },
+  { name: 'email', label: 'אימייל', type: 'email' },
+  { name: 'phone', label: 'טלפון' },
+];
+
+const ngoFields = [
+  { name: 'ngoName', label: 'שם העמותה' },
+  { name: 'registrationNumber', label: 'מספר רישום (חברה/עמותה)' },
+  { name: 'address', label: 'כתובת' },
+  { name: 'dailyCapacity', label: 'קיבולת יומית (ק"ג)', type: 'number' },
+  { name: 'regionId', label: 'מזהה אזור (Region ID)', type: 'number' },
+];
 
 export function NgoRegisterPage() {
   const [formData, setFormData] = useState({
@@ -61,54 +82,37 @@ export function NgoRegisterPage() {
       });
   };
 
+  const renderField = (f: { name: string; label: string; type?: string }) => (
+    <TextField
+      key={f.name}
+      name={f.name}
+      label={f.label}
+      type={f.type || 'text'}
+      value={(formData as Record<string, any>)[f.name]}
+      onChange={handleChange}
+      required
+    />
+  );
+
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>הרשמת עמותה חדשה</h2>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="הצטרפות"
+        title="הרשמת עמותה חדשה"
+        subtitle="עמותות ומוסדות שמקבלים תרומות מזון."
+      />
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSubmit}>
+          <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
+          <Divider sx={{ my: 4 }} />
+          <FormSection title="פרטי העמותה">{ngoFields.map(renderField)}</FormSection>
 
-      <form onSubmit={handleSubmit} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        
-        <h4 style={{ margin: '5px 0', color: '#34a853' }}>פרטי משתמש</h4>
-        <div>
-          <label>שם מלא:</label>
-          <input type="text" name="name" value={formData.name} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>אימייל:</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>טלפון:</label>
-          <input type="text" name="phone" value={formData.phone} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-
-        <h4 style={{ margin: '10px 0 5px 0', color: '#34a853' }}>פרטי העמותה</h4>
-        <div>
-          <label>שם העמותה:</label>
-          <input type="text" name="ngoName" value={formData.ngoName} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>מספר רישום (חברה/עמותה):</label>
-          <input type="text" name="registrationNumber" value={formData.registrationNumber} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>כתובת:</label>
-          <input type="text" name="address" value={formData.address} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>קיבולת יומית (ק"ג):</label>
-          <input type="number" name="dailyCapacity" value={formData.dailyCapacity} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-        <div>
-          <label>מזהה אזור (Region ID):</label>
-          <input type="number" name="regionId" value={formData.regionId} onChange={handleChange} required style={{ width: '100%', padding: '6px' }} />
-        </div>
-
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '10px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}>
-          {loading ? 'שולח לאישור...' : 'הירשם כעמותה'}
-        </button>
-      </form>
-
-      {message && <p style={{ marginTop: '15px', color: message.includes('בהצלחה') ? 'green' : 'red' }}>{message}</p>}
-    </div>
+          <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
+            {loading ? 'שולח לאישור...' : 'הירשם כעמותה'}
+          </Button>
+        </form>
+        <StatusAlert message={message} />
+      </Card>
+    </Box>
   );
 }

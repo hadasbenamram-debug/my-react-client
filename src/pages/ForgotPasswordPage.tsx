@@ -1,4 +1,11 @@
 import React, { useState } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { StatusAlert } from '../components/FormParts.jsx';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -30,28 +37,25 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial' }}>
-      <h2>שחזור סיסמה</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div>
-          <label>כתובת אימייל:</label>
-          <input 
-            type="email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            required 
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
-        <button 
-          type="submit" 
-          disabled={loading}
-          style={{ padding: '10px', background: '#0066cc', color: '#fff', border: 'none', cursor: 'pointer' }}
-        >
-          {loading ? 'שולח...' : 'שלח קישור איפוס'}
-        </button>
-      </form>
-      {message && <p style={{ marginTop: '15px', color: message.includes('בהצלחה') ? 'green' : 'red' }}>{message}</p>}
-    </div>
+    <Box sx={{ maxWidth: 480, mx: 'auto' }}>
+      <PageTitle eyebrow="איפוס סיסמה" title="שחזור סיסמה" />
+      <Card sx={{ p: { xs: 3, md: 4 } }}>
+        <form onSubmit={handleSubmit}>
+          <Stack spacing={3}>
+            <TextField
+              label="כתובת אימייל"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Button type="submit" variant="contained" size="large" disabled={loading}>
+              {loading ? 'שולח...' : 'שלח קישור איפוס'}
+            </Button>
+          </Stack>
+        </form>
+        <StatusAlert message={message} />
+      </Card>
+    </Box>
   );
 }

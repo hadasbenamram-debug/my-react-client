@@ -1,15 +1,25 @@
 import React, { useState } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
-    
+    setIsSuccess(false);
+
     try {
       const response = await fetch('http://localhost:5007/api/auth/login', {
         method: 'POST',
@@ -20,6 +30,7 @@ export const LoginPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
+        setIsSuccess(true);
         setMessage('התחברת בהצלחה!');
         localStorage.setItem('token', data.token);
         // כאן אפשר להוסיף ניתוב (Navigate) לעמוד הבית
@@ -35,6 +46,7 @@ export const LoginPage: React.FC = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
+    setIsSuccess(false);
 
     try {
       const response = await fetch('http://localhost:5007/api/auth/forgot-password', {
@@ -46,6 +58,7 @@ export const LoginPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
+        setIsSuccess(true);
         setMessage(data.message || 'קוד איפוס נשלח בהצלחה למייל שלך!');
       } else {
         setMessage(data.message || 'שגיאה בשליחת בקשת האיפוס');
@@ -55,83 +68,86 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const messageAlert = message ? (
+    <Alert severity={isSuccess ? 'success' : 'error'} sx={{ mt: 3 }}>
+      {message}
+    </Alert>
+  ) : null;
+
   if (isForgotPassword) {
     return (
-      <div style={{ direction: 'rtl', textAlign: 'center', marginTop: '50px', fontFamily: 'Arial, sans-serif' }}>
-        <h2>שכחת סיסמה?</h2>
-        <p style={{ color: '#666', fontSize: '14px' }}>הקלידי את כתובת המייל שלך ונשלח לך הוראות איפוס.</p>
-        
-        <form onSubmit={handleResetPassword}>
-          <div style={{ marginBottom: '15px' }}>
-            <input 
-              type="email" 
-              placeholder="מייל" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required
-              style={{ padding: '8px', width: '250px' }}
-            />
-          </div>
-          <button type="submit" disabled={!email} style={{ padding: '8px 20px', cursor: 'pointer' }}>
-            שלח קישור לאיפוס
-          </button>
-        </form>
-
-        <div style={{ marginTop: '15px' }}>
-          <button 
-            type="button" 
-            onClick={() => { setIsForgotPassword(false); setMessage(''); }}
-            style={{ background: 'none', border: 'none', color: '#0066cc', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            חזרה להתחברות
-          </button>
-        </div>
-
-        {message && <p style={{ marginTop: '15px', fontWeight: 'bold' }}>{message}</p>}
-      </div>
+      <Box sx={{ maxWidth: 480, mx: 'auto' }}>
+        <PageTitle
+          eyebrow="איפוס סיסמה"
+          title="שכחת סיסמה?"
+          subtitle="הקלידי את כתובת המייל שלך ונשלח לך הוראות איפוס."
+        />
+        <Card sx={{ p: { xs: 3, md: 4 } }}>
+          <form onSubmit={handleResetPassword}>
+            <Stack spacing={3}>
+              <TextField
+                label="מייל"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Button type="submit" variant="contained" disabled={!email}>
+                שלח קישור לאיפוס
+              </Button>
+              <Button
+                type="button"
+                variant="text"
+                onClick={() => { setIsForgotPassword(false); setMessage(''); }}
+              >
+                חזרה להתחברות
+              </Button>
+            </Stack>
+          </form>
+          {messageAlert}
+        </Card>
+      </Box>
     );
   }
 
   return (
-    <div style={{ direction: 'rtl', textAlign: 'center', marginTop: '50px', fontFamily: 'Arial, sans-serif' }}>
-      <h2>התחברות</h2>
-      <form onSubmit={handleLogin}>
-        <div style={{ marginBottom: '10px' }}>
-          <input 
-            type="email" 
-            placeholder="מייל" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            required
-            style={{ padding: '8px', width: '250px' }}
-          />
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-          <input 
-            type="password" 
-            placeholder="סיסמה" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            required
-            style={{ padding: '8px', width: '250px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <button 
-            type="button" 
-            onClick={() => { setIsForgotPassword(true); setMessage(''); }}
-            style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}
-          >
-            שכחת סיסמה?
-          </button>
-        </div>
-
-        <button type="submit" disabled={!email || !password} style={{ padding: '8px 20px', cursor: 'pointer' }}>
-          התחבר
-        </button>
-      </form>
-      {message && <p style={{ marginTop: '15px', fontWeight: 'bold' }}>{message}</p>}
-    </div>
+    <Box sx={{ maxWidth: 480, mx: 'auto' }}>
+      <PageTitle eyebrow="ברוכים הבאים" title="התחברות" />
+      <Card sx={{ p: { xs: 3, md: 4 } }}>
+        <form onSubmit={handleLogin}>
+          <Stack spacing={3}>
+            <TextField
+              label="מייל"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <TextField
+              label="סיסמה"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <Typography variant="body2">
+              <Button
+                type="button"
+                variant="text"
+                size="small"
+                sx={{ p: 0, minWidth: 0, color: 'text.secondary', textDecoration: 'underline' }}
+                onClick={() => { setIsForgotPassword(true); setMessage(''); }}
+              >
+                שכחת סיסמה?
+              </Button>
+            </Typography>
+            <Button type="submit" variant="contained" size="large" disabled={!email || !password}>
+              התחבר
+            </Button>
+          </Stack>
+        </form>
+        {messageAlert}
+      </Card>
+    </Box>
   );
 };

@@ -1,4 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import { MapShell, MapView, MAP_COLORS, useGeocodedStops } from '../components/GoogleMapView.jsx';
+
+// מפה עם סיכות ממוספרות וקו מסלול. הכתובות הופכות לנקודות באמצעות Geocoding
+function RouteMap({ stops }: { stops: any[] }) {
+  const geocoded = useGeocodedStops(stops);
+
+  const markers = useMemo(
+    () =>
+      geocoded
+        .map((stop: any, index: number) => ({ stop, index }))
+        .filter(({ stop }: any) => stop.position)
+        .map(({ stop, index }: any) => ({
+          id: index,
+          position: stop.position,
+          title: stop.locationName,
+          glyph: String(index + 1),
+          color: stop.actionType === 'Pickup' ? MAP_COLORS.donor : MAP_COLORS.ngo,
+          info: (
+            <Box>
+              <Typography sx={{ fontWeight: 700 }}>
+                {index + 1}. {stop.locationName}
+              </Typography>
+              <Typography sx={{ fontSize: '0.85rem' }}>
+                {stop.actionType === 'Pickup' ? 'איסוף מספק' : 'מסירה לעמותה'}
+              </Typography>
+              {stop.address && <Typography sx={{ fontSize: '0.85rem' }}>{stop.address}</Typography>}
+            </Box>
+          ),
+        })),
+    [geocoded]
+  );
+
+  const routePoints = useMemo(() => markers.map((m: any) => m.position), [markers]);
+
+  return <MapView markers={markers} routePoints={routePoints} />;
+}
 
 export function VrpRouteVisualizationPage() {
   const [routePlan, setRoutePlan] = useState<any>({
@@ -22,37 +65,58 @@ export function VrpRouteVisualizationPage() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>מחשב מסלול אופטימלי (VRP)...</div>;
+  if (loading) return <LoadingBlock text="מחשב מסלול אופטימלי (VRP)..." />;
+
+  const stops: any[] = routePlan.stops || [];
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>תכנון והמחשת מסלול איסוף (VRP)</h2>
-      <p>סדר תחנות מחושב עבור המסלול הנוכחי להשגת יעילות מירבית.</p>
+    <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="מסלולים"
+        title="תכנון והמחשת מסלול איסוף"
+        subtitle="סדר תחנות מחושב עבור המסלול הנוכחי להשגת יעילות מירבית."
+      />
 
-      <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px' }}>
-        <p><strong>מזהה מסלול:</strong> #{routePlan.routeId || 'N/A'}</p>
-        <p><strong>סך תחנות במסלול:</strong> {routePlan.stops?.length || 0}</p>
-      </div>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
+        <Chip variant="outlined" color="primary" label={`מסלול #${routePlan.routeId || 'N/A'}`} />
+        <Chip variant="outlined" label={`${stops.length} תחנות`} />
+      </Box>
 
-      <h3>תחנות לפי סדר ביצוע:</h3>
-      {(!routePlan.stops || routePlan.stops.length === 0) ? (
-        <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666' }}>אין תחנות מוגדרות במסלול כרגע.</p>
-        </div>
+      {stops.length > 0 && (
+        <MapShell height={460}>
+          <RouteMap stops={stops} />
+        </MapShell>
+      )}
+
+      {stops.length === 0 ? (
+        <EmptyState text="אין תחנות מוגדרות במסלול כרגע." />
       ) : (
-        routePlan.stops.map((stop: any, index: number) => (
-          <div key={index} style={{ background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '10px', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div style={{ width: '30px', height: '30px', background: '#0066cc', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+        stops.map((stop: any, index: number) => (
+          <Card key={index} sx={{ p: 2.5, mb: 1.5, display: 'flex', alignItems: 'center', gap: 2.5 }}>
+            <Avatar
+              sx={{
+                bgcolor: stop.actionType === 'Pickup' ? MAP_COLORS.donor : MAP_COLORS.ngo,
+                color: '#fff',
+                fontWeight: 700,
+              }}
+            >
               {index + 1}
-            </div>
-            <div>
-              <p style={{ margin: '0 0 5px 0' }}><strong>סוג תחנה:</strong> {stop.actionType === 'Pickup' ? 'איסוף ספק' : 'מסירה לעמותה'}</p>
-              <p style={{ margin: '0 0 5px 0' }}><strong>שם המקום:</strong> {stop.locationName}</p>
-              <p style={{ margin: '0' }}><strong>כתובת:</strong> {stop.address}</p>
-            </div>
-          </div>
+            </Avatar>
+            <Box>
+              <Typography sx={{ fontWeight: 500 }}>
+                {stop.locationName}
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={stop.actionType === 'Pickup' ? 'איסוף ספק' : 'מסירה לעמותה'}
+                  sx={{ mr: 1.5 }}
+                />
+              </Typography>
+              <Typography color="text.secondary">{stop.address}</Typography>
+            </Box>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

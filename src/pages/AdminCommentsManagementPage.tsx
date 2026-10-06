@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function AdminCommentsManagementPage() {
   const [comments, setComments] = useState<any[]>([]);
@@ -39,36 +46,45 @@ export function AdminCommentsManagementPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען תגובות לבדיקה...</div>;
+  if (loading) return <LoadingBlock text="טוען תגובות לבדיקה..." />;
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניהול תגובות ודיווחים (מודרציה)</h2>
-      <p>מעקב וסינון תגובות פוגעניות או מדווחות ברחבי המערכת.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="ניהול תגובות ודיווחים"
+        subtitle="מעקב וסינון תגובות פוגעניות או מדווחות ברחבי המערכת."
+      />
 
       {comments.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666' }}>אין תגובות הממתינות לטיפול או דיווחים חדשים.</p>
-        </div>
+        <EmptyState text="אין תגובות הממתינות לטיפול או דיווחים חדשים." />
       ) : (
         comments.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p><strong>מאת:</strong> {item.authorName}</p>
-              <p><strong>תוכן:</strong> "{item.content}"</p>
-              <p><strong>סיבת דיווח:</strong> <span style={{ color: '#c62828' }}>{item.reportReason || 'בדיקת מערכת'}</span></p>
-            </div>
-            <div>
-              <button 
-                onClick={() => handleDeleteComment(item.id)} 
-                style={{ padding: '8px 12px', background: '#c62828', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                מחק תגובה
-              </button>
-            </div>
-          </div>
+          <Card
+            key={item.id}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2,
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>{item.authorName}</Typography>
+                <Chip size="small" color="error" variant="outlined" label={item.reportReason || 'בדיקת מערכת'} />
+              </Box>
+              <Typography color="text.secondary">"{item.content}"</Typography>
+            </Box>
+            <Button variant="outlined" color="error" onClick={() => handleDeleteComment(item.id)}>
+              מחק תגובה
+            </Button>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

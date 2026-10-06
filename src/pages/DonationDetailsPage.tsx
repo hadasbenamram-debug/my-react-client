@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function DonationDetailsPage() {
   const [donation, setDonation] = useState<any>(null);
@@ -30,30 +37,45 @@ export function DonationDetailsPage() {
       });
   }, [donationId]);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען פרטי תרומה מהשרת...</div>;
-  if (!donation) return <div style={{ textAlign: 'center', padding: '20px' }}>התרומה המבוקשת לא נמצאה במסד הנתונים.</div>;
+  if (loading) return <LoadingBlock text="טוען פרטי תרומה מהשרת..." />;
+  if (!donation) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+        <EmptyState text="התרומה המבוקשת לא נמצאה במסד הנתונים." />
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>פרטי תרומה בודדת #{donation.id}</h2>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="ארגון תורם" title={`פרטי תרומה #${donation.id}`} />
 
-      <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <p><strong>סטטוס נוכחי:</strong> <span style={{ color: '#0066cc', fontWeight: 'bold' }}>{donation.status || 'Pending'}</span></p>
-        <p><strong>מזהה אזור:</strong> {donation.regionId}</p>
-        <p><strong>עמותת יעד (Ngo ID):</strong> {donation.ngoId || 'טרם שובצה עמותה'}</p>
-        <p><strong>ניקוד עדיפות:</strong> {donation.priorityScore}</p>
+      <Card sx={{ p: { xs: 3, md: 4 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+          <Typography><strong>סטטוס נוכחי:</strong></Typography>
+          <Chip size="small" color="primary" label={donation.status || 'Pending'} />
+        </Box>
+        <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>מזהה אזור:</strong> {donation.regionId}</Typography>
+        <Typography color="text.secondary" sx={{ mb: 0.5 }}>
+          <strong>עמותת יעד:</strong> {donation.ngoId || 'טרם שובצה עמותה'}
+        </Typography>
+        <Typography color="text.secondary"><strong>ניקוד עדיפות:</strong> {donation.priorityScore}</Typography>
 
-        <h4 style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px' }}>פרטי המתנדב שאסף:</h4>
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="h6" sx={{ mb: 1.5 }}>פרטי המתנדב שאסף</Typography>
         {donation.volunteer ? (
-          <div>
-            <p><strong>מזהה מתנדב:</strong> #{donation.volunteer.id}</p>
-            <p><strong>סוג רכב:</strong> {donation.volunteer.vehicleType}</p>
-            <p><strong>זמן איסוף משוער/בפועל:</strong> {donation.volunteer.collectionTime || 'בטיפול'}</p>
-          </div>
+          <Box>
+            <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>מזהה מתנדב:</strong> #{donation.volunteer.id}</Typography>
+            <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>סוג רכב:</strong> {donation.volunteer.vehicleType}</Typography>
+            <Typography color="text.secondary">
+              <strong>זמן איסוף משוער/בפועל:</strong> {donation.volunteer.collectionTime || 'בטיפול'}
+            </Typography>
+          </Box>
         ) : (
-          <p style={{ color: '#666' }}>טרם שובץ מתנדב לתרומה זו.</p>
+          <Typography color="text.secondary">טרם שובץ מתנדב לתרומה זו.</Typography>
         )}
-      </div>
-    </div>
+      </Card>
+    </Box>
   );
 }

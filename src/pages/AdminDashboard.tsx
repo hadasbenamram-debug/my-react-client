@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import GroupsIcon from '@mui/icons-material/Groups';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import PageTitle from '../components/PageTitle.jsx';
 
 export function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -24,34 +33,67 @@ export function AdminDashboard() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתוני ניהול...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <CircularProgress size={32} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>טוען נתוני ניהול...</Typography>
+      </Box>
+    );
+  }
+
+  const cards = [
+    { label: 'תרומות פתוחות', value: stats.openDonations, icon: <VolunteerActivismIcon />, alert: false },
+    { label: 'מתנדבים זמינים', value: stats.availableVolunteers, icon: <GroupsIcon />, alert: false },
+    { label: 'שיבוצים פעילים', value: stats.activeAssignments, icon: <LocalShippingIcon />, alert: false },
+    { label: 'התראות No-Show', value: stats.noShowAlerts, icon: <WarningAmberIcon />, alert: true },
+  ];
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>דשבורד ניהולי ראשי (Admin)</h2>
-      <p>מבט על מערכתי לתפעול ובקרה שוטפת של מערך הצלת המזון.</p>
+    <Box>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="דשבורד ניהולי"
+        subtitle="מבט על מערכתי לתפעול ובקרה שוטפת של מערך הצלת המזון."
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginTop: '20px' }}>
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#0066cc' }}>תרומות פתוחות</h4>
-          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{stats.openDonations}</div>
-        </div>
-
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#34a853' }}>מתנדבים זמינים</h4>
-          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{stats.availableVolunteers}</div>
-        </div>
-
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#f57c00' }}>שיבוצים פעילים</h4>
-          <div style={{ fontSize: '28px', fontWeight: 'bold' }}>{stats.activeAssignments}</div>
-        </div>
-
-        <div style={{ background: '#ffebee', padding: '20px', borderRadius: '8px', border: '1px solid #ffcdd2', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#c62828' }}>התראות No-Show</h4>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#c62828' }}>{stats.noShowAlerts}</div>
-        </div>
-      </div>
-    </div>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+          gap: 2.5,
+        }}
+      >
+        {cards.map((card) => (
+          <Card
+            key={card.label}
+            sx={{
+              p: 3.5,
+              textAlign: 'center',
+              borderColor: card.alert ? 'error.light' : undefined,
+              backgroundColor: card.alert ? '#fdf3f3' : undefined,
+            }}
+          >
+            <Box sx={{ color: card.alert ? 'error.main' : 'primary.dark', mb: 1 }}>{card.icon}</Box>
+            <Typography
+              sx={{
+                direction: 'ltr',
+                fontSize: { xs: '2.4rem', md: '3rem' },
+                fontWeight: 700,
+                lineHeight: 1,
+                letterSpacing: '-0.02em',
+                color: card.alert ? 'error.main' : 'primary.main',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {card.value}
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 1.5, fontSize: '0.95rem' }}>
+              {card.label}
+            </Typography>
+          </Card>
+        ))}
+      </Box>
+    </Box>
   );
 }
