@@ -9,14 +9,29 @@ import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 export function SupplierHistoryPage() {
   const [completedDonations, setCompletedDonations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const supplierId = 1;
 
   useEffect(() => {
-    fetch(`/api/donations/supplier/${supplierId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          const completed = data.filter((d: any) => d.status === 'Completed');
+    const token = localStorage.getItem('token');
+
+    // שליפת נתוני הספק המחובר הנוכחי ישירות מהשרת באמצעות הטוקן
+    fetch('/api/suppliers/current', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`שגיאה בשרת: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(supplierData => {
+        // במידה והתרומות מגיעות כחלק ממידע הספק או מקור אחר
+        const donations = supplierData.donations || supplierData.completedDonations || [];
+        if (Array.isArray(donations)) {
+          const completed = donations.filter((d: any) => d.status === 'Completed');
           setCompletedDonations(completed);
         }
         setLoading(false);

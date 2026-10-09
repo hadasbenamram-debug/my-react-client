@@ -11,9 +11,14 @@ export function NotificationsPage() {
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
 
   useEffect(() => {
-    // יצירת החיבור ל-SignalR Hub בשרת
+    // שליפת הטוקן מתוך ה-localStorage בהתאם למפתח שנמצא במערכת ('token')
+    const token = localStorage.getItem('token') || '';
+
+    // יצירת החיבור ל-SignalR Hub בשרת עם העברת הטוקן ב-accessTokenFactory
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl("/notificationHub") // יש לוודא את הכתובת המוגדרת בשרת ה-C#
+      .withUrl("https://localhost:7295/notificationHub", {
+        accessTokenFactory: () => token
+      })
       .withAutomaticReconnect()
       .build();
 

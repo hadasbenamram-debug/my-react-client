@@ -1,37 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 import { StatusAlert } from '../components/FormParts.jsx';
 
 export function CompleteDeliveryPage() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [activeMatch, setActiveMatch] = useState<any>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState('');
 
-  // מזהה המסלול יכול להיות מועבר כפרופ (Props) או מוגדר באופן דינמי
-  const volunteerRouteId = 104;
+  // טעינה ראשונית של השידוכים הפעילים מהשרת כדי לוודא שיש התאמה אמיתית
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+
+    fetch('/api/matches/active', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('שגיאה בטעינת הנתונים');
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          // מציאת שידוך רלוונטי או לקיחת השידוך הפעיל הראשון
+          setActiveMatch(data[0]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('שגיאה:', err);
+        setLoading(false);
+      });
+  }, []);
 
   const handleCompleteDelivery = async () => {
-    setLoading(true);
+    if (!activeMatch) return;
+    
+    setActionLoading(true);
     setError('');
     try {
-      // שליפת טוקן ההתחברות מהאחסון המקומי
       const token = localStorage.getItem('token');
 
-      const response = await fetch('/api/deliverylogs', {
+      // פנייה לנתיב הקיים בשרת לסיום השידוך לפי מזהה השידוך האמיתי
+      const response = await fetch(`/api/matches/${activeMatch.id}/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          volunteerRouteId: volunteerRouteId,
-          status: 'Completed'
-        })
+        }
       });
 
       if (response.ok) {
@@ -43,9 +69,11 @@ export function CompleteDeliveryPage() {
     } catch (err) {
       setError('שגיאת תקשורת.');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
+
+  if (loading) return <LoadingBlock text="בודק התאמות ושיבוצים פעילים..." />;
 
   return (
     <Box sx={{ maxWidth: 560, mx: 'auto' }}>
@@ -66,16 +94,22 @@ export function CompleteDeliveryPage() {
               הסטטוס עודכן בהצלחה. תודה רבה על ההתנדבות!
             </Typography>
           </Box>
+        ) : !activeMatch ? (
+          // הכפתור לא מוצג כל עוד אין התאמה או שיבוץ פעיל אמיתי במסד הנתונים
+          <EmptyState text="אין כרגע שיבוץ פעיל או התאמה הממתינים לאישור המסירה שלך." />
         ) : (
           <Box>
+            <Typography variant="body1" sx={{ mb: 3 }}>
+              נמצא שיבוץ פעיל עבור תרומה #{activeMatch.donationId || activeMatch.id}. ניתן לאשר את המסירה:
+            </Typography>
             <Button
               variant="contained"
               size="large"
               fullWidth
               onClick={handleCompleteDelivery}
-              disabled={loading}
+              disabled={actionLoading}
             >
-              {loading ? 'מעדכן...' : 'אישור מסירה וסיום שיבוץ'}
+              {actionLoading ? 'מעדכן...' : 'אישור מסירה וסיום שיבוץ'}
             </Button>
             <StatusAlert message={error} success={false} />
           </Box>

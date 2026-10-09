@@ -16,8 +16,22 @@ export function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/admin/settings')
-      .then(res => res.json())
+    const token = localStorage.getItem('token');
+    
+    // תיקון הכתובת לשרת ה-Backend המלא
+    fetch('https://localhost:7295/api/settings', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(`שגיאת שרת: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         if (data) {
           setSettings(data);
@@ -37,9 +51,15 @@ export function AdminSettingsPage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    fetch('/api/admin/settings', {
+    const token = localStorage.getItem('token');
+
+    // תיקון הכתובת גם בשמירה
+    fetch('https://localhost:7295/api/settings', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify(settings)
     })
       .then(res => {

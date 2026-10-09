@@ -12,15 +12,26 @@ export function ConfirmDonationReceiptPage() {
   const [donations, setDonations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const ngoId = 1;
 
   const fetchPendingReceipts = () => {
-    fetch(`/api/donations`)
-      .then(res => res.json())
+    const token = localStorage.getItem('token');
+
+    // פנייה לנתיב הייעודי המותאם לעמותה המחוברת עם שליחת טוקן ההזדהות
+    fetch(`/api/donations/my-ngo-donations`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
+        return res.json();
+      })
       .then(data => {
         if (Array.isArray(data)) {
-          // הצגת תרומות המשויכות לעמותה שנמצאות בטיפול לקבלה
-          const pendingReceipt = data.filter((d: any) => d.ngoId === ngoId && d.status === 'Matched');
+          // הצגת תרומות שנמצאות בסטטוס בדרך (Matched) וממתינות לאישור קבלה
+          const pendingReceipt = data.filter((d: any) => d.status === 'Matched');
           setDonations(pendingReceipt);
         }
         setLoading(false);
@@ -36,9 +47,14 @@ export function ConfirmDonationReceiptPage() {
   }, []);
 
   const handleConfirmReceipt = (item: any) => {
+    const token = localStorage.getItem('token');
+
     fetch(`/api/donations/${item.id}/complete`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
     })
       .then(res => {
         if (res.ok) {

@@ -11,17 +11,27 @@ import StatGrid from '../components/StatGrid.jsx';
 export function NgoDashboard() {
   const [ngoData, setNgoData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const ngoId = 1; // מזהה העמותה המחוברת
 
   useEffect(() => {
-    // שליפת התרומות או הנתונים המשויכים לעמותה מהשרת
-    fetch(`/api/donations`)
-      .then(res => res.json())
+    const token = localStorage.getItem('token');
+
+    // פנייה לנתיב הייעודי המותאם לעמותה המחוברת
+    fetch(`/api/donations/my-ngo-donations`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`שגיאה בשרת: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         if (Array.isArray(data)) {
-          // סינון תרומות המיועדות לעמותה זו (לפי ngoId)
-          const ngoDonations = data.filter((d: any) => d.ngoId === ngoId);
-          setNgoData(ngoDonations);
+          setNgoData(data);
         }
         setLoading(false);
       })

@@ -17,6 +17,7 @@ interface VolunteerDto {
   currentLatitude: number;
   currentLongitude: number;
   idNumber: string;
+  driverLicenseNumber: string; // הוספת שדה מספר רישיון
   dateOfBirth: string;
   reliabilityScore: number;
 }
@@ -25,7 +26,6 @@ export function VolunteersPage() {
   const [volunteers, setVolunteers] = useState<VolunteerDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // טופס להוספת מתנדב חדש
   const [newVolunteer, setNewVolunteer] = useState<VolunteerDto>({
     vehicleType: 'רכב פרטי',
     maxCapacityKg: 50,
@@ -33,14 +33,25 @@ export function VolunteersPage() {
     currentLatitude: 32.0853,
     currentLongitude: 34.7818,
     idNumber: '',
+    driverLicenseNumber: '', // ערך התחלתי ריק
     dateOfBirth: '1995-01-01T00:00:00',
     reliabilityScore: 100
   });
 
-  // שליפת כל המתנדבים מהשרת בעת טעינת המסך
   const fetchVolunteers = () => {
-    fetch('/api/volunteers')
-      .then(res => res.json())
+    const token = localStorage.getItem('token');
+
+    fetch('/api/volunteers', {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    })
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(`שגיאת שרת: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         setVolunteers(data);
         setLoading(false);
@@ -55,21 +66,25 @@ export function VolunteersPage() {
     fetchVolunteers();
   }, []);
 
-  // שליחת מתנדב חדש לשרת (POST)
   const handleCreateVolunteer = (e: React.FormEvent) => {
     e.preventDefault();
+    const token = localStorage.getItem('token');
 
     fetch('/api/volunteers', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify(newVolunteer)
     })
-      .then(res => {
+      .then(async res => {
         if (res.ok) {
           alert('המתנדב נוסף בהצלחה למסד הנתונים!');
-          fetchVolunteers(); // רענון הרשימה מהשרת
+          fetchVolunteers(); 
         } else {
-          alert('שגיאה בשמירת המתנדב.');
+          const errorText = await res.text();
+          alert('שגיאה בשמירת המתנדב: ' + errorText);
         }
       })
       .catch(err => console.error('שגיאת תקשורת:', err));
@@ -110,6 +125,12 @@ export function VolunteersPage() {
               onChange={(e) => setNewVolunteer({ ...newVolunteer, idNumber: e.target.value })}
               required
             />
+            <TextField
+              label="מספר רישיון נהיגה"
+              value={newVolunteer.driverLicenseNumber}
+              onChange={(e) => setNewVolunteer({ ...newVolunteer, driverLicenseNumber: e.target.value })}
+              required
+            />
           </FormSection>
           <Button type="submit" variant="contained" size="large" sx={{ mt: 3 }}>
             שמור מתנדב
@@ -147,6 +168,9 @@ export function VolunteersPage() {
               />
             </Box>
             <Typography color="text.secondary"><strong>ת.ז:</strong> {v.idNumber}</Typography>
+            {v.driverLicenseNumber && (
+              <Typography color="text.secondary"><strong>מספר רישיון:</strong> {v.driverLicenseNumber}</Typography>
+            )}
             <Typography color="text.secondary">
               <strong>רכב:</strong> {v.vehicleType} · <strong>קיבולת:</strong> {v.maxCapacityKg} ק"ג
             </Typography>

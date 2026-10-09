@@ -10,17 +10,39 @@ import PageTitle from '../components/PageTitle.jsx';
 export function VolunteerDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const volunteerId = 1; // ניתן להתאים לפי המשתמש המחובר
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/matches/active`) // שולף שיבוצים/מסלולים פעילים מהשרת
-      .then(res => res.json())
+    // שליפת הטוקן מ-localStorage לצורך אימות מול השרת
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/matches/active`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        // אם השרת מחזיר 404, המשמעות היא שאין שיבוץ פעיל כרגע - נחזיר null ברוגע
+        if (res.status === 404) {
+          return null;
+        }
+        if (!res.ok) {
+          throw new Error('שגיאה בהרשאה או בטעינת הנתונים');
+        }
+        return res.json();
+      })
       .then(data => {
         setDashboardData(data);
         setLoading(false);
       })
       .catch(err => {
         console.error('שגיאה בטעינת הנתונים מהשרת', err);
+        setError('שגיאה בטעינת הנתונים. ייתכן שפג תוקף ההתחברות.');
         setLoading(false);
       });
   }, []);
@@ -30,6 +52,14 @@ export function VolunteerDashboard() {
       <Box sx={{ textAlign: 'center', py: 10 }}>
         <CircularProgress size={32} />
         <Typography color="text.secondary" sx={{ mt: 2 }}>טוען נתונים מהשרת...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
       </Box>
     );
   }

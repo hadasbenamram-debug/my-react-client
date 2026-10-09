@@ -19,16 +19,28 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // שליפת נתונים סטטיסטיים או דשבורד מהשרת עבור מנהל מערכת
-    fetch('/api/admin/dashboard-stats')
-      .then(res => res.json())
+    // שליפת הטוקן מ-localStorage והוספתו לכותרת הבקשה
+    const token = localStorage.getItem('token');
+
+    fetch('/api/admin/dashboard-stats', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('השרת החזיר שגיאה: ' + res.status);
+        }
+        return res.json();
+      })
       .then(data => {
         setStats(data);
         setLoading(false);
       })
       .catch(err => {
         console.error('שגיאה בטעינת הנתונים הניהוליים:', err);
-        // ערכי ברירת מחדל במקרה שהשרת לא זמין כרגע
         setLoading(false);
       });
   }, []);

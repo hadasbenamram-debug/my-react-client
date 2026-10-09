@@ -6,7 +6,7 @@ import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -21,10 +21,10 @@ export const LoginPage: React.FC = () => {
     setIsSuccess(false);
 
     try {
-      const response = await fetch('http://localhost:5007/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }), // תיקון השמות תואם לשרת
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
@@ -32,10 +32,20 @@ export const LoginPage: React.FC = () => {
       if (response.ok) {
         setIsSuccess(true);
         setMessage('התחברת בהצלחה!');
+        
         localStorage.setItem('token', data.token);
-        // כאן אפשר להוסיף ניתוב (Navigate) לעמוד הבית
+        
+        if (data.user) {
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
+        } else {
+          localStorage.setItem('currentUser', JSON.stringify({ email, role: data.role || 'volunteer' }));
+        }
+
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+
       } else {
-        // הצגת ההודעה המדויקת שהשרת מחזיר (למשל: נעילה, המתנה לאישור וכו')
         setMessage(data.message || 'שגיאה בפרטי ההתחברות');
       }
     } catch (error) {
@@ -49,10 +59,10 @@ export const LoginPage: React.FC = () => {
     setIsSuccess(false);
 
     try {
-      const response = await fetch('http://localhost:5007/api/auth/forgot-password', {
+      const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }), // תיקון מ-mail ל-email
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
@@ -77,11 +87,7 @@ export const LoginPage: React.FC = () => {
   if (isForgotPassword) {
     return (
       <Box sx={{ maxWidth: 480, mx: 'auto' }}>
-        <PageTitle
-          eyebrow="איפוס סיסמה"
-          title="שכחת סיסמה?"
-          subtitle="הקלידי את כתובת המייל שלך ונשלח לך הוראות איפוס."
-        />
+        <PageTitle title="שכחת סיסמה" />
         <Card sx={{ p: { xs: 3, md: 4 } }}>
           <form onSubmit={handleResetPassword}>
             <Stack spacing={3}>
@@ -112,7 +118,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <Box sx={{ maxWidth: 480, mx: 'auto' }}>
-      <PageTitle eyebrow="ברוכים הבאים" title="התחברות" />
+      <PageTitle title="התחברות" />
       <Card sx={{ p: { xs: 3, md: 4 } }}>
         <form onSubmit={handleLogin}>
           <Stack spacing={3}>

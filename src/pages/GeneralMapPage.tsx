@@ -30,7 +30,14 @@ export function GeneralMapPage() {
   const [hidden, setHidden] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    fetch('/api/map/all-entities')
+    const token = localStorage.getItem('token');
+    fetch('/api/map/all-entities', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {

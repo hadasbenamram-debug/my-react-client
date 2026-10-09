@@ -9,15 +9,26 @@ import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 export function NgoHistoryPage() {
   const [completedDonations, setCompletedDonations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const ngoId = 1;
 
   useEffect(() => {
-    fetch(`/api/donations`)
-      .then(res => res.json())
+    const token = localStorage.getItem('token');
+
+    // פנייה לנתיב הייעודי המותאם לעמותה המחוברת עם שליחת טוקן ההזדהות
+    fetch(`/api/donations/my-ngo-donations`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
+        return res.json();
+      })
       .then(data => {
         if (Array.isArray(data)) {
-          // סינון תרומות שהושלמו ושייכות לעמותה
-          const ngoCompleted = data.filter((d: any) => d.ngoId === ngoId && d.status === 'Completed');
+          // סינון תרומות שהושלמו בלבד
+          const ngoCompleted = data.filter((d: any) => d.status === 'Completed');
           setCompletedDonations(ngoCompleted);
         }
         setLoading(false);

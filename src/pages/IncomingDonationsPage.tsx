@@ -9,19 +9,26 @@ import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 export function IncomingDonationsPage() {
   const [incoming, setIncoming] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const ngoId = 1; // מזהה העמותה המחוברת במערכת
 
   useEffect(() => {
-    // שליפת רשימת התרומות מהשרת
-    fetch('/api/donations')
+    const token = localStorage.getItem('token');
+
+    // שליפת התרומות מהנתיב הייעודי לעמותות המחוברות
+    fetch('/api/donations/my-ngo-donations', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then(res => {
         if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
         return res.json();
       })
       .then(data => {
         if (Array.isArray(data)) {
-          // סינון תרומות השייכות לעמותה ונמצאות בסטטוס בדרך (Matched)
-          const matchedDonations = data.filter((d: any) => d.ngoId === ngoId && d.status === 'Matched');
+          // סינון תרומות שנמצאות בסטטוס בדרך (Matched)
+          const matchedDonations = data.filter((d: any) => d.status === 'Matched');
           setIncoming(matchedDonations);
         }
         setLoading(false);

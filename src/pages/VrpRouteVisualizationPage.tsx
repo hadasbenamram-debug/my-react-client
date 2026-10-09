@@ -8,7 +8,6 @@ import PageTitle from '../components/PageTitle.jsx';
 import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 import { MapShell, MapView, MAP_COLORS, useGeocodedStops } from '../components/GoogleMapView.jsx';
 
-// מפה עם סיכות ממוספרות וקו מסלול. הכתובות הופכות לנקודות באמצעות Geocoding
 function RouteMap({ stops }: { stops: any[] }) {
   const geocoded = useGeocodedStops(stops);
 
@@ -51,7 +50,14 @@ export function VrpRouteVisualizationPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/routing/current-plan')
+    const token = localStorage.getItem('token');
+    fetch('/api/routing/current-plan', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(data => {
         if (data) {
