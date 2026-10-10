@@ -1,40 +1,93 @@
 import React, { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
 
 export function VolunteerDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const volunteerId = 1; // ניתן להתאים לפי המשתמש המחובר
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/matches/active`) // שולף שיבוצים/מסלולים פעילים מהשרת
-      .then(res => res.json())
+    // שליפת הטוקן מ-localStorage לצורך אימות מול השרת
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/matches/active`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        // אם השרת מחזיר 404, המשמעות היא שאין שיבוץ פעיל כרגע - נחזיר null ברוגע
+        if (res.status === 404) {
+          return null;
+        }
+        if (!res.ok) {
+          throw new Error('שגיאה בהרשאה או בטעינת הנתונים');
+        }
+        return res.json();
+      })
       .then(data => {
         setDashboardData(data);
         setLoading(false);
       })
       .catch(err => {
         console.error('שגיאה בטעינת הנתונים מהשרת', err);
+        setError('שגיאה בטעינת הנתונים. ייתכן שפג תוקף ההתחברות.');
         setLoading(false);
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתונים מהשרת...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <CircularProgress size={32} />
+        <Typography color="text.secondary" sx={{ mt: 2 }}>טוען נתונים מהשרת...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>דשבורד מתנדב</h2>
-      <div style={{ background: '#f5f5f5', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px' }}>
-        <h3>סטטוס נוכחי במערכת: <span style={{ color: '#34a853' }}>Available</span></h3>
-        <p>כאן מוצגים הנתונים האמיתיים שנשלפו ישירות מבסיס הנתונים.</p>
-      </div>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="מתנדב" title="הדשבורד שלי" subtitle="סטטוס ושיבוצים פעילים." />
+
+      <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="h5">סטטוס נוכחי במערכת:</Typography>
+          <Chip label="Available" color="primary" />
+        </Box>
+        <Typography color="text.secondary" sx={{ mt: 1.5 }}>
+          כאן מוצגים הנתונים האמיתיים שנשלפו ישירות מבסיס הנתונים.
+        </Typography>
+      </Card>
+
       {dashboardData ? (
-        <div style={{ background: '#eef6fc', padding: '15px', borderRadius: '8px', border: '1px solid #b8d9f8' }}>
-          <h4>שיבוץ פעיל נמצא!</h4>
-          <p>מזהה שיבוץ: #{dashboardData.id}</p>
-        </div>
+        <Alert severity="success" icon={false} sx={{ p: 3 }}>
+          <Typography sx={{ fontWeight: 500, mb: 0.5 }}>שיבוץ פעיל נמצא!</Typography>
+          <Typography>מזהה שיבוץ: #{dashboardData.id}</Typography>
+        </Alert>
       ) : (
-        <p>אין שיבוצים פעילים כרגע במסד הנתונים.</p>
+        <Card sx={{ p: { xs: 3, md: 4 }, textAlign: 'center' }}>
+          <Typography color="text.secondary">אין שיבוצים פעילים כרגע במסד הנתונים.</Typography>
+        </Card>
       )}
-    </div>
+    </Box>
   );
 }

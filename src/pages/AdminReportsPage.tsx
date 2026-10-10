@@ -1,4 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import ListItemText from '@mui/material/ListItemText';
+import Typography from '@mui/material/Typography';
+import ScaleIcon from '@mui/icons-material/Scale';
+import TimerIcon from '@mui/icons-material/Timer';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import PageTitle from '../components/PageTitle.jsx';
+import StatGrid from '../components/StatGrid.jsx';
+import { LoadingBlock } from '../components/PageParts.jsx';
 
 export function AdminReportsPage() {
   const [reports, setReports] = useState<any>({
@@ -36,44 +50,44 @@ export function AdminReportsPage() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען דוחות מערכתיים...</div>;
+  if (loading) return <LoadingBlock text="טוען דוחות מערכתיים..." />;
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>דוחות וסטטיסטיקות מערכתיים</h2>
-      <p>ניתוח נפחי תרומות, זמני תגובה, אחוזי הצלחה וביצועי מתנדבים.</p>
+    <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="דוחות וסטטיסטיקות"
+        subtitle="ניתוח נפחי תרומות, זמני תגובה, אחוזי הצלחה וביצועי מתנדבים."
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '20px', marginBottom: '20px' }}>
-        <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#0066cc' }}>נפח תרומות כולל</h4>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>{reports.totalDonationsVolume} ק"ג</div>
-        </div>
+      <StatGrid
+        columns={3}
+        cards={[
+          { label: 'נפח תרומות כולל (ק"ג)', value: reports.totalDonationsVolume, icon: <ScaleIcon /> },
+          { label: 'זמן תגובה ממוצע', value: reports.averageResponseTime, icon: <TimerIcon /> },
+          { label: 'אחוז הצלחה', value: reports.successRate, icon: <TaskAltIcon /> },
+        ]}
+      />
 
-        <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#34a853' }}>זמן תגובה ממוצע</h4>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>{reports.averageResponseTime}</div>
-        </div>
-
-        <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#f57c00' }}>אחוז הצלחה</h4>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>{reports.successRate}</div>
-        </div>
-      </div>
-
-      <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <h3>מובילי ביצועי מתנדבים</h3>
+      <Card sx={{ p: { xs: 3, md: 4 }, mt: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>מובילי ביצועי מתנדבים</Typography>
         {(!reports.topVolunteers || reports.topVolunteers.length === 0) ? (
-          <p style={{ color: '#666' }}>אין נתונים זמינים כרגע.</p>
+          <Typography color="text.secondary">אין נתונים זמינים כרגע.</Typography>
         ) : (
-          <ul>
+          <List>
             {reports.topVolunteers.map((vol: any, index: number) => (
-              <li key={index} style={{ marginBottom: '8px' }}>
-                {vol.name} - {vol.deliveriesCount} משלוחים מוצלחים
-              </li>
+              <ListItem key={index} disableGutters>
+                <ListItemAvatar>
+                  <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 700 }}>
+                    {index + 1}
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText primary={vol.name} secondary={`${vol.deliveriesCount} משלוחים מוצלחים`} />
+              </ListItem>
             ))}
-          </ul>
+          </List>
         )}
-      </div>
-    </div>
+      </Card>
+    </Box>
   );
 }

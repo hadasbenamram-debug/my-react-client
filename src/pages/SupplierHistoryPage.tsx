@@ -1,16 +1,37 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function SupplierHistoryPage() {
   const [completedDonations, setCompletedDonations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const supplierId = 1;
 
   useEffect(() => {
-    fetch(`/api/donations/supplier/${supplierId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          const completed = data.filter((d: any) => d.status === 'Completed');
+    const token = localStorage.getItem('token');
+
+    // שליפת נתוני הספק המחובר הנוכחי ישירות מהשרת באמצעות הטוקן
+    fetch('/api/suppliers/current', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`שגיאה בשרת: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(supplierData => {
+        // במידה והתרומות מגיעות כחלק ממידע הספק או מקור אחר
+        const donations = supplierData.donations || supplierData.completedDonations || [];
+        if (Array.isArray(donations)) {
+          const completed = donations.filter((d: any) => d.status === 'Completed');
           setCompletedDonations(completed);
         }
         setLoading(false);
@@ -21,24 +42,28 @@ export function SupplierHistoryPage() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען היסטוריית תרומות מהשרת...</div>;
+  if (loading) return <LoadingBlock text="טוען היסטוריית תרומות מהשרת..." />;
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>היסטוריית תרומות ודוחות</h2>
-      <p>רשימת התרומות שהושלמו במלואן:</p>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="ארגון תורם" title="היסטוריית תרומות" subtitle="רשימת התרומות שהושלמו במלואן." />
 
       {completedDonations.length === 0 ? (
-        <p>אין תרומות שהושלמו במסד הנתונים עדיין.</p>
+        <EmptyState text="אין תרומות שהושלמו במסד הנתונים עדיין." />
       ) : (
         completedDonations.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px', border: '1px solid #ddd' }}>
-            <p><strong>מזהה תרומה:</strong> #{item.id}</p>
-            <p><strong>סטטוס:</strong> <span style={{ color: '#34a853', fontWeight: 'bold' }}>הושלם (Completed)</span></p>
-            <p><strong>אזור:</strong> {item.regionId}</p>
-          </div>
+          <Card
+            key={item.id}
+            sx={{ p: { xs: 2.5, md: 3 }, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}
+          >
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+              <Typography color="text.secondary"><strong>אזור:</strong> {item.regionId}</Typography>
+            </Box>
+            <Chip size="small" color="primary" label="הושלם" />
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

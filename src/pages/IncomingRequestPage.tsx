@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckIcon from '@mui/icons-material/Check';
+import PageTitle from '../components/PageTitle.jsx';
 
 function CountdownTimer({ onExpire }: { onExpire: () => void }) {
   const [timeLeft, setTimeLeft] = useState<number>(300);
@@ -20,13 +31,13 @@ function CountdownTimer({ onExpire }: { onExpire: () => void }) {
   const seconds = timeLeft % 60;
 
   return (
-    <div style={{ 
-      display: 'inline-flex', alignItems: 'center', background: '#fff3e0', 
-      color: '#e65100', padding: '5px 12px', borderRadius: '20px', 
-      fontWeight: 'bold', border: '1px solid #ffe0b2', marginBottom: '10px', fontSize: '14px'
-    }}>
-      <span>⏳ זמן נותר לאישור: {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}</span>
-    </div>
+    <Chip
+      icon={<AccessTimeIcon />}
+      color={timeLeft <= 60 ? 'error' : 'default'}
+      variant="outlined"
+      label={`זמן נותר לאישור: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`}
+      sx={{ mb: 2 }}
+    />
   );
 }
 
@@ -184,8 +195,16 @@ export function IncomingRequestPage() {
   };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתונים...</div>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
   }
+
+  const messageAlert = message ? (
+    <Alert severity="info" sx={{ mb: 3 }}>{message}</Alert>
+  ) : null;
 
   if (activeMatch) {
     const supplierAddress = activeMatch.donation?.address || activeMatch.address || "כתובת ספק";
@@ -193,92 +212,105 @@ export function IncomingRequestPage() {
     const currentDestination = routeStage === 'pickup' ? supplierAddress : ngoAddress;
 
     return (
-      <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', padding: '20px' }}>
-        <h2>מסלול איסוף ומסירה פעיל</h2>
-        <div style={{ background: '#e8f5e9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-          <p><strong>שלב נוכחי:</strong> {routeStage === 'pickup' ? 'נסיעה אל הספק' : 'נסיעה אל העמותה'}</p>
-          <p><strong>יעד:</strong> {currentDestination}</p>
-        </div>
-        <div style={{ width: '100%', height: '350px', background: '#e0e0e0', borderRadius: '8px', marginBottom: '15px' }}>
+      <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+        <PageTitle eyebrow="מתנדב" title="מסלול איסוף ומסירה פעיל" />
+
+        <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
+          <Typography sx={{ mb: 1 }}>
+            <strong>שלב נוכחי:</strong> {routeStage === 'pickup' ? 'נסיעה אל הספק' : 'נסיעה אל העמותה'}
+          </Typography>
+          <Typography>
+            <strong>יעד:</strong> {currentDestination}
+          </Typography>
+        </Card>
+
+        <Box sx={{ width: '100%', height: 350, bgcolor: 'grey.200', borderRadius: 4, overflow: 'hidden', mb: 3 }}>
           {currentPosition && (
             <iframe
               title="Live Route Map"
               width="100%"
               height="100%"
-              style={{ border: 0, borderRadius: '8px' }}
+              style={{ border: 0 }}
               src={`https://maps.google.com/maps?saddr=${currentPosition.lat},${currentPosition.lng}&daddr=${encodeURIComponent(currentDestination)}&output=embed`}
             ></iframe>
           )}
-        </div>
+        </Box>
 
         {routeStage === 'pickup' ? (
-          <button 
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            endIcon={<ArrowBackIcon />}
             onClick={() => setRouteStage('delivery')}
-            style={{ background: '#2196f3', color: 'white', border: 'none', padding: '12px 20px', borderRadius: '5px', cursor: 'pointer', width: '100%', marginBottom: '10px', fontWeight: 'bold' }}
           >
-            אספתי מהספק - המשך לעמותה ➔
-          </button>
+            אספתי מהספק - המשך לעמותה
+          </Button>
         ) : (
-          <button 
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            startIcon={<CheckIcon />}
             onClick={handleCompleteDelivery}
-            style={{ background: '#4caf50', color: 'white', border: 'none', padding: '12px 20px', borderRadius: '5px', cursor: 'pointer', width: '100%', marginBottom: '10px', fontWeight: 'bold' }}
           >
-            ✓ סיום משלוח - הבאתי את המשלוח לעמותה
-          </button>
+            סיום משלוח - הבאתי את המשלוח לעמותה
+          </Button>
         )}
 
         {routeStage === 'delivery' && (
-          <button 
-            onClick={() => setRouteStage('pickup')}
-            style={{ background: '#757575', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', width: '100%' }}
-          >
+          <Button variant="text" fullWidth onClick={() => setRouteStage('pickup')} sx={{ mt: 1.5 }}>
             חזור לשלב האיסוף
-          </button>
+          </Button>
         )}
-      </div>
+      </Box>
     );
   }
 
   if (id && singleRequest) {
     return (
-      <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', padding: '20px' }}>
-        <h2>פרטי בקשת איסוף נכנסת</h2>
-        {message && <div style={{ background: '#e0f7fa', padding: '10px', marginBottom: '15px', borderRadius: '5px' }}>{message}</div>}
-        <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd' }}>
-          <p><strong>מזהה שידוך:</strong> #{singleRequest.id}</p>
+      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+        <PageTitle eyebrow="מתנדב" title="פרטי בקשת איסוף נכנסת" />
+        {messageAlert}
+        <Card sx={{ p: { xs: 3, md: 4 } }}>
+          <Typography sx={{ mb: 2 }}>
+            <strong>מזהה שידוך:</strong> #{singleRequest.id}
+          </Typography>
           <CountdownTimer onExpire={() => navigate('/app/volunteer/incoming-request')} />
-          <button 
-            onClick={() => handleAccept(singleRequest)}
-            style={{ background: '#4caf50', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}
-          >
-            אישור איסוף ומעבר למפה
-          </button>
-        </div>
-      </div>
+          <Box>
+            <Button variant="contained" size="large" onClick={() => handleAccept(singleRequest)}>
+              אישור איסוף ומעבר למפה
+            </Button>
+          </Box>
+        </Card>
+      </Box>
     );
   }
 
   return (
-    <div style={{ maxWidth: '700px', margin: 'auto', textAlign: 'right', direction: 'rtl', padding: '20px' }}>
-      <h2>בקשות איסוף נכנסות</h2>
-      {message && <div style={{ background: '#e0f7fa', padding: '10px', marginBottom: '15px', borderRadius: '5px' }}>{message}</div>}
-      
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle eyebrow="מתנדב" title="בקשות איסוף נכנסות" />
+      {messageAlert}
+
       {requests.length === 0 ? (
-        <p>אין כרגע בקשות איסוף פעילות.</p>
+        <Card sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+          <Typography color="text.secondary">אין כרגע בקשות איסוף פעילות.</Typography>
+        </Card>
       ) : (
         requests.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd' }}>
-            <p><strong>מזהה שידוך:</strong> #{item.id}</p>
+          <Card key={item.id} sx={{ p: { xs: 3, md: 4 }, mb: 2 }}>
+            <Typography sx={{ mb: 2 }}>
+              <strong>מזהה שידוך:</strong> #{item.id}
+            </Typography>
             <CountdownTimer onExpire={() => fetchIncomingRequests()} />
-            <button 
-              onClick={() => handleAccept(item)}
-              style={{ background: '#4caf50', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}
-            >
-              אישור איסוף ומעבר למפה
-            </button>
-          </div>
+            <Box>
+              <Button variant="contained" onClick={() => handleAccept(item)}>
+                אישור איסוף ומעבר למפה
+              </Button>
+            </Box>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

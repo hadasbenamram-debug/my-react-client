@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CircularProgress from '@mui/material/CircularProgress';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
 
 export function AdminUserApprovalsPage() {
   const [selectedRole, setSelectedRole] = useState('volunteers'); // 'volunteers', 'suppliers', או 'associations'
@@ -34,8 +43,6 @@ export function AdminUserApprovalsPage() {
         return res.json();
       })
       .then(data => {
-        console.log(`Data received from ${selectedRole}:`, data);
-
         // סינון רחב שמתאים גם למספרים וגם למחרוזות (Pending / pending / 0)
         const pending = data.filter(u => {
           const status = u.approvalStatus !== undefined ? u.approvalStatus : u.ApprovalStatus;
@@ -100,70 +107,68 @@ export function AdminUserApprovalsPage() {
   };
 
   return (
-    <div style={{ maxWidth: '750px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניהול אישורי משתמשים במערכת</h2>
-      <p style={{ color: '#666', marginBottom: '15px' }}>כאן ניתן לצפות בכל המשתמשים שנרשמו וממתינים לאישור מנהל.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="אישורי משתמשים"
+        subtitle="כאן ניתן לצפות בכל המשתמשים שנרשמו וממתינים לאישור מנהל."
+      />
 
-      {/* כפתורי מעבר בין מתנדבים, ספקים ועמותות */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <button 
-          onClick={() => setSelectedRole('volunteers')} 
-          style={{ padding: '8px 16px', background: selectedRole === 'volunteers' ? '#0066cc' : '#e0e0e0', color: selectedRole === 'volunteers' ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          מתנדבים ממתינים
-        </button>
-        <button 
-          onClick={() => setSelectedRole('suppliers')} 
-          style={{ padding: '8px 16px', background: selectedRole === 'suppliers' ? '#0066cc' : '#e0e0e0', color: selectedRole === 'suppliers' ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          ספקים ממתינים
-        </button>
-        <button 
-          onClick={() => setSelectedRole('associations')} 
-          style={{ padding: '8px 16px', background: selectedRole === 'associations' ? '#0066cc' : '#e0e0e0', color: selectedRole === 'associations' ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          עמותות ממתינות
-        </button>
-      </div>
+      <Tabs
+        value={selectedRole}
+        onChange={(e, value) => setSelectedRole(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab value="volunteers" label="מתנדבים ממתינים" />
+        <Tab value="suppliers" label="ספקים ממתינים" />
+        <Tab value="associations" label="עמותות ממתינות" />
+      </Tabs>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתונים...</div>
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <CircularProgress size={32} />
+        </Box>
       ) : error ? (
-        <div style={{ textAlign: 'center', padding: '20px', color: '#c62828' }}>{error}</div>
+        <Alert severity="error">{error}</Alert>
       ) : pendingUsers.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666', margin: 0 }}>אין בקשות ממתינות להצגה בקטגוריה זו.</p>
-        </div>
+        <Card sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">אין בקשות ממתינות להצגה בקטגוריה זו.</Typography>
+        </Card>
       ) : (
         pendingUsers.map((item) => (
-          <div key={item.id} style={{ background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '12px', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <strong>
-                {item.name || item.fullName} 
+          <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                {item.name || item.fullName}
                 {(item.businessName || item.BusinessName) && ` (עסק: ${item.businessName || item.BusinessName})`}
                 {item.associationName && ` (עמותה: ${item.associationName})`}
-              </strong>
-              <span style={{ color: '#0066cc' }}>מזהה: #{item.id}</span>
-            </div>
-            
-            <p style={{ margin: '0 0 5px 0', color: '#333' }}>אימייל: {item.email}</p>
-            <p style={{ margin: '0 0 10px 0', color: '#666' }}>טלפון: {item.phone}</p>
-            
-            {item.vehicleType && <p style={{ margin: '0 0 5px 0', color: '#444' }}>רכב: {item.vehicleType}</p>}
-            {(item.address || item.Address) && <p style={{ margin: '0 0 5px 0', color: '#444' }}>כתובת: {item.address || item.Address}</p>}
-            {(item.taxId || item.TaxId) && <p style={{ margin: '0 0 5px 0', color: '#444' }}>ח.פ / תיק עוסק: {item.taxId || item.TaxId}</p>}
+              </Typography>
+              <Typography color="primary.dark">מזהה: #{item.id}</Typography>
+            </Box>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button onClick={() => handleApprove(item.id)} style={{ padding: '6px 12px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            <Typography color="text.secondary">אימייל: {item.email}</Typography>
+            <Typography color="text.secondary">טלפון: {item.phone}</Typography>
+            {item.vehicleType && <Typography color="text.secondary">רכב: {item.vehicleType}</Typography>}
+            {(item.address || item.Address) && (
+              <Typography color="text.secondary">כתובת: {item.address || item.Address}</Typography>
+            )}
+            {(item.taxId || item.TaxId) && (
+              <Typography color="text.secondary">ח.פ / תיק עוסק: {item.taxId || item.TaxId}</Typography>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 1.5, mt: 2.5 }}>
+              <Button variant="contained" onClick={() => handleApprove(item.id)}>
                 אשר
-              </button>
-              <button onClick={() => handleReject(item.id)} style={{ padding: '6px 12px', background: '#c62828', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              </Button>
+              <Button variant="outlined" color="error" onClick={() => handleReject(item.id)}>
                 דחה
-              </button>
-            </div>
-          </div>
+              </Button>
+            </Box>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

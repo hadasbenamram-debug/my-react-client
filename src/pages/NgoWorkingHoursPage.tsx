@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+
+const timeField = { inputLabel: { shrink: true } };
 
 export function NgoWorkingHoursPage() {
   const [workingHours, setWorkingHours] = useState({
@@ -54,7 +64,7 @@ export function NgoWorkingHoursPage() {
 
     try {
       await axios.put('https://localhost:7295/api/ngos/my-hours', payload, {
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
@@ -69,86 +79,87 @@ export function NgoWorkingHoursPage() {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>הגדרת מיקום ושעות קבלה</h2>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="עמותה"
+        title="מיקום ושעות קבלה"
+        subtitle="הגדירו מתי ואיפה אפשר למסור לכם תרומות."
+      />
 
-      {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
-      {successMessage && <div style={{ color: 'green', marginBottom: '15px', fontWeight: 'bold' }}>{successMessage}</div>}
-
-      <form onSubmit={handleSubmit} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <div style={{ marginBottom: '12px' }}>
-          <label>כתובת מדויקת: </label>
-          <input 
-            type="text" 
-            value={workingHours.address} 
-            onChange={e => setWorkingHours({ ...workingHours, address: e.target.value })} 
-            style={{ width: '100%', padding: '6px' }} 
-            required 
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-          <div style={{ flex: 1 }}>
-            <label>שעת פתיחה (א'–ה'): </label>
-            <input 
-              type="time" 
-              value={workingHours.sunToThuOpenTime} 
-              onChange={e => setWorkingHours({ ...workingHours, sunToThuOpenTime: e.target.value })} 
-              style={{ width: '100%', padding: '6px' }} 
-              required 
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSubmit}>
+          <FormSection title="מיקום" columns={1}>
+            <TextField
+              label="כתובת מדויקת"
+              value={workingHours.address}
+              onChange={(e) => setWorkingHours({ ...workingHours, address: e.target.value })}
+              required
             />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label>שעת סגירה (א'–ה'): </label>
-            <input 
-              type="time" 
-              value={workingHours.sunToThuCloseTime} 
-              onChange={e => setWorkingHours({ ...workingHours, sunToThuCloseTime: e.target.value })} 
-              style={{ width: '100%', padding: '6px' }} 
-              required 
-            />
-          </div>
-        </div>
+          </FormSection>
 
-        <div style={{ marginBottom: '12px' }}>
-          <label>
-            <input 
-              type="checkbox" 
-              checked={workingHours.receivesOnFriday} 
-              onChange={e => setWorkingHours({ ...workingHours, receivesOnFriday: e.target.checked })} 
-              style={{ marginLeft: '8px' }}
-            />
-            מקבלים בימי שישי
-          </label>
-        </div>
-
-        {workingHours.receivesOnFriday && (
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-            <div style={{ flex: 1 }}>
-              <label>שעת פתיחה (יום ו'): </label>
-              <input 
-                type="time" 
-                value={workingHours.fridayOpenTime} 
-                onChange={e => setWorkingHours({ ...workingHours, fridayOpenTime: e.target.value })} 
-                style={{ width: '100%', padding: '6px' }} 
+          <Box sx={{ mt: 4 }}>
+            <FormSection title="שעות קבלה (ראשון עד חמישי)">
+              <TextField
+                label="שעת פתיחה"
+                type="time"
+                value={workingHours.sunToThuOpenTime}
+                onChange={(e) => setWorkingHours({ ...workingHours, sunToThuOpenTime: e.target.value })}
+                slotProps={timeField}
+                required
               />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label>שעת סגירה (יום ו'): </label>
-              <input 
-                type="time" 
-                value={workingHours.fridayCloseTime} 
-                onChange={e => setWorkingHours({ ...workingHours, fridayCloseTime: e.target.value })} 
-                style={{ width: '100%', padding: '6px' }} 
+              <TextField
+                label="שעת סגירה"
+                type="time"
+                value={workingHours.sunToThuCloseTime}
+                onChange={(e) => setWorkingHours({ ...workingHours, sunToThuCloseTime: e.target.value })}
+                slotProps={timeField}
+                required
               />
-            </div>
-          </div>
-        )}
+            </FormSection>
+          </Box>
 
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '10px', background: '#34a853', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          {loading ? 'מעדכן...' : 'שמור שעות ומיקום'}
-        </button>
-      </form>
-    </div>
+          <Box sx={{ mt: 4 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  color="primary"
+                  checked={workingHours.receivesOnFriday}
+                  onChange={(e) => setWorkingHours({ ...workingHours, receivesOnFriday: e.target.checked })}
+                />
+              }
+              label="מקבלים בימי שישי"
+            />
+          </Box>
+
+          {workingHours.receivesOnFriday && (
+            <Box sx={{ mt: 2 }}>
+              <FormSection title="שעות קבלה (יום שישי)">
+                <TextField
+                  label="שעת פתיחה"
+                  type="time"
+                  value={workingHours.fridayOpenTime}
+                  onChange={(e) => setWorkingHours({ ...workingHours, fridayOpenTime: e.target.value })}
+                  slotProps={timeField}
+                />
+                <TextField
+                  label="שעת סגירה"
+                  type="time"
+                  value={workingHours.fridayCloseTime}
+                  onChange={(e) => setWorkingHours({ ...workingHours, fridayCloseTime: e.target.value })}
+                  slotProps={timeField}
+                />
+              </FormSection>
+            </Box>
+          )}
+
+          <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
+            {loading ? 'מעדכן...' : 'שמור שעות ומיקום'}
+          </Button>
+        </form>
+
+        {error && <StatusAlert message={error} success={false} />}
+        {successMessage && <StatusAlert message={successMessage} success />}
+      </Card>
+    </Box>
   );
 }

@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function AdminDonationsManagementPage() {
   const [donations, setDonations] = useState<any[]>([]);
@@ -39,9 +46,9 @@ export function AdminDonationsManagementPage() {
 
     fetch(`/api/donations/${donationId}/cancel`, {
       method: 'PUT',
-      headers: { 
+      headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json' 
+        'Content-Type': 'application/json'
       }
     })
       .then(res => {
@@ -55,36 +62,45 @@ export function AdminDonationsManagementPage() {
       .catch(err => console.error('שגיאת תקשורת:', err));
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען נתוני תרומות מערכתיים...</div>;
+  if (loading) return <LoadingBlock text="טוען נתוני תרומות מערכתיים..." />;
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניהול תרומות מערכתי</h2>
-      <p>מעקב אחר כלל התרומות במערכת והתערבות ידנית בסטטוסים.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="ניהול תרומות"
+        subtitle="מעקב אחר כלל התרומות במערכת והתערבות ידנית בסטטוסים."
+      />
 
       {donations.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666' }}>אין תרומות פעילות במערכת כרגע.</p>
-        </div>
+        <EmptyState text="אין תרומות פעילות במערכת כרגע." />
       ) : (
         donations.map((item) => (
-          <div key={item.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p><strong>מזהה תרומה:</strong> #{item.id}</p>
-              <p><strong>ספק:</strong> {item.supplierId}</p>
-              <p><strong>סטטוס נוכחי:</strong> <span style={{ color: '#0066cc', fontWeight: 'bold' }}>{item.status}</span></p>
-            </div>
-            <div>
-              <button 
-                onClick={() => handleManualIntervention(item.id)} 
-                style={{ padding: '8px 12px', background: '#c62828', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                בטל תרומה (התערבות)
-              </button>
-            </div>
-          </div>
+          <Card
+            key={item.id}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2,
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+                <Chip size="small" variant="outlined" color="primary" label={item.status} />
+              </Box>
+              <Typography color="text.secondary"><strong>ספק:</strong> {item.supplierId}</Typography>
+            </Box>
+            <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
+              בטל תרומה (התערבות)
+            </Button>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

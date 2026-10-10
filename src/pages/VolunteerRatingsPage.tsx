@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Rating from '@mui/material/Rating';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function VolunteerRatingsPage() {
-  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // שליפת הטוקן מהאחסון המקומי
@@ -29,29 +36,40 @@ export function VolunteerRatingsPage() {
       });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען משובים ודירוגים...</div>;
-  if (error) return <div style={{ textAlign: 'center', padding: '20px', color: '#c62828' }}>{error}</div>;
+  if (loading) return <LoadingBlock text="טוען משובים ודירוגים..." />;
+  if (error) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '600px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>דירוגים ומשוב (מהמסד)</h2>
-      <p style={{ color: '#666', marginBottom: '20px' }}>כאן מוצגים המשובים והדירוגים שהתקבלו על פעילות המתנדבים במערכת.</p>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="מתנדב"
+        title="דירוגים ומשוב"
+        subtitle="כאן מוצגים המשובים והדירוגים שהתקבלו על פעילות המתנדבים במערכת."
+      />
 
       {feedbacks.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666', margin: 0 }}>אין משובים זמינים כרגע במסד הנתונים.</p>
-        </div>
+        <EmptyState text="אין משובים זמינים כרגע במסד הנתונים." />
       ) : (
         feedbacks.map((fb, idx) => (
-          <div key={idx} style={{ background: '#fff', padding: '15px', borderRadius: '8px', marginBottom: '12px', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <strong>{fb.volunteerName || 'מתנדב'}</strong>
-              <span style={{ color: '#f57c00', fontWeight: 'bold' }}>⭐ {fb.rating || 'N/A'}</span>
-            </div>
-            <p style={{ margin: 0, color: '#333' }}>{fb.comments || "אין תוכן למשוב"}</p>
-          </div>
+          <Card key={idx} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>{fb.volunteerName || 'מתנדב'}</Typography>
+              {fb.rating ? (
+                <Rating value={Number(fb.rating)} precision={0.5} readOnly />
+              ) : (
+                <Typography color="text.secondary">N/A</Typography>
+              )}
+            </Box>
+            <Typography color="text.secondary">{fb.comments || 'אין תוכן למשוב'}</Typography>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

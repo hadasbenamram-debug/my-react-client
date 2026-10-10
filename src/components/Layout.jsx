@@ -1,30 +1,27 @@
-import {Outlet} from 'react-router-dom';
-import Header from './Header.jsx';
-import SideMenu from './SideMenu.jsx';
-import Footer from './Footer.jsx';
-import useMenu from '../useMenu.js';
+import { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import Header from './Header';
+import SideMenu from './SideMenu';
 
 export default function Layout() {
-    const {menuOpen, closeMenu, toggleMenu} = useMenu();
+    const [menuOpen, setMenuOpen] = useState(false);
+
+    const toggleMenu = () => {
+        setMenuOpen(prev => !prev);
+    };
+
+    const closeMenu = () => {
+        setMenuOpen(false);
+    };
 
     return (
-        <div className="page">
+        <div className="layout-container">
             <Header menuOpen={menuOpen} onToggle={toggleMenu} />
-            {menuOpen ? (
-                <button
-                    type="button"
-                    className="menu-scrim"
-                    aria-label="סגירת תפריט"
-                    onClick={closeMenu}
-                />
-            ) : null}
             <SideMenu open={menuOpen} onClose={closeMenu} />
-            <main>
+            {menuOpen && <div className="menu-backdrop" onClick={closeMenu} />}
+            <main className="main-content">
                 <Outlet />
             </main>
-            <Footer />
-            <span className="edge-strip" aria-hidden="true" />
-            {menuOpen ? <span className="esc-hint">ESC</span> : null}
         </div>
     );
 }

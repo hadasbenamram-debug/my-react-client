@@ -1,4 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Typography from '@mui/material/Typography';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock } from '../components/PageParts.jsx';
 
 interface EngineStatus {
   lastRunTime: string;
@@ -52,12 +67,12 @@ export function AdminMatchingEnginePage() {
       // שימוש בנתיב המעודכן תחת matches
       const res = await fetch('/api/matches/run-engine', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json' 
+          'Content-Type': 'application/json'
         }
       });
-      
+
       if (res.ok) {
         alert('ריצת מנוע השידוכים בוצעה בהצלחה!');
         await fetchEngineStatus();
@@ -72,61 +87,55 @@ export function AdminMatchingEnginePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px', fontFamily: 'Arial', direction: 'rtl' }}>
-        <p>טוען נתוני מנוע שידוכים...</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingBlock text="טוען נתוני מנוע שידוכים..." />;
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניטור מנוע השידוכים (Matching Engine)</h2>
-      <p style={{ color: '#555' }}>מעקב אחר ריצות אוטומטיות, אילוצים, חישובי ציון והרצה ידנית.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="מנוע השידוכים"
+        subtitle="מעקב אחר ריצות אוטומטיות, אילוצים, חישובי ציון והרצה ידנית."
+      />
 
-      {error && (
-        <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '6px', border: '1px solid #ef9a9a', marginBottom: '20px' }}>
-          <strong>שגיאה: </strong> {error}
-        </div>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-      <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px' }}>
-        <p><strong>ריצה אחרונה:</strong> {engineStatus.lastRunTime}</p>
-        <p><strong>סטטוס מנוע:</strong> <span style={{ color: '#34a853', fontWeight: 'bold' }}>{engineStatus.status}</span></p>
-        <p><strong>שידוכים שבוצעו בריצה האחרונה:</strong> {engineStatus.matchedCount}</p>
-      </div>
+      <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
+        <Typography sx={{ mb: 1.5 }}><strong>ריצה אחרונה:</strong> {engineStatus.lastRunTime}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+          <Typography><strong>סטטוס מנוע:</strong></Typography>
+          <Chip size="small" color="primary" label={engineStatus.status} />
+        </Box>
+        <Typography><strong>שידוכים שבוצעו בריצה האחרונה:</strong> {engineStatus.matchedCount}</Typography>
 
-      <div style={{ marginBottom: '20px' }}>
-        <button 
-          onClick={handleManualRun} 
-          disabled={running} 
-          style={{ 
-            padding: '10px 20px', 
-            background: running ? '#cccccc' : '#0066cc', 
-            color: '#fff', 
-            border: 'none', 
-            borderRadius: '4px', 
-            cursor: running ? 'not-allowed' : 'pointer', 
-            fontWeight: 'bold' 
-          }}
+        <Button
+          variant="contained"
+          size="large"
+          disabled={running}
+          onClick={handleManualRun}
+          startIcon={running ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
+          sx={{ mt: 3 }}
         >
           {running ? 'מריץ אלגוריתם...' : 'הפעל מנוע שידוכים ידנית'}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
-      <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <h3>אילוצים קשים שנכשלו (Hard Constraints Failures)</h3>
+      <Card sx={{ p: { xs: 3, md: 4 } }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>אילוצים קשים שנכשלו</Typography>
         {(!engineStatus.failedConstraints || engineStatus.failedConstraints.length === 0) ? (
-          <p style={{ color: '#666' }}>אין כשלים באילוצים בריצה האחרונה.</p>
+          <Typography color="text.secondary">אין כשלים באילוצים בריצה האחרונה.</Typography>
         ) : (
-          <ul style={{ paddingRight: '20px' }}>
+          <List dense>
             {engineStatus.failedConstraints.map((item: string, index: number) => (
-              <li key={index} style={{ color: '#c62828', marginBottom: '5px' }}>{item}</li>
+              <ListItem key={index} disableGutters>
+                <ListItemIcon sx={{ minWidth: 36, color: 'error.main' }}>
+                  <ErrorOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary={item} />
+              </ListItem>
             ))}
-          </ul>
+          </List>
         )}
-      </div>
-    </div>
+      </Card>
+    </Box>
   );
 }

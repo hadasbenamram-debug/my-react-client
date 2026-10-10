@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import PageTitle from '../components/PageTitle.jsx';
+import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
 
 export function AdminRoutesManagementPage() {
   const [routes, setRoutes] = useState<any[]>([]);
@@ -34,27 +40,34 @@ export function AdminRoutesManagementPage() {
     fetchRoutes();
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>טוען מסלולים פעילים...</div>;
+  if (loading) return <LoadingBlock text="טוען מסלולים פעילים..." />;
 
   return (
-    <div style={{ maxWidth: '800px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>ניהול מסלולים ושיבוצים בזמן אמת</h2>
-      <p>מעקב אחר כלל המסלולים, המתנדבים הפעילים ויעדי המשלוחים במערכת.</p>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="ניהול מערכת"
+        title="מסלולים ושיבוצים בזמן אמת"
+        subtitle="מעקב אחר כלל המסלולים, המתנדבים הפעילים ויעדי המשלוחים במערכת."
+      />
 
       {routes.length === 0 ? (
-        <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-          <p style={{ color: '#666' }}>אין מסלולים פעילים כרגע במערכת.</p>
-        </div>
+        <EmptyState text="אין מסלולים פעילים כרגע במערכת." />
       ) : (
         routes.map((route) => (
-          <div key={route.id} style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ddd' }}>
-            <p><strong>מזהה שידוך/מסלול:</strong> #{route.id}</p>
-            <p><strong>מתנדב משובץ:</strong> {route.volunteerName || route.volunteerId || 'לא צוין'}</p>
-            <p><strong>סטטוס:</strong> <span style={{ color: '#0066cc', fontWeight: 'bold' }}>{route.status}</span></p>
-            <p><strong>יעד / עמותה:</strong> {route.destination || 'בדרך ליעד'}</p>
-          </div>
+          <Card key={route.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>שידוך / מסלול #{route.id}</Typography>
+              <Chip size="small" variant="outlined" color="primary" label={route.status} />
+            </Box>
+            <Typography color="text.secondary">
+              <strong>מתנדב משובץ:</strong> {route.volunteerName || route.volunteerId || 'לא צוין'}
+            </Typography>
+            <Typography color="text.secondary">
+              <strong>יעד / עמותה:</strong> {route.destination || 'בדרך ליעד'}
+            </Typography>
+          </Card>
         ))
       )}
-    </div>
+    </Box>
   );
 }

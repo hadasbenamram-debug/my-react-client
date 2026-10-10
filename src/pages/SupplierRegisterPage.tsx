@@ -1,4 +1,24 @@
 import React, { useState } from 'react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import PageTitle from '../components/PageTitle.jsx';
+import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+
+const userFields = [
+  { name: 'name', label: 'שם מלא' },
+  { name: 'email', label: 'אימייל', type: 'email' },
+  { name: 'phone', label: 'טלפון' },
+];
+
+const businessFields = [
+  { name: 'businessName', label: 'שם העסק' },
+  { name: 'address', label: 'כתובת העסק' },
+  { name: 'taxId', label: 'מספר ח.פ / תיק מע"מ' },
+  { name: 'businessLicenseFilePath', label: 'נתיב קובץ רישיון עסק', placeholder: 'uploads/licenses/...' },
+];
 
 export function SupplierRegisterPage() {
   const [formData, setFormData] = useState({
@@ -44,49 +64,40 @@ export function SupplierRegisterPage() {
     }
   };
 
+  const renderField = (f: { name: string; label: string; type?: string; placeholder?: string }) => (
+    <TextField
+      key={f.name}
+      name={f.name}
+      label={f.label}
+      type={f.type || 'text'}
+      placeholder={f.placeholder}
+      value={(formData as Record<string, any>)[f.name]}
+      onChange={handleChange}
+      required
+      // כשיש placeholder התווית צריכה להישאר למעלה כדי לא לחפוף אותו
+      slotProps={f.placeholder ? { inputLabel: { shrink: true } } : undefined}
+    />
+  );
+
   return (
-    <div style={{ maxWidth: '400px', margin: 'auto', textAlign: 'right', direction: 'rtl', fontFamily: 'Arial', padding: '20px' }}>
-      <h2>טופס רישום ספק / תורם</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        
-        <h4 style={{ margin: '5px 0', color: '#0066cc' }}>פרטי משתמש</h4>
-        <div>
-          <label>שם מלא:</label>
-          <input type="text" name="name" value={formData.name} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <div>
-          <label>אימייל:</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <div>
-          <label>טלפון:</label>
-          <input type="text" name="phone" value={formData.phone} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <PageTitle
+        eyebrow="הצטרפות"
+        title="רישום ספק / תורם"
+        subtitle="עסקים ואירועים שרוצים לתרום עודפי מזון."
+      />
+      <Card sx={{ p: { xs: 3, md: 5 } }}>
+        <form onSubmit={handleSubmit}>
+          <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
+          <Divider sx={{ my: 4 }} />
+          <FormSection title="פרטי העסק">{businessFields.map(renderField)}</FormSection>
 
-        <h4 style={{ margin: '10px 0 5px 0', color: '#0066cc' }}>פרטי העסק</h4>
-        <div>
-          <label>שם העסק:</label>
-          <input type="text" name="businessName" value={formData.businessName} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <div>
-          <label>כתובת העסק:</label>
-          <input type="text" name="address" value={formData.address} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <div>
-          <label>מספר ח.פ / תיק מע"מ:</label>
-          <input type="text" name="taxId" value={formData.taxId} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <div>
-          <label>נתיב קובץ רישיון עסק:</label>
-          <input type="text" name="businessLicenseFilePath" value={formData.businessLicenseFilePath} onChange={handleChange} placeholder="uploads/licenses/..." required style={{ width: '100%', padding: '8px' }} />
-        </div>
-
-        <button type="submit" disabled={loading} style={{ padding: '10px', background: '#0066cc', color: '#fff', border: 'none', cursor: 'pointer', marginTop: '10px' }}>
-          {loading ? 'שולח...' : 'הירשם כספק'}
-        </button>
-      </form>
-
-      {message && <p style={{ marginTop: '15px', color: message.includes('בהצלחה') ? 'green' : 'red' }}>{message}</p>}
-    </div>
+          <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
+            {loading ? 'שולח...' : 'הירשם כספק'}
+          </Button>
+        </form>
+        <StatusAlert message={message} />
+      </Card>
+    </Box>
   );
 }
