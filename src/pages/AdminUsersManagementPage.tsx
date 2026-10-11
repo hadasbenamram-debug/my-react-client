@@ -8,7 +8,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import SearchIcon from '@mui/icons-material/Search';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export function AdminUsersManagementPage() {
   const [users, setUsers] = useState<any[]>([]);

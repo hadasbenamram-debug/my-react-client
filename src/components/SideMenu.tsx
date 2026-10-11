@@ -1,7 +1,18 @@
 import { Link } from 'react-router-dom';
 
-export default function SideMenu({ open, onClose }) {
-    let currentUser = { role: 'guest' };
+interface SideMenuProps {
+    open: boolean;
+    onClose: () => void;
+}
+
+interface User {
+    role?: string;
+    type?: string;
+    [key: string]: any;
+}
+
+export default function SideMenu({ open, onClose }: SideMenuProps) {
+    let currentUser: User = { role: 'guest' };
     try {
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
@@ -118,10 +129,10 @@ export default function SideMenu({ open, onClose }) {
                             <Link to="/app/admin/reports" onClick={onClose} className="side-link">דוחות מערכת</Link>
                             <Link to="/app/admin/settings" onClick={onClose} className="side-link">הגדרות מערכת</Link>
                             <Link to="/app/admin/volunteers-directory" onClick={onClose} className="side-link">ספריית מתנדבים</Link>
-<Link to="/app/admin/volunteers-availability" onClick={onClose} className="side-link">מעקב זמינות מתנדבים</Link>
-<Link to="/app/admin/live-monitor" onClick={onClose} className="side-link">מוניטור פעילות בשטח</Link>
-<Link to="/app/admin/suppliers-directory" onClick={onClose} className="side-link">ספריית ספקים ותורמים</Link>
-<Link to="/app/admin/ngos-directory" onClick={onClose} className="side-link">ספריית עמותות</Link>
+                            <Link to="/app/admin/volunteers-availability" onClick={onClose} className="side-link">מעקב זמינות מתנדבים</Link>
+                            <Link to="/app/admin/live-monitor" onClick={onClose} className="side-link">מוניטור פעילות בשטח</Link>
+                            <Link to="/app/admin/suppliers-directory" onClick={onClose} className="side-link">ספריית ספקים ותורמים</Link>
+                            <Link to="/app/admin/ngos-directory" onClick={onClose} className="side-link">ספריית עמותות</Link>
                             <Link to="/app/map" onClick={onClose} className="side-link">מפה כללית</Link>
                             <Link to="/app/vrp-route" onClick={onClose} className="side-link">ויזואליזציית מסלול</Link>
                         </div>

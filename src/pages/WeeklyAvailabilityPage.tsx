@@ -12,8 +12,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import PageTitle from '../components/PageTitle.jsx';
-import { StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { StatusAlert } from '../components/FormParts';
 
 interface AvailabilitySlot {
   day: number;
@@ -41,7 +41,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. בדיקה האם יש טוקן בכתובת ה-URL (הגיע מהמייל)
+    // בדיקה האם יש טוקן בכתובת ה-URL (הגיע מהמייל)
     const queryParams = new URLSearchParams(window.location.search);
     const urlToken = queryParams.get('token');
 
@@ -50,7 +50,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // 2. שליפת הטוקן מ-localStorage לבדיקת הרשאה
+    // שליפת הטוקן מ-localStorage לבדיקת הרשאה
     const token = localStorage.getItem('token');
     if (!token) {
       setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
@@ -58,7 +58,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       return;
     }
 
-    // 3. שליפת נתוני הזמינות הקיימים של המתנדב
+    // שליפת נתוני הזמינות הקיימים של המתנדב
     const fetchAvailability = async () => {
       try {
         const response = await axios.get(`/api/volunteers/availability`, {

@@ -5,7 +5,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export function VolunteerDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);

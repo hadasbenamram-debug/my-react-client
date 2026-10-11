@@ -3,9 +3,9 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
-import { CommentItem } from '../components/CommentParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import { CommentItem } from '../components/CommentParts';
 
 export function NgoCommentsPage() {
   const [tree, setTree] = useState<any[]>([]);

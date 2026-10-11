@@ -5,9 +5,9 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
-import { CommentItem } from '../components/CommentParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import { CommentItem } from '../components/CommentParts';
 
 export function CommentsSection() {
   const [tree, setTree] = useState<any[]>([]);

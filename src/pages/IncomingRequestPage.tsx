@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 function CountdownTimer({ onExpire }: { onExpire: () => void }) {
   const [timeLeft, setTimeLeft] = useState<number>(300);

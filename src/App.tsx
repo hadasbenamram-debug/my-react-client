@@ -1,72 +1,80 @@
-import {BrowserRouter, Route, Routes, Navigate} from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import ContactPage from './components/ContactPage.jsx';
 import AppPageLayout from './components/AppPageLayout.jsx';
 
 // --- דפים כלליים ---
-import {LoginPage} from './pages/LoginPage';
-import {ForgotPasswordPage} from './pages/ForgotPasswordPage';
-import {ProfilePage} from './pages/ProfilePage';
-import {NotificationsPage} from './pages/NotificationsPage';
-import {ContactSupportPage} from './pages/ContactSupportPage';
+import { LoginPage } from './pages/LoginPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { ContactSupportPage } from './pages/ContactSupportPage';
 
 // --- מסכי מתנדב ---
-import {VolunteerDashboard} from './pages/VolunteerDashboard';
-import {WeeklyAvailabilityPage} from './pages/WeeklyAvailabilityPage';
-import {IncomingRequestPage} from './pages/IncomingRequestPage';
-import {ActiveRoutePage} from './pages/ActiveRoutePage';
-import {CompleteDeliveryPage} from './pages/CompleteDeliveryPage';
-import {AssignmentHistoryPage} from './pages/AssignmentHistoryPage';
-import {VolunteerRatingsPage} from './pages/VolunteerRatingsPage';
-import {CommentsSection} from './pages/CommentsSection';
+import { VolunteerDashboard } from './pages/VolunteerDashboard';
+import { WeeklyAvailabilityPage } from './pages/WeeklyAvailabilityPage';
+import { IncomingRequestPage } from './pages/IncomingRequestPage';
+import { ActiveRoutePage } from './pages/ActiveRoutePage';
+import { CompleteDeliveryPage } from './pages/CompleteDeliveryPage';
+import { AssignmentHistoryPage } from './pages/AssignmentHistoryPage';
+import { VolunteerRatingsPage } from './pages/VolunteerRatingsPage';
+import { CommentsSection } from './pages/CommentsSection';
 
 // --- מסכי ארגון תורם (ספק) ---
-import {CreateDonationPage} from './pages/CreateDonationPage';
-import {OpenDonationsPage} from './pages/OpenDonationsPage';
-import {SupplierDashboard} from './pages/SupplierDashboard';
-import {DonationDetailsPage} from './pages/DonationDetailsPage';
-import {SupplierHistoryPage} from './pages/SupplierHistoryPage';
-import {SupplierCommentsPage} from './pages/SupplierCommentsPage';
+import { CreateDonationPage } from './pages/CreateDonationPage';
+import { OpenDonationsPage } from './pages/OpenDonationsPage';
+import { SupplierDashboard } from './pages/SupplierDashboard';
+import { DonationDetailsPage } from './pages/DonationDetailsPage';
+import { SupplierHistoryPage } from './pages/SupplierHistoryPage';
+import { SupplierCommentsPage } from './pages/SupplierCommentsPage';
 
 // --- מסכי עמותה ---
-import {NgoDashboard} from './pages/NgoDashboard';
-import {NgoRegisterPage} from './pages/NgoRegisterPage';
-import {NgoWorkingHoursPage} from './pages/NgoWorkingHoursPage';
-import {IncomingDonationsPage} from './pages/IncomingDonationsPage';
-import {ConfirmDonationReceiptPage} from './pages/ConfirmDonationReceiptPage';
-import {NgoHistoryPage} from './pages/NgoHistoryPage';
-import {NgoRatingsPage} from './pages/NgoRatingsPage';
-import {NgoCommentsPage} from './pages/NgoCommentsPage';
+import { NgoDashboard } from './pages/NgoDashboard';
+import { NgoRegisterPage } from './pages/NgoRegisterPage';
+import { NgoWorkingHoursPage } from './pages/NgoWorkingHoursPage';
+import { IncomingDonationsPage } from './pages/IncomingDonationsPage';
+import { ConfirmDonationReceiptPage } from './pages/ConfirmDonationReceiptPage';
+import { NgoHistoryPage } from './pages/NgoHistoryPage';
+import { NgoRatingsPage } from './pages/NgoRatingsPage';
+import { NgoCommentsPage } from './pages/NgoCommentsPage';
 
 // --- מסכי ניהול (Admin) ---
-import {AdminDashboard} from './pages/AdminDashboard';
-import {AdminUserApprovalsPage} from './pages/AdminUserApprovalsPage';
-import {AdminUsersManagementPage} from './pages/AdminUsersManagementPage';
-import {VolunteersPage} from './pages/VolunteersPage';
-import {AdminDonationsManagementPage} from './pages/AdminDonationsManagementPage';
-import {AdminMatchingEnginePage} from './pages/AdminMatchingEnginePage';
-import {AdminRoutesManagementPage} from './pages/AdminRoutesManagementPage';
-import {AdminNoShowPage} from './pages/AdminNoShowPage';
-import {AdminReportsPage} from './pages/AdminReportsPage';
-import {AdminCommentsManagementPage} from './pages/AdminCommentsManagementPage';
-import {AdminSettingsPage} from './pages/AdminSettingsPage';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminUserApprovalsPage } from './pages/AdminUserApprovalsPage';
+import { AdminUsersManagementPage } from './pages/AdminUsersManagementPage';
+import { VolunteersPage } from './pages/VolunteersPage';
+import { AdminDonationsManagementPage } from './pages/AdminDonationsManagementPage';
+import { AdminMatchingEnginePage } from './pages/AdminMatchingEnginePage';
+import { AdminRoutesManagementPage } from './pages/AdminRoutesManagementPage';
+import { AdminNoShowPage } from './pages/AdminNoShowPage';
+import { AdminReportsPage } from './pages/AdminReportsPage';
+import { AdminCommentsManagementPage } from './pages/AdminCommentsManagementPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
 
 // --- עמודי ניהול וחיפוש חדשים ---
-import {AdminVolunteersDirectoryPage} from './pages/AdminVolunteersDirectoryPage';
-import {AdminVolunteersAvailabilityPage} from './pages/AdminVolunteersAvailabilityPage';
-import {AdminLiveMonitorPage} from './pages/AdminLiveMonitorPage';
-import {AdminSuppliersDirectoryPage} from './pages/AdminSuppliersDirectoryPage';
-import {AdminNgosDirectoryPage} from './pages/AdminNgosDirectoryPage';
+import { AdminVolunteersDirectoryPage } from './pages/AdminVolunteersDirectoryPage';
+import { AdminVolunteersAvailabilityPage } from './pages/AdminVolunteersAvailabilityPage';
+import { AdminLiveMonitorPage } from './pages/AdminLiveMonitorPage';
+import { AdminSuppliersDirectoryPage } from './pages/AdminSuppliersDirectoryPage';
+import { AdminNgosDirectoryPage } from './pages/AdminNgosDirectoryPage';
 
 // --- מסכי מפה ומסלול ---
-import {GeneralMapPage} from './pages/GeneralMapPage';
-import {VrpRouteVisualizationPage} from './pages/VrpRouteVisualizationPage';
+import { GeneralMapPage } from './pages/GeneralMapPage';
+import { VrpRouteVisualizationPage } from './pages/VrpRouteVisualizationPage';
+
+interface CurrentUser {
+    role?: string;
+    type?: string;
+    [key: string]: any;
+}
 
 export default function App() {
-    let currentUser = { role: 'guest' };
+    let currentUser: CurrentUser = { role: 'guest' };
     try {
         const stored = localStorage.getItem('currentUser');
-        if (stored) currentUser = JSON.parse(stored);
+        if (stored) {
+            currentUser = JSON.parse(stored);
+        }
     } catch (e) {
         currentUser = { role: 'guest' };
     }

@@ -4,8 +4,8 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
 
 export function DonationDetailsPage() {
   const [donation, setDonation] = useState<any>(null);

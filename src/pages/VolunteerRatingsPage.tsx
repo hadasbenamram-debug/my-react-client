@@ -4,8 +4,8 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Rating from '@mui/material/Rating';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
 
 export function VolunteerRatingsPage() {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);

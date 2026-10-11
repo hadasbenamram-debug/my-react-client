@@ -1,13 +1,19 @@
-import {Link, useNavigate} from 'react-router-dom';
-import HeartShape from './HeartShape.jsx';
+import { Link, useNavigate } from 'react-router-dom';
+import HeartShape from './HeartShape';
+import React from 'react';
 
-export default function Header({menuOpen, onToggle}) {
+interface HeaderProps {
+    menuOpen: boolean;
+    onToggle: () => void;
+}
+
+export default function Header({ menuOpen, onToggle }: HeaderProps) {
     const navigate = useNavigate();
 
-    const goHome = (event) => {
+    const goHome = (event: React.MouseEvent<HTMLAnchorElement>) => {
         event.preventDefault();
         navigate('/');
-        window.scrollTo({top: 0, behavior: 'smooth'});
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (

@@ -7,7 +7,7 @@ import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import GroupsIcon from '@mui/icons-material/Groups';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export function AdminDashboard() {
   const [stats, setStats] = useState({

@@ -1,11 +1,16 @@
-import MapBasket from './MapBasket.jsx';
-import {arcPath, pointAt} from '../utils/mapPaths.js';
-import {MAP_ROUTES} from '../data.js';
+import MapBasket from './MapBasket';
+import { arcPath, pointAt } from '../utils/mapPaths.js';
+import { MAP_ROUTES } from '../data.js';
 
-export default function MapRoutes({draw, travel}) {
+interface MapRoutesProps {
+    draw: number;
+    travel: number;
+}
+
+export default function MapRoutes({ draw, travel }: MapRoutesProps) {
     return (
         <g>
-            {MAP_ROUTES.map((route, index) => {
+            {MAP_ROUTES.map((route: any, index: number) => {
                 const arc = arcPath(route.from, route.to, route.bow);
                 const cycle = (travel + index * 0.17) % 1;
                 const at = pointAt(route.from, arc.control, route.to, cycle * draw);

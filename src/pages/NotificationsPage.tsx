@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);

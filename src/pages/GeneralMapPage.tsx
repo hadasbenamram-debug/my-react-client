@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
-import { MapShell, MapView, MAP_COLORS } from '../components/GoogleMapView.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock } from '../components/PageParts';
+import { MapShell, MapView, MAP_COLORS } from '../components/GoogleMapView';
 
 type EntityKind = 'donor' | 'ngo' | 'volunteer' | 'other';
 

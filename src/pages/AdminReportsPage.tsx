@@ -10,9 +10,9 @@ import Typography from '@mui/material/Typography';
 import ScaleIcon from '@mui/icons-material/Scale';
 import TimerIcon from '@mui/icons-material/Timer';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle.jsx';
-import StatGrid from '../components/StatGrid.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import StatGrid from '../components/StatGrid';
+import { LoadingBlock } from '../components/PageParts';
 
 export function AdminReportsPage() {
   const [reports, setReports] = useState<any>({

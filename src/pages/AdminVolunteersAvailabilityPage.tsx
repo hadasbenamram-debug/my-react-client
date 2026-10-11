@@ -4,8 +4,8 @@ import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
 
 export function AdminVolunteersAvailabilityPage() {
   const [availabilityList, setAvailabilityList] = useState<any[]>([]);

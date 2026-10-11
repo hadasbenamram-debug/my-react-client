@@ -1,4 +1,4 @@
-import StatCard from './StatCard.jsx';
+import StatCard from './StatCard.tsx';
 import {STATS} from '../data.js';
 
 export default function Impact() {

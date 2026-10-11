@@ -1,6 +1,6 @@
 import React from 'react';
-import CarShape from './CarShape.jsx';
-import SceneCaption from './SceneCaption.jsx';
+import CarShape from './CarShape';
+import SceneCaption from './SceneCaption';
 import useScrollProgress from '../hooks/useScrollProgress.js';
 import { range } from '../utils/motion.js';
 import { SCENES } from '../data.js';
@@ -16,9 +16,9 @@ export default function CarDrive() {
     const bgTranslateX = (drive - 0.5) * 40;
 
     return (
-        <section className="scene car-scene" ref={ref}>
+        <section className="scene car-scene" ref={ref as any}>
             <div className="scene-sticky">
-                {/* 1. איור הרקע העשיר - מיושר לתחתית המסך */}
+                {/* איור הרקע העשיר - מיושר לתחתית המסך */}
                 <div
                     className="car-scene-background"
                     style={{
@@ -34,7 +34,7 @@ export default function CarDrive() {
                         transform: `translateX(${bgTranslateX}px)`,
                         display: 'flex',
                         alignItems: 'flex-end',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
                     }}
                     aria-hidden="true"
                 >
@@ -78,9 +78,8 @@ export default function CarDrive() {
                             <rect x="1300" y="240" width="70" height="260" />
                         </g>
 
-                        {/* אלמנטים קדמיים מפורטים (בתים, עץ דקל, עציצים ותחנה) */}
+                        {/* אלמנטים קדמיים מפורטים */}
                         <g>
-                            {/* בתים משמאל */}
                             <rect x="80" y="410" width="55" height="90" fill="#ffffff" stroke="#2bacc1" strokeWidth="3" />
                             <polygon points="70,410 107,370 145,410" fill="#2bacc1" />
                             <rect x="98" y="450" width="20" height="50" fill="#1b8698" />
@@ -88,7 +87,6 @@ export default function CarDrive() {
                             <rect x="150" y="410" width="65" height="90" fill="#ffffff" stroke="#2bacc1" strokeWidth="3" />
                             <polygon points="140,410 182,370 225,410" fill="#2bacc1" />
 
-                            {/* עץ דקל משמאל */}
                             <g transform="translate(240, 0)">
                                 <path d="M40,500 Q45,360 40,260" stroke="#0f8188" strokeWidth="7" fill="none" />
                                 <path
@@ -99,52 +97,44 @@ export default function CarDrive() {
                                 />
                             </g>
 
-                            {/* עץ עגול, עציץ נוסף ותחנת אוטובוס עם ספסל */}
                             <g transform="translate(680, 368)">
-                                {/* עציץ קטן נוסף משמאל לעץ */}
                                 <rect x="-50" y="102" width="20" height="30" fill="#2bacc1" rx="2" />
                                 <circle cx="-40" cy="90" r="18" fill="#10808a" />
-
-                                {/* העץ המרכזי */}
                                 <circle cx="20" cy="50" r="42" fill="#0f8188" />
                                 <rect x="15" y="88" width="10" height="44" fill="#5a3d28" />
-
-                                {/* תחנת האוטובוס והספסל */}
                                 <rect x="80" y="32" width="120" height="100" fill="none" stroke="#0f8188" strokeWidth="6" />
                                 <rect x="95" y="92" width="70" height="8" fill="#0f8188" />
                                 <rect x="105" y="100" width="6" height="32" fill="#0f8188" />
                                 <rect x="145" y="100" width="6" height="32" fill="#0f8188" />
                             </g>
 
-                            {/* הרים ימינה בסוף המסלול */}
                             <polygon points="1200,500 1280,390 1360,500" fill="#2bacc1" />
                             <polygon points="1270,500 1340,410 1410,500" fill="#1b8698" />
                         </g>
 
-                        {/* קו הכביש המקווקו הראשי */}
                         <g transform="translate(0, 500)">
                             <line x1="0" y1="0" x2="1400" y2="0" stroke="#777777" strokeWidth="8" strokeDasharray="30 20" />
                         </g>
                     </svg>
                 </div>
 
-                {/* 2. הרכב - ממוקם במדויק על הכביש החדש */}
+                {/* הרכב */}
                 <div
                     className="car-holder"
                     style={{
                         position: 'absolute',
                         top: '50%',
                         left: 0,
-                        transform: `translateX(${65 - drive * 150}vw) translateY(22vh)`,
+                        transform: `translateX(${(65 - drive * 150)}vw) translateY(22vh)`,
                         opacity: 1 - exit,
-                        '--spin': `${drive * 1440}deg`,
-                        zIndex: 10
+                        ['--spin' as any]: `${drive * 1440}deg`,
+                        zIndex: 10,
                     }}
                 >
                     <CarShape />
                 </div>
 
-                {/* 3. הכיתוב של הסצנה */}
+                {/* הכיתוב של הסצנה */}
                 <SceneCaption title={SCENES.car.title} text={SCENES.car.text} progress={reveal} />
             </div>
         </section>

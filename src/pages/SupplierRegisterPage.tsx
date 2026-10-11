@@ -4,8 +4,8 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection, StatusAlert } from '../components/FormParts';
 
 const userFields = [
   { name: 'name', label: 'שם מלא' },

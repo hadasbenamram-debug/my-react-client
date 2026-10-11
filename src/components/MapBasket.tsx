@@ -1,4 +1,9 @@
-export default function MapBasket({x, y}) {
+interface MapBasketProps {
+    x: number;
+    y: number;
+}
+
+export default function MapBasket({ x, y }: MapBasketProps) {
     return (
         <g className="map-basket" transform={`translate(${x} ${y})`}>
             <path

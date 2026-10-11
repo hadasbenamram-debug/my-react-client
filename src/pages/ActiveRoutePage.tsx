@@ -6,8 +6,8 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import NavigationIcon from '@mui/icons-material/Navigation';
 import MapIcon from '@mui/icons-material/Map';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
 
 export function ActiveRoutePage() {
   const [routes, setRoutes] = useState<any[]>([]);

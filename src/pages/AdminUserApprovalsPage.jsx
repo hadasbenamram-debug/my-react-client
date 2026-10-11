@@ -7,7 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export function AdminUserApprovalsPage() {
   const [selectedRole, setSelectedRole] = useState('volunteers'); // 'volunteers', 'suppliers', או 'associations'

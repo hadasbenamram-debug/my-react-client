@@ -4,9 +4,9 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
-import { StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import { StatusAlert } from '../components/FormParts';
 
 export function CompleteDeliveryPage() {
   const [loading, setLoading] = useState(true);

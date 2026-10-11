@@ -3,13 +3,21 @@ import Card from '@mui/material/Card';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 
+interface LoadingBlockProps {
+    text?: string;
+}
+
+interface EmptyStateProps {
+    text?: string;
+}
+
 // מצב טעינה אחיד לכל הדפים
-export function LoadingBlock({text}) {
+export function LoadingBlock({ text }: LoadingBlockProps) {
     return (
-        <Box sx={{textAlign: 'center', py: 10}}>
+        <Box sx={{ textAlign: 'center', py: 10 }}>
             <CircularProgress size={32} />
             {text ? (
-                <Typography color="text.secondary" sx={{mt: 2}}>
+                <Typography color="text.secondary" sx={{ mt: 2 }}>
                     {text}
                 </Typography>
             ) : null}
@@ -18,9 +26,9 @@ export function LoadingBlock({text}) {
 }
 
 // כרטיס "אין נתונים" אחיד
-export function EmptyState({text}) {
+export function EmptyState({ text }: EmptyStateProps) {
     return (
-        <Card sx={{p: 4, textAlign: 'center'}}>
+        <Card sx={{ p: 4, textAlign: 'center' }}>
             <Typography color="text.secondary">{text}</Typography>
         </Card>
     );

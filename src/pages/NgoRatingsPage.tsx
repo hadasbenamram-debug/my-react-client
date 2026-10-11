@@ -7,7 +7,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Rating from '@mui/material/Rating';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
 
 export function NgoRatingsPage() {
   const { id } = useParams(); // שליפת ה-ID אוטומטית מכתובת ה-URL

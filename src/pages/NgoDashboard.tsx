@@ -5,8 +5,8 @@ import Typography from '@mui/material/Typography';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle.jsx';
-import StatGrid from '../components/StatGrid.jsx';
+import PageTitle from '../components/PageTitle';
+import StatGrid from '../components/StatGrid';
 
 export function NgoDashboard() {
   const [ngoData, setNgoData] = useState<any[]>([]);

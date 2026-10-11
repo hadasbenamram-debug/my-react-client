@@ -4,9 +4,9 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
-import { MapShell, MapView, MAP_COLORS, useGeocodedStops } from '../components/GoogleMapView.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import { MapShell, MapView, MAP_COLORS, useGeocodedStops } from '../components/GoogleMapView';
 
 function RouteMap({ stops }: { stops: any[] }) {
   const geocoded = useGeocodedStops(stops);

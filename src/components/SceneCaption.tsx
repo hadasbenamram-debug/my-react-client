@@ -1,4 +1,11 @@
-export default function SceneCaption({title, text, progress, tone = 'dark'}) {
+interface SceneCaptionProps {
+    title: string;
+    text?: string;
+    progress: number;
+    tone?: 'dark' | 'light';
+}
+
+export default function SceneCaption({ title, text, progress, tone = 'dark' }: SceneCaptionProps) {
     return (
         <div
             className={`scene-caption${tone === 'light' ? ' scene-caption--light' : ''}`}

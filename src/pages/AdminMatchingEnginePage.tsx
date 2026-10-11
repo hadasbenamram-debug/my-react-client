@@ -12,8 +12,8 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock } from '../components/PageParts';
 
 interface EngineStatus {
   lastRunTime: string;

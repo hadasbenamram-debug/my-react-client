@@ -6,8 +6,8 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection } from '../components/FormParts';
 
 interface VolunteerDto {
   id?: number;

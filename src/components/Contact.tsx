@@ -1,17 +1,24 @@
-import {useState} from 'react';
+import { useState, ChangeEvent, FormEvent } from 'react';
+import React from 'react';
 
-const EMPTY = {name: '', phone: '', email: ''};
+interface FormData {
+    name: string;
+    phone: string;
+    email: string;
+}
+
+const EMPTY: FormData = { name: '', phone: '', email: '' };
 
 export default function Contact() {
-    const [form, setForm] = useState(EMPTY);
-    const [sent, setSent] = useState(false);
+    const [form, setForm] = useState<FormData>(EMPTY);
+    const [sent, setSent] = useState<boolean>(false);
 
-    const onChange = (event) => {
-        const {name, value} = event.target;
-        setForm((prev) => ({...prev, [name]: value}));
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = event.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const onSubmit = (event) => {
+    const onSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setSent(true);
         setForm(EMPTY);

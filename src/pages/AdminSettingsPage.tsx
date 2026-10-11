@@ -3,9 +3,9 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection } from '../components/FormParts.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection } from '../components/FormParts';
+import { LoadingBlock } from '../components/PageParts';
 
 export function AdminSettingsPage() {
   const [settings, setSettings] = useState({

@@ -6,8 +6,8 @@ import Card from '@mui/material/Card';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection, StatusAlert } from '../components/FormParts';
 
 const timeField = { inputLabel: { shrink: true } };
 

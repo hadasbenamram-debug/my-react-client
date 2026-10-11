@@ -1,5 +1,5 @@
 import {useEffect} from 'react';
-import Contact from './Contact.jsx';
+import Contact from './Contact';
 
 export default function ContactPage() {
     useEffect(() => {

@@ -1,10 +1,32 @@
-import {useEffect} from 'react';
-import SceneCaption from './SceneCaption.jsx';
+import { useEffect } from 'react';
+import SceneCaption from './SceneCaption';
 import useScrollProgress from '../hooks/useScrollProgress.js';
-import {range} from '../utils/motion.js';
+import { range } from '../utils/motion.js';
+
+interface GrowSceneProps {
+    id?: string;
+    variant?: string;
+    maxScale: number;
+    minScale?: number;
+    beat?: boolean;
+    darkFlood?: boolean;
+    title: string;
+    text?: string;
+    children?: React.ReactNode;
+}
 
 /** Shape grows from a dot until it floods the viewport, then hands over to the caption. */
-export default function GrowScene({id, variant, maxScale, minScale = 0.06, beat, darkFlood, title, text, children}) {
+export default function GrowScene({
+    id,
+    variant,
+    maxScale,
+    minScale = 0.06,
+    beat,
+    darkFlood,
+    title,
+    text,
+    children
+}: GrowSceneProps) {
     const [ref, progress] = useScrollProgress();
     const grow = range(progress, 0.04, 0.3);
     const flood = range(progress, 0.34, 0.55);
@@ -24,20 +46,20 @@ export default function GrowScene({id, variant, maxScale, minScale = 0.06, beat,
     }, [overDark]);
 
     return (
-        <section className={`scene scene--${variant}`} id={id} ref={ref}>
+        <section className={`scene scene--${variant}`} id={id} ref={ref as any}>
             <div className="scene-sticky">
                 <div
                     className={`scene-shape${beat && grow > 0.97 && flood < 0.02 ? ' is-beating' : ''}`}
-                    style={{transform: `scale(${scale})`, opacity: 1 - shapeDrain}}
+                    style={{ transform: `scale(${scale})`, opacity: 1 - shapeDrain }}
                 >
                     {children}
                 </div>
                 <span
                     className="scene-flood"
                     aria-hidden="true"
-                    style={{opacity: floodOpacity}}
+                    style={{ opacity: floodOpacity }}
                 />
-                <SceneCaption title={title} text={text} progress={reveal} tone={captionTone} />
+                <SceneCaption title={title} text={text} progress={reveal} tone={captionTone as any} />
             </div>
         </section>
     );

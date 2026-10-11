@@ -8,8 +8,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection, StatusAlert } from '../components/FormParts';
 
 interface DonationCategoryLineDto {
   categoryId: number;
