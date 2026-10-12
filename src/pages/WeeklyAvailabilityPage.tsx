@@ -23,6 +23,12 @@ interface AvailabilitySlot {
   toRegionId: number;
 }
 
+interface RegionOption {
+  id: number;
+  regionName?: string;
+  name?: string;
+}
+
 const daysOfWeek = [
   { label: 'ראשון', value: 0 },
   { label: 'שני', value: 1 },
@@ -36,12 +42,12 @@ const daysOfWeek = [
 export const WeeklyAvailabilityPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [regions, setRegions] = useState<RegionOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. בדיקה האם יש טוקן בכתובת ה-URL (הגיע מהמייל)
     const queryParams = new URLSearchParams(window.location.search);
     const urlToken = queryParams.get('token');
 
@@ -50,7 +56,6 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // 2. שליפת הטוקן מ-localStorage לבדיקת הרשאה
     const token = localStorage.getItem('token');
     if (!token) {
       setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
@@ -58,63 +63,63 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       return;
     }
 
-    // 3. שליפת נתוני הזמינות הקיימים של המתנדב
-    const fetchAvailability = async () => {
+    const fetchData = async () => {
       try {
+        // שליפת רשימת האזורים מהשרת
+        const regionsRes = await axios.get(`/api/region`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (regionsRes.data && Array.isArray(regionsRes.data)) {
+          setRegions(regionsRes.data);
+        }
+
+        // שליפת נתוני הזמינות הקיימים של המתנדב
         const response = await axios.get(`/api/volunteers/availability`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         });
 
-        // אם יש נתונים קיימים, נטען אותם לסטייט
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           setAvailabilitySlots(response.data.map((slot: any) => ({
             day: slot.day ?? 0,
             startTime: slot.startTime ? slot.startTime.substring(0, 5) : '08:00',
             endTime: slot.endTime ? slot.endTime.substring(0, 5) : '16:00',
-            regionId: slot.regionId ?? 1,
+            regionId: slot.regionId ?? (regionsRes.data[0]?.id || 1),
             toRegionId: slot.toRegionId ?? 0
           })));
         } else {
-          // ברירת מחדל: שורה ריקה אחת להתחלה
           setAvailabilitySlots([
-            { day: 0, startTime: '08:00', endTime: '16:00', regionId: 1, toRegionId: 0 }
+            { day: 0, startTime: '08:00', endTime: '16:00', regionId: regionsRes.data[0]?.id || 1, toRegionId: 0 }
           ]);
         }
       } catch (err: any) {
-        console.error('Error fetching availability:', err);
-        setError('שגיאה בטעינת הנתונים. ייתכן שפג תוקף ההתחברות.');
+        console.error('Error fetching data:', err);
+        setError('שגיאה בטעינת הנתונים מהשרת.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAvailability();
+    fetchData();
   }, []);
 
-  // הוספת משבצת זמינות חדשה לרשימה
   const handleAddSlot = () => {
     setAvailabilitySlots([
       ...availabilitySlots,
-      { day: 0, startTime: '08:00', endTime: '16:00', regionId: 1, toRegionId: 0 }
+      { day: 0, startTime: '08:00', endTime: '16:00', regionId: regions[0]?.id || 1, toRegionId: 0 }
     ]);
   };
 
-  // מחיקת משבצת זמינות
   const handleRemoveSlot = (index: number) => {
     const updated = availabilitySlots.filter((_, i) => i !== index);
     setAvailabilitySlots(updated);
   };
 
-  // עדכון שדה ספציפי במשבצת
   const handleSlotChange = (index: number, field: keyof AvailabilitySlot, value: any) => {
     const updated = [...availabilitySlots];
     updated[index] = { ...updated[index], [field]: value };
     setAvailabilitySlots(updated);
   };
 
-  // שמירת הזמינות בשרת
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -124,9 +129,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
     const token = localStorage.getItem('token');
     try {
       await axios.post(`/api/volunteers/availability`, availabilitySlots, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
       setSuccessMessage('הזמינות נשמרה בהצלחה!');
     } catch (err: any) {
@@ -206,11 +209,17 @@ export const WeeklyAvailabilityPage: React.FC = () => {
                 />
 
                 <TextField
-                  label="מזהה אזור"
-                  type="number"
+                  select
+                  label="אזור פעילות"
                   value={slot.regionId}
-                  onChange={(e) => handleSlotChange(index, 'regionId', parseInt(e.target.value) || 0)}
-                />
+                  onChange={(e) => handleSlotChange(index, 'regionId', parseInt(e.target.value))}
+                >
+                  {regions.map((reg) => (
+                    <MenuItem key={reg.id} value={reg.id}>
+                      {reg.regionName || reg.name || `אזור ${reg.id}`}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Box>
             </Box>
           ))}

@@ -11,13 +11,14 @@ import { FormSection } from '../components/FormParts.jsx';
 
 interface VolunteerDto {
   id?: number;
+  name?: string; // הוספת שדה השם
   vehicleType: string;
   maxCapacityKg: number;
   isAvailable: boolean;
   currentLatitude: number;
   currentLongitude: number;
   idNumber: string;
-  driverLicenseNumber: string; // הוספת שדה מספר רישיון
+  driverLicenseNumber: string;
   dateOfBirth: string;
   reliabilityScore: number;
 }
@@ -33,7 +34,7 @@ export function VolunteersPage() {
     currentLatitude: 32.0853,
     currentLongitude: 34.7818,
     idNumber: '',
-    driverLicenseNumber: '', // ערך התחלתי ריק
+    driverLicenseNumber: '',
     dateOfBirth: '1995-01-01T00:00:00',
     reliabilityScore: 100
   });
@@ -159,7 +160,9 @@ export function VolunteersPage() {
         volunteers.map((v, idx) => (
           <Card key={idx} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 500 }}>מתנדב #{v.id}</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                {v.name ? v.name : `מתנדב #${v.id}`}
+              </Typography>
               <Chip
                 size="small"
                 label={v.isAvailable ? 'זמין' : 'לא זמין'}

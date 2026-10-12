@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -15,6 +16,11 @@ interface DonationCategoryLineDto {
   categoryId: number;
   quantity: number;
   weightKg: number;
+}
+
+interface CategoryOption {
+  id: number;
+  name: string;
 }
 
 interface CreateDonationDto {
@@ -38,6 +44,7 @@ export function CreateDonationPage() {
     { categoryId: 1, quantity: 10, weightKg: 20 }
   ]);
 
+  const [availableCategories, setAvailableCategories] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -50,10 +57,25 @@ export function CreateDonationPage() {
       localStorage.setItem('token', urlToken);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    // שליפת רשימת הקטגוריות מהשרת לבחירה נוחה
+    const token = localStorage.getItem('token');
+    fetch('/api/categories', {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAvailableCategories(data);
+        }
+      })
+      .catch(err => console.error('שגיאה בטעינת קטגוריות:', err));
   }, []);
 
   const handleAddCategoryLine = () => {
-    setCategories([...categories, { categoryId: 1, quantity: 1, weightKg: 1 }]);
+    setCategories([...categories, { categoryId: availableCategories[0]?.id || 1, quantity: 1, weightKg: 1 }]);
   };
 
   const handleRemoveCategoryLine = (index: number) => {
@@ -178,11 +200,18 @@ export function CreateDonationPage() {
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
                 <TextField
-                  label="מזהה קטגוריה"
-                  type="number"
+                  select
+                  label="בחר קטגוריה"
                   value={cat.categoryId}
                   onChange={(e) => handleCategoryChange(index, 'categoryId', Number(e.target.value))}
-                />
+                  required
+                >
+                  {availableCategories.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 <TextField
                   label="כמות יחידות"
                   type="number"

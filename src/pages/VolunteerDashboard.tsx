@@ -13,7 +13,6 @@ export function VolunteerDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // שליפת הטוקן מ-localStorage לצורך אימות מול השרת
     const token = localStorage.getItem('token');
     if (!token) {
       setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
@@ -27,7 +26,6 @@ export function VolunteerDashboard() {
       }
     })
       .then(res => {
-        // אם השרת מחזיר 404, המשמעות היא שאין שיבוץ פעיל כרגע - נחזיר null ברוגע
         if (res.status === 404) {
           return null;
         }
@@ -64,6 +62,9 @@ export function VolunteerDashboard() {
     );
   }
 
+  // חילוץ בטוח של מזהה השיבוץ מתוך האובייקט (מותאם לשמות שדה שונים האפשריים מהשרת)
+  const matchId = dashboardData?.id || dashboardData?.Id || dashboardData?.matchId || dashboardData?.MatchId;
+
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
       <PageTitle eyebrow="מתנדב" title="הדשבורד שלי" subtitle="סטטוס ושיבוצים פעילים." />
@@ -78,10 +79,10 @@ export function VolunteerDashboard() {
         </Typography>
       </Card>
 
-      {dashboardData ? (
+      {matchId ? (
         <Alert severity="success" icon={false} sx={{ p: 3 }}>
           <Typography sx={{ fontWeight: 500, mb: 0.5 }}>שיבוץ פעיל נמצא!</Typography>
-          <Typography>מזהה שיבוץ: #{dashboardData.id}</Typography>
+          <Typography>מזהה שיבוץ: #{matchId}</Typography>
         </Alert>
       ) : (
         <Card sx={{ p: { xs: 3, md: 4 }, textAlign: 'center' }}>

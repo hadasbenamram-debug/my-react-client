@@ -93,7 +93,9 @@ export function AdminDonationsManagementPage() {
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
                 <Chip size="small" variant="outlined" color="primary" label={item.status} />
               </Box>
-              <Typography color="text.secondary"><strong>ספק:</strong> {item.supplierId}</Typography>
+              <Typography color="text.secondary">
+                <strong>ספק:</strong> {item.supplierName || item.SupplierName || item.name || item.supplier?.name || item.supplier?.businessName || `מזהה #${item.supplierId}`}
+              </Typography>
             </Box>
             <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
               בטל תרומה (התערבות)

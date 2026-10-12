@@ -27,13 +27,12 @@ export function NgoWorkingHoursPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. תפיסת הטוקן מה-URL ושמירתו ב-localStorage
+    // תפיסת הטוקן מה-URL ושמירתו ב-localStorage
     const queryParams = new URLSearchParams(window.location.search);
     const urlToken = queryParams.get('token');
 
     if (urlToken) {
       localStorage.setItem('token', urlToken);
-      // מנקה את הטוקן משורת הכתובת בדפדפן
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -43,6 +42,15 @@ export function NgoWorkingHoursPage() {
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+
+    // בדיקת הגבלה לשעת סגירה ביום שישי עד 16:00
+    if (workingHours.receivesOnFriday && workingHours.fridayCloseTime) {
+      if (workingHours.fridayCloseTime > '16:00') {
+        setError('שעת הסגירה ביום שישי אינה יכולה להיות מאוחרת מהשעה 16:00.');
+        setLoading(false);
+        return;
+      }
+    }
 
     const token = localStorage.getItem('token');
     if (!token) {
@@ -145,8 +153,14 @@ export function NgoWorkingHoursPage() {
                   label="שעת סגירה"
                   type="time"
                   value={workingHours.fridayCloseTime}
-                  onChange={(e) => setWorkingHours({ ...workingHours, fridayCloseTime: e.target.value })}
-                  slotProps={timeField}
+                  onChange={(e) => {
+                    setError(null);
+                    setWorkingHours({ ...workingHours, fridayCloseTime: e.target.value });
+                  }}
+                  slotProps={{
+                    htmlInput: { max: '16:00' },
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </FormSection>
             </Box>

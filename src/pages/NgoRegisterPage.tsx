@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import PageTitle from '../components/PageTitle.jsx';
 import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+
+interface RegionOption {
+  id: number;
+  regionName?: string;
+  name?: string;
+}
 
 const userFields = [
   { name: 'name', label: 'שם מלא' },
@@ -18,7 +25,6 @@ const ngoFields = [
   { name: 'registrationNumber', label: 'מספר רישום (חברה/עמותה)' },
   { name: 'address', label: 'כתובת' },
   { name: 'dailyCapacity', label: 'קיבולת יומית (ק"ג)', type: 'number' },
-  { name: 'regionId', label: 'מזהה אזור (Region ID)', type: 'number' },
 ];
 
 export function NgoRegisterPage() {
@@ -38,10 +44,24 @@ export function NgoRegisterPage() {
     fridayCloseTime: '',
   });
 
+  const [regions, setRegions] = useState<RegionOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // שליפת רשימת האזורים מהשרת בעת טעינת העמוד
+  useEffect(() => {
+    fetch('/api/region')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRegions(data);
+          setFormData((prev) => ({ ...prev, regionId: data[0].id }));
+        }
+      })
+      .catch((err) => console.error('שגיאה בטעינת אזורים:', err));
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | { name?: string; value: unknown }>) => {
     const target = e.target as HTMLInputElement;
     const { name, value, type, checked } = target;
     setFormData({
@@ -105,13 +125,31 @@ export function NgoRegisterPage() {
         <form onSubmit={handleSubmit}>
           <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
           <Divider sx={{ my: 4 }} />
-          <FormSection title="פרטי העמותה">{ngoFields.map(renderField)}</FormSection>
+          <FormSection title="פרטי העמותה">
+            {ngoFields.map(renderField)}
+            
+            {/* רשימה נפתחת לבחירת אזור פעילות מתוך השרת */}
+            <TextField
+              select
+              name="regionId"
+              label="אזור פעילות"
+              value={formData.regionId}
+              onChange={handleChange}
+              required
+            >
+              {regions.map((reg) => (
+                <MenuItem key={reg.id} value={reg.id}>
+                  {reg.regionName || reg.name || `אזור ${reg.id}`}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FormSection>
 
           <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
             {loading ? 'שולח לאישור...' : 'הירשם כעמותה'}
           </Button>
         </form>
-        <StatusAlert message={message} />
+        <StatusAlert message={message} success={message.includes('בהצלחה')} />
       </Card>
     </Box>
   );

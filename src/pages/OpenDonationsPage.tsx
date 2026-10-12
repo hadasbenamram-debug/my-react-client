@@ -11,6 +11,7 @@ interface DonationItem {
   id: number;
   status: string;
   regionId: number;
+  regionName?: string; // הוספת שדה שם האזור
   priorityScore: number;
   createdAt?: string;
 }
@@ -19,7 +20,6 @@ export function OpenDonationsPage() {
   const [donations, setDonations] = useState<DonationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // שליפת התרומות של הספק המחובר לפי הנתיב הנכון בשרת
   const fetchDonations = () => {
     const token = localStorage.getItem('token');
 
@@ -65,7 +65,7 @@ export function OpenDonationsPage() {
       .then(res => {
         if (res.ok) {
           alert('התרומה בוטלה בהצלחה.');
-          fetchDonations(); // רענון הרשימה
+          fetchDonations();
         } else {
           alert('לא ניתן לבטל תרומה שכבר שובצה או נאספה.');
         }
@@ -105,7 +105,9 @@ export function OpenDonationsPage() {
                   label={item.status}
                 />
               </Box>
-              <Typography color="text.secondary"><strong>מזהה אזור:</strong> {item.regionId}</Typography>
+              <Typography color="text.secondary">
+                <strong>אזור:</strong> {item.regionName || `מזהה אזור: ${item.regionId}`}
+              </Typography>
             </Box>
             {item.status === 'Pending' && (
               <Button variant="outlined" color="error" onClick={() => handleCancel(item.id)}>
