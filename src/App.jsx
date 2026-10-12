@@ -1,6 +1,7 @@
 import {BrowserRouter, Route, Routes, Navigate} from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import ContactPage from './components/ContactPage.jsx';
+import HomePage from './components/HomePage.jsx';
 import AppPageLayout from './components/AppPageLayout.jsx';
 
 // --- דפים כלליים ---
@@ -71,15 +72,14 @@ export default function App() {
         currentUser = { role: 'guest' };
     }
 
-    const role = (currentUser.role || currentUser.type || '').toLowerCase();
-
-    const getHomeRedirect = () => {
-        if (role === 'admin') return <Navigate to="/app/admin/dashboard" replace />;
-        if (role.includes('volunt')) return <Navigate to="/app/volunteer/dashboard" replace />;
-        if (role.includes('suppl') || role.includes('business')) return <Navigate to="/app/supplier/dashboard" replace />;
-        if (role.includes('ngo') || role.includes('org')) return <Navigate to="/app/ngo/dashboard" replace />;
-        return <Navigate to="/app/login" replace />;
-    };
+const role = (currentUser.role || currentUser.type || 'guest').toLowerCase();
+const getHomeRedirect = () => {
+    if (role === 'admin') return <Navigate to="/app/admin/dashboard" replace />;
+    if (role.includes('volunt')) return <Navigate to="/app/volunteer/dashboard" replace />;
+    if (role.includes('suppl') || role.includes('business')) return <Navigate to="/app/supplier/dashboard" replace />;
+    if (role.includes('ngo') || role.includes('org')) return <Navigate to="/app/ngo/dashboard" replace />;
+    return <HomePage />;   // במקום ההפניה להתחברות
+};
 
     return (
         <BrowserRouter>
