@@ -34,15 +34,20 @@ export const LoginPage: React.FC = () => {
         setMessage('התחברת בהצלחה!');
         
         localStorage.setItem('token', data.token);
-        
-        if (data.user) {
-          localStorage.setItem('currentUser', JSON.stringify(data.user));
-        } else {
-          localStorage.setItem('currentUser', JSON.stringify({ email, role: data.role || 'volunteer' }));
-        }
+
+        const user = data.user ? data.user : { email, role: data.role || 'volunteer' };
+        localStorage.setItem('currentUser', JSON.stringify(user));
+
+        // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד (מסך הבית נשאר זמין בכתובת "/")
+        const role = String(user.role || user.type || '').toLowerCase();
+        let target = '/';
+        if (role === 'admin') target = '/app/admin/dashboard';
+        else if (role.includes('volunt')) target = '/app/volunteer/dashboard';
+        else if (role.includes('suppl') || role.includes('business')) target = '/app/supplier/dashboard';
+        else if (role.includes('ngo') || role.includes('org')) target = '/app/ngo/dashboard';
 
         setTimeout(() => {
-          window.location.href = '/';
+          window.location.href = target;
         }, 1000);
 
       } else {

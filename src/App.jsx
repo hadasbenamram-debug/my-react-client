@@ -59,6 +59,10 @@ import {AdminLiveMonitorPage} from './pages/AdminLiveMonitorPage';
 import {AdminSuppliersDirectoryPage} from './pages/AdminSuppliersDirectoryPage';
 import {AdminNgosDirectoryPage} from './pages/AdminNgosDirectoryPage';
 
+// --- דפי הרשמה (ציבוריים) ---
+import {VolunteerRegisterPage} from './pages/VolunteerRegisterPage';
+import {SupplierRegisterPage} from './pages/SupplierRegisterPage';
+
 // --- מסכי מפה ומסלול ---
 import {GeneralMapPage} from './pages/GeneralMapPage';
 import {VrpRouteVisualizationPage} from './pages/VrpRouteVisualizationPage';
@@ -72,25 +76,21 @@ export default function App() {
         currentUser = { role: 'guest' };
     }
 
-const role = (currentUser.role || currentUser.type || 'guest').toLowerCase();
-const getHomeRedirect = () => {
-    if (role === 'admin') return <Navigate to="/app/admin/dashboard" replace />;
-    if (role.includes('volunt')) return <Navigate to="/app/volunteer/dashboard" replace />;
-    if (role.includes('suppl') || role.includes('business')) return <Navigate to="/app/supplier/dashboard" replace />;
-    if (role.includes('ngo') || role.includes('org')) return <Navigate to="/app/ngo/dashboard" replace />;
-    return <HomePage />;   // במקום ההפניה להתחברות
-};
+    const role = (currentUser.role || currentUser.type || 'guest').toLowerCase();
 
     return (
         <BrowserRouter>
             <Routes>
                 <Route element={<Layout />}>
-                    <Route path="/" element={getHomeRedirect()} />
+                    <Route path="/" element={<HomePage />} />
                     <Route path="/contact" element={<ContactPage />} />
 
                     <Route element={<AppPageLayout />}>
                         <Route path="/app/login" element={<LoginPage />} />
                         <Route path="/app/forgot-password" element={<ForgotPasswordPage />} />
+                        <Route path="/app/register-volunteer" element={<VolunteerRegisterPage />} />
+                        <Route path="/app/register-supplier" element={<SupplierRegisterPage />} />
+                        <Route path="/app/register-ngo" element={<NgoRegisterPage />} />
 
                         {/* --- מנהל מערכת (Admin) --- */}
                         {role === 'admin' && (
