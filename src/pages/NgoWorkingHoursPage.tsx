@@ -6,8 +6,10 @@ import Card from '@mui/material/Card';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection, StatusAlert } from '../components/FormParts';
+import { getApiErrorMessage } from '../utils/apiError';
+import type { NgoResponseDto, UpdateNgoHoursDto } from '../types/api';
 
 const timeField = { inputLabel: { shrink: true } };
 
@@ -26,16 +28,21 @@ export function NgoWorkingHoursPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // טעינת השעות והמיקום הנוכחיים של העמותה (בעבר הטופס תמיד התחיל מערכי ברירת מחדל,
+  // ונשמר מה-URL טוקן כטוקן התחברות)
   useEffect(() => {
-    // 1. תפיסת הטוקן מה-URL ושמירתו ב-localStorage
-    const queryParams = new URLSearchParams(window.location.search);
-    const urlToken = queryParams.get('token');
-
-    if (urlToken) {
-      localStorage.setItem('token', urlToken);
-      // מנקה את הטוקן משורת הכתובת בדפדפן
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    axios.get<NgoResponseDto>('/api/ngos/me')
+      .then(({ data }) => setWorkingHours({
+        address: data.address ?? '',
+        latitude: data.latitude,
+        longitude: data.longitude,
+        sunToThuOpenTime: (data.sunToThuOpenTime ?? '09:00').substring(0, 5),
+        sunToThuCloseTime: (data.sunToThuCloseTime ?? '17:00').substring(0, 5),
+        receivesOnFriday: data.receivesOnFriday,
+        fridayOpenTime: (data.fridayOpenTime ?? '08:00').substring(0, 5),
+        fridayCloseTime: (data.fridayCloseTime ?? '13:00').substring(0, 5),
+      }))
+      .catch(() => { /* אין פרופיל עדיין - נשארים עם ברירת המחדל */ });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,14 +51,22 @@ export function NgoWorkingHoursPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('לא נמצא טוקן התחברות. אנא פתח את הקישור מחדש מהמייל.');
+    // בדיקת הגבלה לשעת סגירה ביום שישי עד 16:00
+    if (workingHours.receivesOnFriday && workingHours.fridayCloseTime) {
+      if (workingHours.fridayCloseTime > '16:00') {
+        setError('שעת הסגירה ביום שישי אינה יכולה להיות מאוחרת מהשעה 16:00.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (workingHours.sunToThuOpenTime >= workingHours.sunToThuCloseTime) {
+      setError('שעת הפתיחה חייבת להיות לפני שעת הסגירה.');
       setLoading(false);
       return;
     }
 
-    const payload = {
+    const payload: UpdateNgoHoursDto = {
       address: workingHours.address,
       latitude: Number(workingHours.latitude),
       longitude: Number(workingHours.longitude),
@@ -63,16 +78,12 @@ export function NgoWorkingHoursPage() {
     };
 
     try {
-      await axios.put('https://localhost:7295/api/ngos/my-hours', payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // נתיב יחסי (עובר דרך ה-proxy של Vite / אותו דומיין בייצור) - לא כתובת localhost קבועה
+      await axios.put('/api/ngos/my-hours', payload);
       setSuccessMessage('שעות הקבלה והמיקום עודכנו בהצלחה!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('שגיאה בעדכון הנתונים:', err);
-      setError(err.response?.data?.message || 'שגיאה בעדכון הנתונים מול השרת.');
+      setError(getApiErrorMessage(err) || 'שגיאה בעדכון הנתונים מול השרת.');
     } finally {
       setLoading(false);
     }
@@ -145,8 +156,14 @@ export function NgoWorkingHoursPage() {
                   label="שעת סגירה"
                   type="time"
                   value={workingHours.fridayCloseTime}
-                  onChange={(e) => setWorkingHours({ ...workingHours, fridayCloseTime: e.target.value })}
-                  slotProps={timeField}
+                  onChange={(e) => {
+                    setError(null);
+                    setWorkingHours({ ...workingHours, fridayCloseTime: e.target.value });
+                  }}
+                  slotProps={{
+                    htmlInput: { max: '16:00' },
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </FormSection>
             </Box>

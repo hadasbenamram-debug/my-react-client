@@ -4,11 +4,12 @@ import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { AdminNgoListItemView } from '../types/api';
 
 export function AdminNgosDirectoryPage() {
-  const [ngos, setNgos] = useState<any[]>([]);
+  const [ngos, setNgos] = useState<AdminNgoListItemView[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -22,7 +23,7 @@ export function AdminNgosDirectoryPage() {
       }
     })
       .then(res => res.json())
-      .then(data => {
+      .then((data: AdminNgoListItemView[]) => {
         if (Array.isArray(data)) {
           setNgos(data);
         }
@@ -60,7 +61,7 @@ export function AdminNgosDirectoryPage() {
         <EmptyState text="לא נמצאו עמותות התואמות את החיפוש." />
       ) : (
         filteredNgos.map((ngo) => (
-          <Card key={ngo.id || ngo.userId} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Card key={ngo.id} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>{ngo.name || 'עמותה ללא שם'}</Typography>
               <Typography color="text.secondary" variant="body2">טלפון: {ngo.phone || 'לא צויין'} | עיר: {ngo.city || 'לא צויין'}</Typography>

@@ -5,8 +5,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle.jsx';
-import StatGrid from '../components/StatGrid.jsx';
+import PageTitle from '../components/PageTitle';
+import StatGrid from '../components/StatGrid';
+import type { ApiErrorBody, SupplierDonationSummaryDto } from '../types/api';
 
 export function SupplierDashboard() {
   const [stats, setStats] = useState({ activeDonations: 0, completedDonations: 0 });
@@ -31,16 +32,16 @@ export function SupplierDashboard() {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data: SupplierDonationSummaryDto[] = await response.json();
 
           if (Array.isArray(data)) {
             // שים לב לשימוש בסטטוסים המדויקים שמוחזרים מהשרת
-            const active = data.filter((d: any) => d.status === 'Pending' || d.status === 'Matched').length;
-            const completed = data.filter((d: any) => d.status === 'Completed').length;
+            const active = data.filter((d: SupplierDonationSummaryDto) => d.status === 'Pending' || d.status === 'Matched' || d.status === 'PickedUp' || d.status === 'Delivered').length;
+            const completed = data.filter((d: SupplierDonationSummaryDto) => d.status === 'Completed').length;
             setStats({ activeDonations: active, completedDonations: completed });
           }
         } else {
-          const errData = await response.json().catch(() => ({}));
+          const errData: ApiErrorBody = await response.json().catch(() => ({}));
           setError(errData.message || 'שגיאה בטעינת הנתונים מהשרת.');
         }
       } catch (err) {

@@ -4,11 +4,13 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { AdminDonationView } from '../types/api';
+import { DONATION_STATUS_LABELS } from '../utils/format';
 
 export function AdminDonationsManagementPage() {
-  const [donations, setDonations] = useState<any[]>([]);
+  const [donations, setDonations] = useState<AdminDonationView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDonations = () => {
@@ -25,7 +27,7 @@ export function AdminDonationsManagementPage() {
         if (!res.ok) throw new Error('שגיאה בטעינת תרומות');
         return res.json();
       })
-      .then(data => {
+      .then((data: AdminDonationView[]) => {
         if (Array.isArray(data)) {
           setDonations(data);
         }
@@ -43,13 +45,16 @@ export function AdminDonationsManagementPage() {
 
   const handleManualIntervention = (donationId: number) => {
     const token = localStorage.getItem('token');
+    const reason = window.prompt('סיבת הביטול (תישלח למתנדב אם כבר שובץ):', 'התרומה בוטלה ע"י מנהל.');
+    if (reason === null) return;
 
     fetch(`/api/donations/${donationId}/cancel`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({ reason })
     })
       .then(res => {
         if (res.ok) {
@@ -91,13 +96,17 @@ export function AdminDonationsManagementPage() {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
-                <Chip size="small" variant="outlined" color="primary" label={item.status} />
+                <Chip size="small" variant="outlined" color="primary" label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
               </Box>
-              <Typography color="text.secondary"><strong>ספק:</strong> {item.supplierId}</Typography>
+              <Typography color="text.secondary">
+                <strong>ספק:</strong> {item.supplierName || `מזהה #${item.supplierId}`}
+              </Typography>
             </Box>
-            <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
-              בטל תרומה (התערבות)
-            </Button>
+            {(item.status === 'Pending' || item.status === 'Matched') && (
+              <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
+                בטל תרומה (התערבות)
+              </Button>
+            )}
           </Card>
         ))
       )}

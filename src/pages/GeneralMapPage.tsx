@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
-import { MapShell, MapView, MAP_COLORS } from '../components/GoogleMapView.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock } from '../components/PageParts';
+import { MapShell, MapView, MAP_COLORS } from '../components/GoogleMapView';
+import type { MapEntityView } from '../types/api';
 
 type EntityKind = 'donor' | 'ngo' | 'volunteer' | 'other';
 
@@ -16,7 +17,7 @@ const KIND_LABELS: Record<EntityKind, string> = {
 };
 
 // ממפה את סוג הישות שמגיע מהשרת לאחת מהקטגוריות
-const getKind = (loc: any): EntityKind => {
+const getKind = (loc: MapEntityView): EntityKind => {
   const raw = String(loc.type || loc.entityType || loc.role || '').toLowerCase();
   if (raw.includes('supplier') || raw.includes('donor') || raw.includes('business')) return 'donor';
   if (raw.includes('ngo') || raw.includes('association') || raw.includes('charity')) return 'ngo';
@@ -25,7 +26,7 @@ const getKind = (loc: any): EntityKind => {
 };
 
 export function GeneralMapPage() {
-  const [locations, setLocations] = useState<any[]>([]);
+  const [locations, setLocations] = useState<MapEntityView[]>([]);
   const [loading, setLoading] = useState(true);
   const [hidden, setHidden] = useState<Record<string, boolean>>({});
 
@@ -39,7 +40,7 @@ export function GeneralMapPage() {
       }
     })
       .then(res => res.json())
-      .then(data => {
+      .then((data: MapEntityView[]) => {
         if (Array.isArray(data)) {
           setLocations(data);
         }

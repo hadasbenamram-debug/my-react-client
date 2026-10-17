@@ -3,11 +3,13 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { NgoDonationView } from '../types/api';
+import { formatDateTime } from '../utils/format';
 
 export function NgoHistoryPage() {
-  const [completedDonations, setCompletedDonations] = useState<any[]>([]);
+  const [completedDonations, setCompletedDonations] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,10 +27,10 @@ export function NgoHistoryPage() {
         if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
         return res.json();
       })
-      .then(data => {
+      .then((data: NgoDonationView[]) => {
         if (Array.isArray(data)) {
           // סינון תרומות שהושלמו בלבד
-          const ngoCompleted = data.filter((d: any) => d.status === 'Completed');
+          const ngoCompleted = data.filter((d: NgoDonationView) => d.status === 'Completed');
           setCompletedDonations(ngoCompleted);
         }
         setLoading(false);
@@ -54,8 +56,8 @@ export function NgoHistoryPage() {
               <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
               <Chip size="small" color="primary" label="הושלם" />
             </Box>
-            <Typography color="text.secondary"><strong>מזהה ספק (תורם):</strong> {item.supplierId}</Typography>
-            <Typography color="text.secondary"><strong>מזהה מתנדב:</strong> {item.volunteerId || 'לא צוין'}</Typography>
+            <Typography color="text.secondary"><strong>ספק (תורם):</strong> {item.supplierName ?? item.supplierId}</Typography>
+            <Typography color="text.secondary"><strong>מתנדב:</strong> {item.volunteerName ?? 'לא צוין'} · <strong>התקבלה:</strong> {formatDateTime(item.receivedAt)} · {item.totalWeightKg.toFixed(1)} ק"ג</Typography>
           </Card>
         ))
       )}

@@ -12,15 +12,24 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import PageTitle from '../components/PageTitle.jsx';
-import { StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { StatusAlert } from '../components/FormParts';
+import { getApiErrorMessage } from '../utils/apiError';
+import type { AvailabilitySlotResponseDto } from '../types/api';
 
 interface AvailabilitySlot {
   day: number;
   startTime: string;
   endTime: string;
   regionId: number;
+  /** 0 = אותו אזור (לא נוסע לאזור אחר) */
   toRegionId: number;
+}
+
+interface RegionOption {
+  id: number;
+  regionName?: string;
+  name?: string;
 }
 
 const daysOfWeek = [
@@ -36,21 +45,13 @@ const daysOfWeek = [
 export const WeeklyAvailabilityPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [regions, setRegions] = useState<RegionOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. בדיקה האם יש טוקן בכתובת ה-URL (הגיע מהמייל)
-    const queryParams = new URLSearchParams(window.location.search);
-    const urlToken = queryParams.get('token');
-
-    if (urlToken) {
-      localStorage.setItem('token', urlToken);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    // 2. שליפת הטוקן מ-localStorage לבדיקת הרשאה
+    // תוקן: בעבר טוקן מהכתובת נשמר כטוקן התחברות. עכשיו רק הטוקן מההתחברות.
     const token = localStorage.getItem('token');
     if (!token) {
       setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
@@ -58,80 +59,87 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       return;
     }
 
-    // 3. שליפת נתוני הזמינות הקיימים של המתנדב
-    const fetchAvailability = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get(`/api/volunteers/availability`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+        // שליפת רשימת האזורים מהשרת
+        const regionsRes = await axios.get<RegionOption[]>(`/api/region`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (regionsRes.data && Array.isArray(regionsRes.data)) {
+          setRegions(regionsRes.data);
+        }
+
+        // שליפת נתוני הזמינות הקיימים של המתנדב
+        const response = await axios.get<AvailabilitySlotResponseDto[]>(`/api/volunteers/availability`, {
+          headers: { Authorization: `Bearer ${token}` }
         });
 
-        // אם יש נתונים קיימים, נטען אותם לסטייט
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          setAvailabilitySlots(response.data.map((slot: any) => ({
+          setAvailabilitySlots(response.data.map((slot: AvailabilitySlotResponseDto) => ({
             day: slot.day ?? 0,
             startTime: slot.startTime ? slot.startTime.substring(0, 5) : '08:00',
             endTime: slot.endTime ? slot.endTime.substring(0, 5) : '16:00',
-            regionId: slot.regionId ?? 1,
+            regionId: slot.regionId ?? (regionsRes.data[0]?.id || 1),
             toRegionId: slot.toRegionId ?? 0
           })));
         } else {
-          // ברירת מחדל: שורה ריקה אחת להתחלה
           setAvailabilitySlots([
-            { day: 0, startTime: '08:00', endTime: '16:00', regionId: 1, toRegionId: 0 }
+            { day: 0, startTime: '08:00', endTime: '16:00', regionId: regionsRes.data[0]?.id || 1, toRegionId: 0 }
           ]);
         }
-      } catch (err: any) {
-        console.error('Error fetching availability:', err);
-        setError('שגיאה בטעינת הנתונים. ייתכן שפג תוקף ההתחברות.');
+      } catch (err: unknown) {
+        console.error('Error fetching data:', err);
+        setError('שגיאה בטעינת הנתונים מהשרת.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAvailability();
+    fetchData();
   }, []);
 
-  // הוספת משבצת זמינות חדשה לרשימה
   const handleAddSlot = () => {
     setAvailabilitySlots([
       ...availabilitySlots,
-      { day: 0, startTime: '08:00', endTime: '16:00', regionId: 1, toRegionId: 0 }
+      { day: 0, startTime: '08:00', endTime: '16:00', regionId: regions[0]?.id || 1, toRegionId: 0 }
     ]);
   };
 
-  // מחיקת משבצת זמינות
   const handleRemoveSlot = (index: number) => {
     const updated = availabilitySlots.filter((_, i) => i !== index);
     setAvailabilitySlots(updated);
   };
 
-  // עדכון שדה ספציפי במשבצת
-  const handleSlotChange = (index: number, field: keyof AvailabilitySlot, value: any) => {
+  const handleSlotChange = <K extends keyof AvailabilitySlot>(index: number, field: K, value: AvailabilitySlot[K]) => {
     const updated = [...availabilitySlots];
     updated[index] = { ...updated[index], [field]: value };
     setAvailabilitySlots(updated);
   };
 
-  // שמירת הזמינות בשרת
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     setSuccessMessage(null);
 
+    // בדיקה מקומית (השרת בודק את אותו דבר): שעת התחלה לפני שעת סיום, ואזור יעד שונה מאזור המוצא
+    const invalid = availabilitySlots.findIndex((s) => s.startTime >= s.endTime || (s.toRegionId !== 0 && s.toRegionId === s.regionId));
+    if (invalid >= 0) {
+      setSaving(false);
+      setError(`משבצת ${invalid + 1}: שעת ההתחלה חייבת להיות לפני שעת הסיום, ואזור היעד שונה מאזור הפעילות.`);
+      return;
+    }
+
     const token = localStorage.getItem('token');
     try {
-      await axios.post(`/api/volunteers/availability`, availabilitySlots, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+      await axios.post(`/api/volunteers/availability`,
+        availabilitySlots.map((s) => ({ ...s, toRegionId: s.toRegionId === 0 ? null : s.toRegionId })), {
+        headers: { Authorization: `Bearer ${token}` }
       });
       setSuccessMessage('הזמינות נשמרה בהצלחה!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving availability:', err);
-      setError(err.response?.data?.message || 'שגיאה בשמירת הנתונים. נסה שוב.');
+      setError(getApiErrorMessage(err) || 'שגיאה בשמירת הנתונים. נסה שוב.');
     } finally {
       setSaving(false);
     }
@@ -177,7 +185,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
                 </Tooltip>
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 3 }}>
                 <TextField
                   select
                   label="יום בשבוע"
@@ -206,11 +214,33 @@ export const WeeklyAvailabilityPage: React.FC = () => {
                 />
 
                 <TextField
-                  label="מזהה אזור"
-                  type="number"
+                  select
+                  label="אזור פעילות"
                   value={slot.regionId}
-                  onChange={(e) => handleSlotChange(index, 'regionId', parseInt(e.target.value) || 0)}
-                />
+                  onChange={(e) => handleSlotChange(index, 'regionId', parseInt(e.target.value))}
+                >
+                  {regions.map((reg) => (
+                    <MenuItem key={reg.id} value={reg.id}>
+                      {reg.regionName || reg.name || `אזור ${reg.id}`}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                {/* חדש: נסיעה בין אזורים - המנוע ישבץ איסופים באזור המוצא למסירה באזור היעד */}
+                <TextField
+                  select
+                  label="נוסע/ת לאזור"
+                  value={slot.toRegionId}
+                  onChange={(e) => handleSlotChange(index, 'toRegionId', parseInt(e.target.value))}
+                  helperText="לא חובה"
+                >
+                  <MenuItem value={0}>אותו אזור</MenuItem>
+                  {regions.filter((reg) => reg.id !== slot.regionId).map((reg) => (
+                    <MenuItem key={reg.id} value={reg.id}>
+                      {reg.regionName || reg.name || `אזור ${reg.id}`}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Box>
             </Box>
           ))}

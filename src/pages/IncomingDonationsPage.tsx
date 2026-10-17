@@ -3,11 +3,13 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { NgoDonationView } from '../types/api';
+import { DONATION_STATUS_LABELS, formatTime } from '../utils/format';
 
 export function IncomingDonationsPage() {
-  const [incoming, setIncoming] = useState<any[]>([]);
+  const [incoming, setIncoming] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -25,10 +27,11 @@ export function IncomingDonationsPage() {
         if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
         return res.json();
       })
-      .then(data => {
+      .then((data: NgoDonationView[]) => {
         if (Array.isArray(data)) {
           // סינון תרומות שנמצאות בסטטוס בדרך (Matched)
-          const matchedDonations = data.filter((d: any) => d.status === 'Matched');
+          // בדרך לעמותה: שובצה (ממתינה לאיסוף) או נאספה
+          const matchedDonations = data.filter((d: NgoDonationView) => d.status === 'Matched' || d.status === 'PickedUp' || d.status === 'Delivered');
           setIncoming(matchedDonations);
         }
         setLoading(false);
@@ -59,7 +62,7 @@ export function IncomingDonationsPage() {
               <Chip size="small" color="primary" label="בדרך" />
             </Box>
             <Typography color="text.secondary">
-              <strong>מתנדב משובץ:</strong> #{item.volunteerId || 'בטיפול'}
+              <strong>מתנדב:</strong> {item.volunteerName ?? 'בטיפול'} · <strong>מאת:</strong> {item.supplierName ?? '—'} · <strong>הגעה משוערת לאיסוף:</strong> {formatTime(item.estimatedArrival)} · <strong>סטטוס:</strong> {DONATION_STATUS_LABELS[item.status] ?? item.status}
             </Typography>
             <Typography color="text.secondary">
               <strong>זמן הגעה משוער (ETA):</strong> 15-30 דקות

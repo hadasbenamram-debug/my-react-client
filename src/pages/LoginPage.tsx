@@ -7,6 +7,8 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
+import type { ApiErrorBody, AuthResponseDto } from '../types/api';
+import { homePathForRole, saveSession } from '../utils/auth';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -27,28 +29,26 @@ export const LoginPage: React.FC = () => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      // בהצלחה: AuthResponseDto. בכישלון: { status, message, code }
+      const data: AuthResponseDto & ApiErrorBody = await response.json();
 
       if (response.ok) {
         setIsSuccess(true);
+        saveSession(data, email);
+
+        // חדש: משתמש שנרשם קיבל סיסמה זמנית במייל - חייב להחליף אותה לפני שימוש במערכת
+        if (data.mustChangePassword) {
+          setMessage('התחברת עם סיסמה זמנית. יש לבחור סיסמה חדשה.');
+          setTimeout(() => { window.location.href = '/app/profile?mustChange=1'; }, 800);
+          return;
+        }
+
         setMessage('התחברת בהצלחה!');
-        
-        localStorage.setItem('token', data.token);
-
-        const user = data.user ? data.user : { email, role: data.role || 'volunteer' };
-        localStorage.setItem('currentUser', JSON.stringify(user));
-
-        // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד (מסך הבית נשאר זמין בכתובת "/")
-        const role = String(user.role || user.type || '').toLowerCase();
-        let target = '/';
-        if (role === 'admin') target = '/app/admin/dashboard';
-        else if (role.includes('volunt')) target = '/app/volunteer/dashboard';
-        else if (role.includes('suppl') || role.includes('business')) target = '/app/supplier/dashboard';
-        else if (role.includes('ngo') || role.includes('org')) target = '/app/ngo/dashboard';
-
+        // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד
+        const target = homePathForRole(data.role);
         setTimeout(() => {
           window.location.href = target;
-        }, 1000);
+        }, 800);
 
       } else {
         setMessage(data.message || 'שגיאה בפרטי ההתחברות');
@@ -70,7 +70,7 @@ export const LoginPage: React.FC = () => {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      const data: ApiErrorBody = await response.json();
 
       if (response.ok) {
         setIsSuccess(true);

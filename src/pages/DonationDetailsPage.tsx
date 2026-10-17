@@ -1,47 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import { authHeaders } from '../utils/auth';
+import { DONATION_STATUS_LABELS, MATCH_STATUS_LABELS, formatDateTime, formatTime, formatTimeSpan } from '../utils/format';
+import type { DonationResponseDto } from '../types/api';
 
+// פרטי תרומה (?id=). תוקן: מזהה התרומה היה קבוע (1), ופרטי השיבוץ לא הגיעו מהשרת.
 export function DonationDetailsPage() {
-  const [donation, setDonation] = useState<any>(null);
+  const [params] = useSearchParams();
+  const donationId = Number(params.get('id'));
+  const [donation, setDonation] = useState<DonationResponseDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const donationId = 1; // מזהה התרומה להצגה
 
   useEffect(() => {
-    const token = localStorage.getItem('token'); // שליפת הטוקן
-
-    // שליפת פרטי תרומה ספציפית מהשרת כולל שליחת הטוקן
-    fetch(`/api/donations/${donationId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('תרומה לא נמצאה');
-        return res.json();
-      })
-      .then(data => {
-        setDonation(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בשליפת פרטי התרומה:', err);
-        setLoading(false);
-      });
+    if (!donationId) {
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/donations/${donationId}`, { headers: authHeaders() })
+      .then(async (res) => (res.ok ? ((await res.json()) as DonationResponseDto) : null))
+      .then(setDonation)
+      .catch(() => setDonation(null))
+      .finally(() => setLoading(false));
   }, [donationId]);
 
-  if (loading) return <LoadingBlock text="טוען פרטי תרומה מהשרת..." />;
+  if (loading) return <LoadingBlock text="טוען פרטי תרומה..." />;
   if (!donation) {
     return (
       <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-        <EmptyState text="התרומה המבוקשת לא נמצאה במסד הנתונים." />
+        <EmptyState text="התרומה המבוקשת לא נמצאה." />
       </Box>
     );
   }
@@ -52,28 +45,39 @@ export function DonationDetailsPage() {
 
       <Card sx={{ p: { xs: 3, md: 4 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-          <Typography><strong>סטטוס נוכחי:</strong></Typography>
-          <Chip size="small" color="primary" label={donation.status || 'Pending'} />
+          <Typography><strong>סטטוס:</strong></Typography>
+          <Chip size="small" color="primary" label={DONATION_STATUS_LABELS[donation.status] ?? donation.status} />
         </Box>
-        <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>מזהה אזור:</strong> {donation.regionId}</Typography>
-        <Typography color="text.secondary" sx={{ mb: 0.5 }}>
-          <strong>עמותת יעד:</strong> {donation.ngoId || 'טרם שובצה עמותה'}
-        </Typography>
-        <Typography color="text.secondary"><strong>ניקוד עדיפות:</strong> {donation.priorityScore}</Typography>
+        <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>אזור:</strong> {donation.regionName ?? donation.regionId}</Typography>
+        <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>נוצרה:</strong> {formatDateTime(donation.createdAt)}</Typography>
+        <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>איסוף עד:</strong> {formatTimeSpan(donation.latestPickupTime)}</Typography>
+        <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>תוקף:</strong> {formatDateTime(donation.expirationTime)}</Typography>
+        <Typography color="text.secondary"><strong>משקל כולל:</strong> {donation.totalWeightKg.toFixed(1)} ק"ג</Typography>
+
+        <Box sx={{ mt: 2 }}>
+          {donation.categories.map((c) => (
+            <Chip key={c.categoryId} size="small" variant="outlined" sx={{ mr: 1, mb: 1 }}
+              label={`${c.categoryName ?? 'פריט'} ×${c.quantity} (${c.weightKg} ק"ג)`} />
+          ))}
+        </Box>
 
         <Divider sx={{ my: 3 }} />
 
-        <Typography variant="h6" sx={{ mb: 1.5 }}>פרטי המתנדב שאסף</Typography>
-        {donation.volunteer ? (
+        <Typography variant="h6" sx={{ mb: 1.5 }}>שיבוץ</Typography>
+        {donation.matchId ? (
           <Box>
-            <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>מזהה מתנדב:</strong> #{donation.volunteer.id}</Typography>
-            <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>סוג רכב:</strong> {donation.volunteer.vehicleType}</Typography>
-            <Typography color="text.secondary">
-              <strong>זמן איסוף משוער/בפועל:</strong> {donation.volunteer.collectionTime || 'בטיפול'}
+            <Typography color="text.secondary" sx={{ mb: 0.5 }}>
+              <strong>סטטוס השיבוץ:</strong> {donation.matchStatus ? MATCH_STATUS_LABELS[donation.matchStatus] : '—'}
             </Typography>
+            <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>עמותת יעד:</strong> {donation.ngoName ?? '—'}</Typography>
+            <Typography color="text.secondary" sx={{ mb: 0.5 }}><strong>מתנדב:</strong> {donation.volunteerName ?? '—'}</Typography>
+            <Typography color="text.secondary"><strong>הגעה משוערת לאיסוף:</strong> {formatTime(donation.estimatedArrival)}</Typography>
+            {donation.receivedAt && (
+              <Typography color="text.secondary"><strong>העמותה אישרה קבלה:</strong> {formatDateTime(donation.receivedAt)}</Typography>
+            )}
           </Box>
         ) : (
-          <Typography color="text.secondary">טרם שובץ מתנדב לתרומה זו.</Typography>
+          <Typography color="text.secondary">התרומה עדיין לא שובצה.</Typography>
         )}
       </Card>
     </Box>

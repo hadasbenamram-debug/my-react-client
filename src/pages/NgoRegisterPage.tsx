@@ -1,24 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { FormSection, StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { FormSection, StatusAlert } from '../components/FormParts';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import { readErrorMessage } from '../utils/apiError';
+import type { RegionResponseDto } from '../types/api';
 
-const userFields = [
-  { name: 'name', label: 'שם מלא' },
-  { name: 'email', label: 'אימייל', type: 'email' },
-  { name: 'phone', label: 'טלפון' },
+interface RegionOption {
+  id: number;
+  regionName?: string;
+  name?: string;
+}
+
+// האורכים תואמים לעמודות במסד (השרת בודק את אותו דבר)
+interface FieldDef { name: string; label: string; type?: string; maxLength?: number; minLength?: number; }
+
+const userFields: FieldDef[] = [
+  { name: 'name', label: 'שם מלא', minLength: 2, maxLength: 100 },
+  { name: 'email', label: 'אימייל', type: 'email', maxLength: 254 },
+  { name: 'phone', label: 'טלפון', type: 'tel', maxLength: 20 },
 ];
 
-const ngoFields = [
-  { name: 'ngoName', label: 'שם העמותה' },
-  { name: 'registrationNumber', label: 'מספר רישום (חברה/עמותה)' },
-  { name: 'address', label: 'כתובת' },
+const ngoFields: FieldDef[] = [
+  { name: 'ngoName', label: 'שם העמותה', minLength: 2, maxLength: 100 },
+  { name: 'registrationNumber', label: 'מספר רישום (חברה/עמותה)', maxLength: 20 },
+  { name: 'address', label: 'כתובת', maxLength: 200 },
   { name: 'dailyCapacity', label: 'קיבולת יומית (ק"ג)', type: 'number' },
-  { name: 'regionId', label: 'מזהה אזור (Region ID)', type: 'number' },
 ];
 
 export function NgoRegisterPage() {
@@ -33,15 +46,32 @@ export function NgoRegisterPage() {
     latitude: 32.0853,
     longitude: 34.7818,
     regionId: 1,
+    // חדש: שעות קבלה (בעבר לא נשלחו, והעמותה נשמרה עם 00:00-00:00 - כלומר "סגורה תמיד")
+    sunToThuOpenTime: '09:00',
+    sunToThuCloseTime: '17:00',
     receivesOnFriday: false,
     fridayOpenTime: '',
     fridayCloseTime: '',
   });
 
+  const [regions, setRegions] = useState<RegionOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // שליפת רשימת האזורים מהשרת בעת טעינת העמוד
+  useEffect(() => {
+    fetch('/api/region')
+      .then((res) => res.json())
+      .then((data: RegionResponseDto[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRegions(data);
+          setFormData((prev) => ({ ...prev, regionId: data[0].id }));
+        }
+      })
+      .catch((err) => console.error('שגיאה בטעינת אזורים:', err));
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | { name?: string; value: unknown }>) => {
     const target = e.target as HTMLInputElement;
     const { name, value, type, checked } = target;
     setFormData({
@@ -52,8 +82,18 @@ export function NgoRegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setMessage('');
+
+    if (formData.sunToThuOpenTime >= formData.sunToThuCloseTime) {
+      setMessage('שעת הפתיחה חייבת להיות לפני שעת הסגירה.');
+      return;
+    }
+    if (formData.receivesOnFriday && (!formData.fridayOpenTime || !formData.fridayCloseTime || formData.fridayOpenTime >= formData.fridayCloseTime)) {
+      setMessage('יש להזין שעות קבלה תקינות ליום שישי.');
+      return;
+    }
+
+    setLoading(true);
 
     fetch('/api/ngos/register', {
       method: 'POST',
@@ -62,8 +102,10 @@ export function NgoRegisterPage() {
         ...formData,
         dailyCapacity: Number(formData.dailyCapacity),
         regionId: Number(formData.regionId),
-        fridayOpenTime: formData.fridayOpenTime ? formData.fridayOpenTime + ':00' : null,
-        fridayCloseTime: formData.fridayCloseTime ? formData.fridayCloseTime + ':00' : null,
+        sunToThuOpenTime: formData.sunToThuOpenTime + ':00',
+        sunToThuCloseTime: formData.sunToThuCloseTime + ':00',
+        fridayOpenTime: formData.receivesOnFriday && formData.fridayOpenTime ? formData.fridayOpenTime + ':00' : null,
+        fridayCloseTime: formData.receivesOnFriday && formData.fridayCloseTime ? formData.fridayCloseTime + ':00' : null,
       }),
     })
       .then(async res => {
@@ -71,8 +113,7 @@ export function NgoRegisterPage() {
         if (res.ok) {
           setMessage('רישום העמותה בוצע בהצלחה! סיסמה זמנית נשלחה למייל.');
         } else {
-          const errorData = await res.json().catch(() => ({}));
-          setMessage(errorData.message || 'אירעה שגיאה בעת הרישום. נסה שוב.');
+          setMessage(await readErrorMessage(res, 'אירעה שגיאה בעת הרישום. נסה שוב.'));
         }
       })
       .catch(err => {
@@ -82,7 +123,7 @@ export function NgoRegisterPage() {
       });
   };
 
-  const renderField = (f: { name: string; label: string; type?: string }) => (
+  const renderField = (f: FieldDef) => (
     <TextField
       key={f.name}
       name={f.name}
@@ -91,6 +132,20 @@ export function NgoRegisterPage() {
       value={(formData as Record<string, any>)[f.name]}
       onChange={handleChange}
       required
+      slotProps={{ htmlInput: { maxLength: f.maxLength, minLength: f.minLength, ...(f.type === 'number' ? { min: 1, max: 100000 } : {}) } }}
+    />
+  );
+
+  const timeField = (name: string, label: string, required = true) => (
+    <TextField
+      key={name}
+      name={name}
+      label={label}
+      type="time"
+      value={(formData as Record<string, any>)[name]}
+      onChange={handleChange}
+      required={required}
+      slotProps={{ inputLabel: { shrink: true } }}
     />
   );
 
@@ -105,13 +160,43 @@ export function NgoRegisterPage() {
         <form onSubmit={handleSubmit}>
           <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
           <Divider sx={{ my: 4 }} />
-          <FormSection title="פרטי העמותה">{ngoFields.map(renderField)}</FormSection>
+          <FormSection title="פרטי העמותה">
+            {ngoFields.map(renderField)}
+            
+            {/* רשימה נפתחת לבחירת אזור פעילות מתוך השרת */}
+            <TextField
+              select
+              name="regionId"
+              label="אזור פעילות"
+              value={formData.regionId}
+              onChange={handleChange}
+              required
+            >
+              {regions.map((reg) => (
+                <MenuItem key={reg.id} value={reg.id}>
+                  {reg.regionName || reg.name || `אזור ${reg.id}`}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FormSection>
+
+          <Divider sx={{ my: 4 }} />
+          <FormSection title="שעות קבלת תרומות">
+            {timeField('sunToThuOpenTime', 'א׳-ה׳ משעה')}
+            {timeField('sunToThuCloseTime', 'א׳-ה׳ עד שעה')}
+            <FormControlLabel
+              control={<Switch name="receivesOnFriday" checked={formData.receivesOnFriday} onChange={handleChange} />}
+              label="מקבלים תרומות גם ביום שישי"
+            />
+            {formData.receivesOnFriday && timeField('fridayOpenTime', 'שישי משעה')}
+            {formData.receivesOnFriday && timeField('fridayCloseTime', 'שישי עד שעה')}
+          </FormSection>
 
           <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
             {loading ? 'שולח לאישור...' : 'הירשם כעמותה'}
           </Button>
         </form>
-        <StatusAlert message={message} />
+        <StatusAlert message={message} success={message.includes('בהצלחה')} />
       </Card>
     </Box>
   );

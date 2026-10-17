@@ -5,11 +5,12 @@ import Typography from '@mui/material/Typography';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle.jsx';
-import StatGrid from '../components/StatGrid.jsx';
+import PageTitle from '../components/PageTitle';
+import StatGrid from '../components/StatGrid';
+import type { NgoDonationView } from '../types/api';
 
 export function NgoDashboard() {
-  const [ngoData, setNgoData] = useState<any[]>([]);
+  const [ngoData, setNgoData] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export function NgoDashboard() {
         }
         return res.json();
       })
-      .then(data => {
+      .then((data: NgoDonationView[]) => {
         if (Array.isArray(data)) {
           setNgoData(data);
         }
@@ -50,9 +51,10 @@ export function NgoDashboard() {
     );
   }
 
-  const expectedToday = ngoData.filter((d: any) => d.status === 'Pending').length;
-  const onTheWay = ngoData.filter((d: any) => d.status === 'Matched').length;
-  const received = ngoData.filter((d: any) => d.status === 'Completed').length;
+  // התרומות של העמותה הן תרומות ששובצו אליה, ולכן אין כאן Pending
+  const expectedToday = ngoData.filter((d: NgoDonationView) => d.status === 'Matched').length;
+  const onTheWay = ngoData.filter((d: NgoDonationView) => d.status === 'PickedUp' || d.status === 'Delivered').length;
+  const received = ngoData.filter((d: NgoDonationView) => d.status === 'Completed').length;
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto' }}>

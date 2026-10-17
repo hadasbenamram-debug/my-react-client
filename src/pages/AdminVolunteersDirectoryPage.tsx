@@ -4,11 +4,12 @@ import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { AdminVolunteerListItemDto } from '../types/api';
 
 export function AdminVolunteersDirectoryPage() {
-  const [volunteers, setVolunteers] = useState<any[]>([]);
+  const [volunteers, setVolunteers] = useState<AdminVolunteerListItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -29,7 +30,7 @@ export function AdminVolunteersDirectoryPage() {
         }
         return res.json();
       })
-      .then(data => {
+      .then((data: AdminVolunteerListItemDto[]) => {
         if (Array.isArray(data)) {
           setVolunteers(data);
         }

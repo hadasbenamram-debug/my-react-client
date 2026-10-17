@@ -1,175 +1,156 @@
-import React, { useState, useEffect } from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import NavigationIcon from '@mui/icons-material/Navigation';
-import MapIcon from '@mui/icons-material/Map';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PageTitle from '../components/PageTitle';
+import {EmptyState, LoadingBlock} from '../components/PageParts';
+import RouteSummary from '../components/RouteSummary';
+import {authHeaders} from '../utils/auth';
+import {readErrorMessage} from '../utils/apiError';
+import type {RouteDto, RouteStopDto} from '../types/api';
 
+const LOCATION_INTERVAL_MS = 20_000;
+
+// המסלול הפעיל של המתנדב: יציאה לדרך -> איסוף בכל תחנה -> מסירה לעמותה.
+// בזמן המסלול המיקום נשלח לשרת, והעמותה / הספק / המנהל רואים אותו בזמן אמת.
 export function ActiveRoutePage() {
-  const [routes, setRoutes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+    const navigate = useNavigate();
+    const [route, setRoute] = useState<RouteDto | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState(false);
+    const [message, setMessage] = useState<{text: string; ok: boolean} | null>(null);
+    const [position, setPosition] = useState<{lat: number; lng: number} | null>(null);
+    const lastSent = useRef(0);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-    let userRole = 'guest';
-    
-    try {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        userRole = (user.role || user.type || '').toLowerCase();
-      }
-    } catch (e) {
-      console.error(e);
+    const load = useCallback(async () => {
+        const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()});
+        setRoute(res.status === 200 ? ((await res.json()) as RouteDto) : null);
+        setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        void load();
+    }, [load]);
+
+    // מיקום חי - רק כשהמסלול בביצוע
+    useEffect(() => {
+        if (!route || route.status !== 'InProgress' || !navigator.geolocation) return;
+
+        const watchId = navigator.geolocation.watchPosition(
+            (p) => {
+                const pos = {lat: p.coords.latitude, lng: p.coords.longitude};
+                setPosition(pos);
+                if (Date.now() - lastSent.current < LOCATION_INTERVAL_MS) return;
+                lastSent.current = Date.now();
+                void fetch('/api/volunteers/me/location', {
+                    method: 'PUT',
+                    headers: authHeaders(true),
+                    body: JSON.stringify({latitude: pos.lat, longitude: pos.lng}),
+                });
+            },
+            (err) => console.warn('geolocation', err.message),
+            {enableHighAccuracy: true}
+        );
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, [route]);
+
+    const act = async (url: string, success: string) => {
+        setBusy(true);
+        setMessage(null);
+        const res = await fetch(url, {method: 'POST', headers: authHeaders()});
+        setBusy(false);
+        setMessage(res.ok ? {text: success, ok: true} : {text: await readErrorMessage(res, 'הפעולה נכשלה.'), ok: false});
+        await load();
+    };
+
+    if (loading) return <LoadingBlock text="טוען את המסלול..." />;
+
+    if (!route) {
+        return (
+            <Box sx={{maxWidth: 800, mx: 'auto'}}>
+                <PageTitle eyebrow="מתנדב" title="מסלול פעיל" />
+                {message && <Alert severity={message.ok ? 'success' : 'error'} sx={{mb: 2}}>{message.text}</Alert>}
+                <EmptyState text="אין מסלול פעיל כרגע." />
+            </Box>
+        );
     }
 
-    const adminCheck = userRole === 'admin';
-    setIsAdmin(adminCheck);
-
-    // מנהל מקבל את כל המסלולים, מתנדב מקבל את המסלול האישי שלו בלבד
-    const apiEndpoint = adminCheck ? '/api/matches' : '/api/matches/active';
-
-    fetch(apiEndpoint, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return res.json();
-      })
-      .then(data => {
-        if (adminCheck) {
-          setRoutes(Array.isArray(data) ? data : data.matches || []);
-        } else {
-          const activeMatch = Array.isArray(data) ? data[0] : data;
-          setRoutes(activeMatch ? [activeMatch] : []);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, []);
-
-  const handleAcceptMatch = (matchId: number, address?: string) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-
-    fetch(`/api/matches/${matchId}/accept`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert('תאשר ניווט');
-          const destination = address || 'ישראל';
-          window.open(`https://waze.com/ul?q=${encodeURIComponent(destination)}&navigate=yes`, '_blank');
-
-          setRoutes(prev =>
-            prev.map(item => (item.id === matchId ? { ...item, status: 'Confirmed' } : item))
-          );
-        } else {
-          alert(data.message || 'שגיאה באישור השידוך.');
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert('שגיאת תקשורת מול השרת.');
-      });
-  };
-
-  if (loading) return <LoadingBlock text="טוען נתונים מול השרת..." />;
-  
-  if (routes.length === 0) {
-    return (
-      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-        <PageTitle 
-          eyebrow={isAdmin ? "ניהול מערכת" : "מתנדב"} 
-          title={isAdmin ? "כל המסלולים הפעילים" : "מסלול פעיל"} 
-        />
-        <EmptyState text={isAdmin ? "אין מסלולים פעילים במערכת כרגע." : "אין מסלול פעיל כרגע."} />
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-      <PageTitle 
-        eyebrow={isAdmin ? "ניהול מערכת" : "מתנדב"} 
-        title={isAdmin ? "מעקב אחר כלל המסלולים הפעילים בשטח" : "בקשת איסוף נכנסת"} 
-      />
-
-      {routes.map(routeData => {
-        const address: string | undefined = routeData.donation?.address;
-        const googleMapsUrl = address
-          ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`
-          : null;
-
+    if (route.awaitingResponse) {
         return (
-          <Card key={routeData.id} sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-              <Typography variant="h5">שיבוץ #{routeData.id}</Typography>
-              <Chip variant="outlined" color="primary" label={routeData.status} />
+            <Box sx={{maxWidth: 800, mx: 'auto'}}>
+                <PageTitle eyebrow="מתנדב" title="מסלול פעיל" />
+                <Alert severity="info" sx={{mb: 2}}>יש בקשה שממתינה לאישור שלך.</Alert>
+                <Button variant="contained" onClick={() => navigate('/app/volunteer/incoming-request')}>לבקשה</Button>
             </Box>
-
-            {isAdmin && routeData.volunteer && (
-              <Typography color="text.secondary" sx={{ mb: 0.5 }}>
-                <strong>מתנדב משויך:</strong> {routeData.volunteer.name || routeData.volunteer.email}
-              </Typography>
-            )}
-
-            <Typography color="text.secondary" sx={{ mb: 0.5 }}>
-              <strong>מזהה תרומה:</strong> #{routeData.donationId || routeData.donation?.id}
-            </Typography>
-
-            {address && (
-              <Typography color="text.secondary">
-                <strong>כתובת איסוף:</strong> {address}
-              </Typography>
-            )}
-
-            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 3 }}>
-              {!isAdmin && (
-                <Button
-                  variant="contained"
-                  size="large"
-                  startIcon={<NavigationIcon />}
-                  onClick={() => handleAcceptMatch(routeData.id, address)}
-                >
-                  אישור איסוף
-                </Button>
-              )}
-              {googleMapsUrl && (
-                <Button
-                  variant="outlined"
-                  size="large"
-                  startIcon={<MapIcon />}
-                  component="a"
-                  href={googleMapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  פתח ב-Google Maps
-                </Button>
-              )}
-            </Box>
-          </Card>
         );
-      })}
-    </Box>
-  );
+    }
+
+    const nextPickup = route.stops.find((s) => s.status === 'Confirmed' || s.status === 'InPickup');
+    const destination = nextPickup
+        ? {label: `איסוף מ${nextPickup.supplierName ?? 'ספק'}`, lat: nextPickup.latitude, lng: nextPickup.longitude}
+        : {label: `מסירה ל${route.ngoName ?? 'עמותה'}`, lat: route.ngoLatitude, lng: route.ngoLongitude};
+
+    const stopActions = (stop: RouteStopDto) => {
+        if (route.status !== 'InProgress') return null;
+        if (stop.status === 'Confirmed' || stop.status === 'InPickup') {
+            return (
+                <Button size="small" variant="contained" disabled={busy}
+                    onClick={() => void act(`/api/matches/${stop.matchId}/picked-up`, 'האיסוף נרשם.')}>
+                    אספתי
+                </Button>
+            );
+        }
+        if (stop.status === 'InTransit') {
+            return (
+                <Button size="small" variant="contained" color="success" disabled={busy}
+                    onClick={() => void act(`/api/matches/${stop.matchId}/complete`, 'המסירה נרשמה. העמותה תאשר את הקבלה.')}>
+                    נמסר לעמותה
+                </Button>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <Box sx={{maxWidth: 800, mx: 'auto'}}>
+            <PageTitle eyebrow="מתנדב" title="מסלול פעיל" />
+            {message && <Alert severity={message.ok ? 'success' : 'error'} sx={{mb: 2}}>{message.text}</Alert>}
+
+            <Card sx={{p: {xs: 2.5, md: 3}, mb: 2}}>
+                <Typography sx={{fontWeight: 700, mb: 1}}>היעד הבא: {destination.label}</Typography>
+                <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5}>
+                    {route.status === 'Planned' && (
+                        <Button variant="contained" startIcon={<PlayArrowIcon />} disabled={busy}
+                            onClick={() => void act(`/api/matches/routes/${route.id}/start`, 'יצאת לדרך! המיקום שלך משותף עם המשתתפים במסלול.')}>
+                            יציאה לדרך
+                        </Button>
+                    )}
+                    <Button variant="outlined" startIcon={<NavigationIcon />}
+                        href={`https://waze.com/ul?ll=${destination.lat},${destination.lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
+                        ניווט ב-Waze
+                    </Button>
+                </Stack>
+            </Card>
+
+            {position && (
+                <Box sx={{width: '100%', height: 320, borderRadius: 4, overflow: 'hidden', mb: 2, bgcolor: 'grey.200'}}>
+                    <iframe
+                        title="מפת המסלול"
+                        width="100%"
+                        height="100%"
+                        style={{border: 0}}
+                        src={`https://maps.google.com/maps?saddr=${position.lat},${position.lng}&daddr=${destination.lat},${destination.lng}&output=embed`}
+                    />
+                </Box>
+            )}
+
+            <RouteSummary route={route} stopActions={stopActions} />
+        </Box>
+    );
 }

@@ -3,11 +3,13 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { MatchView } from '../types/api';
+import { formatTime, MATCH_STATUS_LABELS } from '../utils/format';
 
 export function AdminRoutesManagementPage() {
-  const [routes, setRoutes] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<MatchView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRoutes = () => {
@@ -24,7 +26,7 @@ export function AdminRoutesManagementPage() {
         if (!res.ok) throw new Error('שגיאה בטעינת מסלולים פעילים');
         return res.json();
       })
-      .then(data => {
+      .then((data: MatchView[]) => {
         if (Array.isArray(data)) {
           setRoutes(data);
         }
@@ -56,14 +58,19 @@ export function AdminRoutesManagementPage() {
         routes.map((route) => (
           <Card key={route.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 500 }}>שידוך / מסלול #{route.id}</Typography>
-              <Chip size="small" variant="outlined" color="primary" label={route.status} />
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                {route.volunteerRouteId ? `מסלול #${route.volunteerRouteId}` : `שידוך #${route.id}`} · תרומה #{route.donationId}
+              </Typography>
+              <Chip size="small" variant="outlined" color="primary" label={MATCH_STATUS_LABELS[route.statusName] ?? route.statusName} />
             </Box>
             <Typography color="text.secondary">
               <strong>מתנדב משובץ:</strong> {route.volunteerName || route.volunteerId || 'לא צוין'}
             </Typography>
             <Typography color="text.secondary">
-              <strong>יעד / עמותה:</strong> {route.destination || 'בדרך ליעד'}
+              <strong>איסוף:</strong> {route.supplierName || '—'} ({route.pickupAddress || '—'}) · הגעה משוערת {formatTime(route.estimatedArrival)}
+            </Typography>
+            <Typography color="text.secondary">
+              <strong>יעד / עמותה:</strong> {route.ngoName || '—'} ({route.ngoAddress || '—'})
             </Typography>
           </Card>
         ))

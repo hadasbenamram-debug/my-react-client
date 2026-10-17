@@ -3,11 +3,13 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { LiveMissionView } from '../types/api';
+import { formatTime, MATCH_STATUS_LABELS } from '../utils/format';
 
 export function AdminLiveMonitorPage() {
-  const [activeMissions, setActiveMissions] = useState<any[]>([]);
+  const [activeMissions, setActiveMissions] = useState<LiveMissionView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export function AdminLiveMonitorPage() {
       }
     })
       .then(res => res.json())
-      .then(data => {
+      .then((data: LiveMissionView[]) => {
         if (Array.isArray(data)) {
           setActiveMissions(data);
         }
@@ -44,10 +46,13 @@ export function AdminLiveMonitorPage() {
         activeMissions.map((item) => (
           <Card key={item.id} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 500 }}>משלוח #{item.id} - מתנדב: {item.volunteerName || item.volunteerId}</Typography>
-              <Typography color="text.secondary" variant="body2">יעד: {item.destination || 'עמותה'} | ספק: {item.supplierName || 'לא צוין'}</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}>מסלול #{item.id} - מתנדב: {item.volunteerName || item.volunteerId} · {item.stopsCount} תחנות</Typography>
+              <Typography color="text.secondary" variant="body2">יעד: {item.destination || 'עמותה'} | ספקים: {item.supplierName || 'לא צוין'}</Typography>
+              <Typography color="text.secondary" variant="body2">
+                מיקום אחרון: {item.latitude != null && item.longitude != null ? `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)} (${formatTime(item.locationUpdatedAt)})` : 'לא שותף'}
+              </Typography>
             </Box>
-            <Chip color="warning" label={item.status || 'בדרך'} />
+            <Chip color="warning" label={MATCH_STATUS_LABELS[item.status] ?? item.status} />
           </Card>
         ))
       )}

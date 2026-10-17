@@ -7,10 +7,11 @@ import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import GroupsIcon from '@mui/icons-material/Groups';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
+import type { DashboardStatsDto } from '../types/api';
 
 export function AdminDashboard() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStatsDto>({
     openDonations: 0,
     availableVolunteers: 0,
     activeAssignments: 0,
@@ -35,7 +36,7 @@ export function AdminDashboard() {
         }
         return res.json();
       })
-      .then(data => {
+      .then((data: DashboardStatsDto) => {
         setStats(data);
         setLoading(false);
       })

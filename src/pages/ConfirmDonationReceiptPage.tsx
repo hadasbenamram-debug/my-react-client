@@ -5,11 +5,14 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { NgoDonationView } from '../types/api';
+import { readErrorMessage } from '../utils/apiError';
+import { DONATION_STATUS_LABELS } from '../utils/format';
 
 export function ConfirmDonationReceiptPage() {
-  const [donations, setDonations] = useState<any[]>([]);
+  const [donations, setDonations] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -28,10 +31,10 @@ export function ConfirmDonationReceiptPage() {
         if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
         return res.json();
       })
-      .then(data => {
+      .then((data: NgoDonationView[]) => {
         if (Array.isArray(data)) {
-          // הצגת תרומות שנמצאות בסטטוס בדרך (Matched) וממתינות לאישור קבלה
-          const pendingReceipt = data.filter((d: any) => d.status === 'Matched');
+          // אפשר לאשר קבלה לתרומה שנאספה (בדרך) או שהמתנדב סימן שמסר
+          const pendingReceipt = data.filter((d: NgoDonationView) => d.status === 'PickedUp' || d.status === 'Delivered');
           setDonations(pendingReceipt);
         }
         setLoading(false);
@@ -46,22 +49,24 @@ export function ConfirmDonationReceiptPage() {
     fetchPendingReceipts();
   }, []);
 
-  const handleConfirmReceipt = (item: any) => {
+  const handleConfirmReceipt = (item: NgoDonationView) => {
     const token = localStorage.getItem('token');
 
-    fetch(`/api/donations/${item.id}/complete`, {
-      method: 'PUT',
+    // תוקן: היה PUT לנתיב שלא קיים, ואחר כך מעבר ל-/rate/... שגם הוא לא קיים
+    fetch(`/api/donations/${item.id}/confirm-receipt`, {
+      method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       }
     })
-      .then(res => {
+      .then(async res => {
         if (res.ok) {
-          // מעבר אוטומטי לעמוד הדירוג עם מזהה ההתאמה או המתנדב
-          navigate(`/rate/${item.matchId || item.volunteerId}`);
+          // מעבר לדירוג המסירה (השרת מחזיר את מזהה השידוך)
+          const body = (await res.json()) as { matchId: number };
+          navigate(`/app/ngo/ratings/${body.matchId}`);
         } else {
-          alert('שגיאה באישור קבלת התרומה.');
+          alert(await readErrorMessage(res, 'שגיאה באישור קבלת התרומה.'));
         }
       })
       .catch(err => console.error('שגיאת תקשורת:', err));
@@ -92,9 +97,10 @@ export function ConfirmDonationReceiptPage() {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
-                <Chip size="small" variant="outlined" color="warning" label="ממתין לאישור קבלה" />
+                <Chip size="small" variant="outlined" color="warning" label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
               </Box>
-              <Typography color="text.secondary"><strong>מזהה מתנדב:</strong> {item.volunteerId || 'לא צוין'}</Typography>
+              <Typography color="text.secondary"><strong>מאת:</strong> {item.supplierName ?? '—'} · <strong>מתנדב:</strong> {item.volunteerName ?? '—'}</Typography>
+              <Typography color="text.secondary"><strong>משקל:</strong> {item.totalWeightKg.toFixed(1)} ק"ג · {item.categories.map((c) => `${c.categoryName ?? ''} ×${c.quantity}`).join(', ')}</Typography>
             </Box>
             <Button variant="contained" onClick={() => handleConfirmReceipt(item)}>
               אשר קבלה בעת הגעה

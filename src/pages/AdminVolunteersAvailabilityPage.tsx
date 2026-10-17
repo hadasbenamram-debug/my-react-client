@@ -4,11 +4,12 @@ import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { VolunteerAvailabilityView } from '../types/api';
 
 export function AdminVolunteersAvailabilityPage() {
-  const [availabilityList, setAvailabilityList] = useState<any[]>([]);
+  const [availabilityList, setAvailabilityList] = useState<VolunteerAvailabilityView[]>([]);
   const [loading, setLoading] = useState(true);
   const [dayFilter, setDayFilter] = useState('');
 
@@ -22,7 +23,7 @@ export function AdminVolunteersAvailabilityPage() {
       }
     })
       .then(res => res.json())
-      .then(data => {
+      .then((data: VolunteerAvailabilityView[]) => {
         if (Array.isArray(data)) {
           setAvailabilityList(data);
         }
@@ -61,7 +62,7 @@ export function AdminVolunteersAvailabilityPage() {
           <Card key={index} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>{item.volunteerName || `מתנדב #${item.volunteerId}`}</Typography>
-              <Typography color="text.secondary" variant="body2">שעות פנויות: {item.timeSlot || item.hours || 'לא צוין'}</Typography>
+              <Typography color="text.secondary" variant="body2">שעות פנויות: {item.timeSlot || 'לא צוין'}</Typography>
             </Box>
             <Chip color="primary" label={item.day || 'יום כללי'} />
           </Card>

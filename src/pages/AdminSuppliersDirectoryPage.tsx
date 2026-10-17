@@ -4,11 +4,14 @@ import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import Button from '@mui/material/Button';
+import PageTitle from '../components/PageTitle';
+import { openSupplierLicense } from '../utils/openSupplierLicense';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { AdminSupplierListItemView } from '../types/api';
 
 export function AdminSuppliersDirectoryPage() {
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<AdminSupplierListItemView[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -22,7 +25,7 @@ export function AdminSuppliersDirectoryPage() {
       }
     })
       .then(res => res.json())
-      .then(data => {
+      .then((data: AdminSupplierListItemView[]) => {
         if (Array.isArray(data)) {
           setSuppliers(data);
         }
@@ -60,12 +63,17 @@ export function AdminSuppliersDirectoryPage() {
         <EmptyState text="לא נמצאו ספקים התואמים את החיפוש." />
       ) : (
         filteredSuppliers.map((sup) => (
-          <Card key={sup.id || sup.userId} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Card key={sup.id} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>{sup.name || 'עסק ללא שם'}</Typography>
               <Typography color="text.secondary" variant="body2">טלפון: {sup.phone || 'לא צויין'} | כתובת: {sup.address || 'לא צויין'}</Typography>
             </Box>
-            <Chip color="primary" variant="outlined" label={sup.status || 'פעיל'} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Button size="small" variant="text" onClick={() => openSupplierLicense(sup.id)}>
+                רישיון עסק
+              </Button>
+              <Chip color="primary" variant="outlined" label={sup.status || 'פעיל'} />
+            </Box>
           </Card>
         ))
       )}

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -8,17 +7,20 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import SearchIcon from '@mui/icons-material/Search';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
+import type { UserListItemView } from '../types/api';
 
 export function AdminUsersManagementPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserListItemView[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState<number | null>(null);
 
   const fetchUsers = () => {
     const token = localStorage.getItem('token');
 
-    fetch('/api/users', {
+    // הרשימה מעומדת בשרת; סך המשתמשים מגיע בכותרת X-Total-Count
+    fetch('/api/users?page=1&pageSize=500', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -27,9 +29,11 @@ export function AdminUsersManagementPage() {
     })
       .then(res => {
         if (!res.ok) throw new Error('שגיאה בטעינת משתמשים');
+        const totalHeader = res.headers.get('X-Total-Count');
+        setTotal(totalHeader ? Number(totalHeader) : null);
         return res.json();
       })
-      .then(data => {
+      .then((data: UserListItemView[]) => {
         if (Array.isArray(data)) {
           setUsers(data);
         }
@@ -44,28 +48,6 @@ export function AdminUsersManagementPage() {
   useEffect(() => {
     fetchUsers();
   }, []);
-
-  const handleToggleSuspend = (userId: number, currentStatus: boolean) => {
-    const token = localStorage.getItem('token');
-    const action = currentStatus ? 'activate' : 'suspend';
-
-    fetch(`/api/users/${userId}/${action}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
-        if (res.ok) {
-          alert('סטטוס המשתמש עודכן בהצלחה!');
-          fetchUsers();
-        } else {
-          alert('שגיאה בעדכון סטטוס המשתמש.');
-        }
-      })
-      .catch(err => console.error('שגיאת תקשורת:', err));
-  };
 
   const filteredUsers = users.filter(user =>
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,7 +68,7 @@ export function AdminUsersManagementPage() {
       <PageTitle
         eyebrow="ניהול מערכת"
         title="ניהול משתמשים"
-        subtitle="חיפוש, צפייה והשעיית משתמשים רשומים."
+        subtitle={total != null ? `${total} משתמשים רשומים.` : 'חיפוש וצפייה במשתמשים רשומים.'}
       />
 
       <TextField
@@ -126,23 +108,15 @@ export function AdminUsersManagementPage() {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>{user.name}</Typography>
-                <Chip
-                  size="small"
-                  label={user.isSuspended ? 'מושהה' : 'פעיל'}
-                  color={user.isSuspended ? 'error' : 'primary'}
-                  variant={user.isSuspended ? 'filled' : 'outlined'}
-                />
+                <Chip size="small" variant="outlined" color={user.isEmailVerified ? 'success' : 'default'}
+                  label={user.isEmailVerified ? 'מייל מאומת' : 'מייל לא מאומת'} />
+                <Chip size="small" variant="outlined" color={user.isPhoneVerified ? 'success' : 'default'}
+                  label={user.isPhoneVerified ? 'טלפון מאומת' : 'טלפון לא מאומת'} />
               </Box>
               <Typography color="text.secondary"><strong>תפקיד:</strong> {user.role}</Typography>
               <Typography color="text.secondary"><strong>אימייל:</strong> {user.email}</Typography>
+              <Typography color="text.secondary"><strong>טלפון:</strong> {user.phone || '—'}</Typography>
             </Box>
-            <Button
-              variant={user.isSuspended ? 'contained' : 'outlined'}
-              color={user.isSuspended ? 'primary' : 'error'}
-              onClick={() => handleToggleSuspend(user.id, user.isSuspended)}
-            >
-              {user.isSuspended ? 'הפעל מחדש' : 'השעה משתמש'}
-            </Button>
           </Card>
         ))
       )}

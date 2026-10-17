@@ -3,64 +3,44 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { SupplierDonationSummaryDto } from '../types/api';
+import { authHeaders } from '../utils/auth';
+import { DONATION_STATUS_LABELS, formatDateTime } from '../utils/format';
 
+// היסטוריית תרומות. תוקן: העמוד ציפה לרשימת תרומות בתוך api/suppliers/current (שלא קיימת שם).
 export function SupplierHistoryPage() {
-  const [completedDonations, setCompletedDonations] = useState<any[]>([]);
+  const [history, setHistory] = useState<SupplierDonationSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-
-    // שליפת נתוני הספק המחובר הנוכחי ישירות מהשרת באמצעות הטוקן
-    fetch('/api/suppliers/current', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`שגיאה בשרת: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then(supplierData => {
-        // במידה והתרומות מגיעות כחלק ממידע הספק או מקור אחר
-        const donations = supplierData.donations || supplierData.completedDonations || [];
-        if (Array.isArray(donations)) {
-          const completed = donations.filter((d: any) => d.status === 'Completed');
-          setCompletedDonations(completed);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת היסטוריה:', err);
-        setLoading(false);
-      });
+    fetch('/api/donations/my-supplier-donations', { headers: authHeaders() })
+      .then(async (res) => (res.ok ? ((await res.json()) as SupplierDonationSummaryDto[]) : []))
+      .then((all) => setHistory(all.filter((d) => ['Completed', 'Expired', 'Cancelled'].includes(d.status))))
+      .catch(() => setHistory([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <LoadingBlock text="טוען היסטוריית תרומות מהשרת..." />;
+  if (loading) return <LoadingBlock text="טוען היסטוריית תרומות..." />;
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-      <PageTitle eyebrow="ארגון תורם" title="היסטוריית תרומות" subtitle="רשימת התרומות שהושלמו במלואן." />
+      <PageTitle eyebrow="ארגון תורם" title="היסטוריית תרומות" subtitle="תרומות שהושלמו, פגו או בוטלו." />
 
-      {completedDonations.length === 0 ? (
-        <EmptyState text="אין תרומות שהושלמו במסד הנתונים עדיין." />
+      {history.length === 0 ? (
+        <EmptyState text="אין עדיין תרומות בהיסטוריה." />
       ) : (
-        completedDonations.map((item) => (
+        history.map((item) => (
           <Card
             key={item.id}
             sx={{ p: { xs: 2.5, md: 3 }, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}
           >
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
-              <Typography color="text.secondary"><strong>אזור:</strong> {item.regionId}</Typography>
+              <Typography color="text.secondary"><strong>אזור:</strong> {item.regionName} · <strong>נוצרה:</strong> {formatDateTime(item.createdAt)}</Typography>
             </Box>
-            <Chip size="small" color="primary" label="הושלם" />
+            <Chip size="small" color={item.status === 'Completed' ? 'primary' : 'default'} label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
           </Card>
         ))
       )}

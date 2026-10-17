@@ -10,12 +10,13 @@ import Typography from '@mui/material/Typography';
 import ScaleIcon from '@mui/icons-material/Scale';
 import TimerIcon from '@mui/icons-material/Timer';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle.jsx';
-import StatGrid from '../components/StatGrid.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import StatGrid from '../components/StatGrid';
+import { LoadingBlock } from '../components/PageParts';
+import type { SystemReportDto, TopVolunteerDto } from '../types/api';
 
 export function AdminReportsPage() {
-  const [reports, setReports] = useState<any>({
+  const [reports, setReports] = useState<SystemReportDto>({
     totalDonationsVolume: 0,
     averageResponseTime: '0 דקות',
     successRate: '0%',
@@ -40,7 +41,7 @@ export function AdminReportsPage() {
         }
         return res.json();
       })
-      .then(data => {
+      .then((data: SystemReportDto) => {
         setReports(data);
         setLoading(false);
       })
@@ -75,7 +76,7 @@ export function AdminReportsPage() {
           <Typography color="text.secondary">אין נתונים זמינים כרגע.</Typography>
         ) : (
           <List>
-            {reports.topVolunteers.map((vol: any, index: number) => (
+            {reports.topVolunteers.map((vol: TopVolunteerDto, index: number) => (
               <ListItem key={index} disableGutters>
                 <ListItemAvatar>
                   <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 700 }}>

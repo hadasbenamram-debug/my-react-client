@@ -12,23 +12,19 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock } from '../components/PageParts';
 
-interface EngineStatus {
-  lastRunTime: string;
-  status: string;
-  matchedCount: number;
-  failedConstraints: string[];
-}
+import { authHeaders } from '../utils/auth';
+import { readErrorMessage } from '../utils/apiError';
+import type { EngineRunResultDto, EngineStatusDto } from '../types/api';
+
+// תוקן: engine-status החזיר ערכים קבועים, ו"הפעל מנוע" לא שמר כלום.
+// עכשיו: הנתונים של הריצה האחרונה בפועל + מספרים מהמסד, וההפעלה הידנית היא אותה ריצה של המנוע המתוזמן.
 
 export function AdminMatchingEnginePage() {
-  const [engineStatus, setEngineStatus] = useState<EngineStatus>({
-    lastRunTime: 'לא ידוע',
-    status: 'Ready',
-    matchedCount: 0,
-    failedConstraints: []
-  });
+  const [engineStatus, setEngineStatus] = useState<EngineStatusDto | null>(null);
+  const [lastRun, setLastRun] = useState<EngineRunResultDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,18 +32,10 @@ export function AdminMatchingEnginePage() {
   const fetchEngineStatus = async () => {
     try {
       setError(null);
-      const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-      // שימוש בנתיב המעודכן תחת matches
-      const res = await fetch('/api/matches/engine-status', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const res = await fetch('/api/matches/engine-status', { headers: authHeaders() });
       if (!res.ok) throw new Error('שגיאה בטעינת הנתונים מהשרת');
-      const data = await res.json();
-      setEngineStatus(data);
-    } catch (err: any) {
+      setEngineStatus((await res.json()) as EngineStatusDto);
+    } catch (err: unknown) {
       console.error('שגיאה בטעינת סטטוס מנוע השידוכים:', err);
       setError('לא ניתן להתחבר לשרת או לטעון את נתוני המנוע. ודא שהשרת פועל.');
     } finally {
@@ -63,25 +51,16 @@ export function AdminMatchingEnginePage() {
     setRunning(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-      // שימוש בנתיב המעודכן תחת matches
-      const res = await fetch('/api/matches/run-engine', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (res.ok) {
-        alert('ריצת מנוע השידוכים בוצעה בהצלחה!');
+      const res = await fetch('/api/matches/run-engine', { method: 'POST', headers: authHeaders() });
+      // 409 = ריצה אחרת פעילה כרגע (השרת מחזיר את אותו מבנה עם started=false)
+      if (res.ok || res.status === 409) {
+        setLastRun((await res.json()) as EngineRunResultDto);
         await fetchEngineStatus();
       } else {
-        throw new Error('שגיאה בהפעלת מנוע השידוכים בשרת.');
+        throw new Error(await readErrorMessage(res, 'שגיאה בהפעלת מנוע השידוכים בשרת.'));
       }
-    } catch (err: any) {
-      console.error('שגיאת תקשורת:', err);
-      setError('שגיאה בהפעלת מנוע השידוכים. בדוק את חיבור השרת.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'שגיאה בהפעלת מנוע השידוכים.');
     } finally {
       setRunning(false);
     }
@@ -98,14 +77,26 @@ export function AdminMatchingEnginePage() {
       />
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {lastRun && <Alert severity={lastRun.started ? 'success' : 'warning'} sx={{ mb: 3 }}>{lastRun.message}</Alert>}
 
       <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
-        <Typography sx={{ mb: 1.5 }}><strong>ריצה אחרונה:</strong> {engineStatus.lastRunTime}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
           <Typography><strong>סטטוס מנוע:</strong></Typography>
-          <Chip size="small" color="primary" label={engineStatus.status} />
+          <Chip size="small" color={engineStatus?.status === 'Running' ? 'warning' : 'primary'}
+            label={engineStatus?.status === 'Running' ? 'רץ כעת' : 'ממתין לריצה הבאה'} />
         </Box>
-        <Typography><strong>שידוכים שבוצעו בריצה האחרונה:</strong> {engineStatus.matchedCount}</Typography>
+        <Typography sx={{ mb: 1 }}>
+          <strong>ריצה אחרונה:</strong> {engineStatus?.lastRunTime ?? '—'}
+          {engineStatus?.lastRunTrigger && ` (${engineStatus.lastRunTrigger === 'Manual' ? 'ידנית' : engineStatus.lastRunTrigger === 'Scheduled' ? 'מתוזמנת' : engineStatus.lastRunTrigger})`}
+          {engineStatus?.lastRunDurationSeconds != null && ` · ${engineStatus.lastRunDurationSeconds} שניות`}
+        </Typography>
+        <Typography sx={{ mb: 1 }}>
+          <strong>בריצה האחרונה:</strong> {engineStatus?.donationsProcessed ?? 0} תרומות נבדקו · {engineStatus?.routesCreated ?? 0} מסלולים · {engineStatus?.matchedCount ?? 0} תרומות שובצו
+        </Typography>
+        <Typography sx={{ mb: 1 }}>
+          <strong>עכשיו:</strong> {engineStatus?.pendingDonations ?? 0} תרומות ממתינות · {engineStatus?.awaitingVolunteerResponse ?? 0} בקשות ממתינות לתגובת מתנדב · {engineStatus?.activeAssignments ?? 0} שיבוצים פעילים
+        </Typography>
+        <Typography color="text.secondary"><strong>תזמון:</strong> {engineStatus?.schedule ?? '—'} (cron)</Typography>
 
         <Button
           variant="contained"
@@ -121,7 +112,7 @@ export function AdminMatchingEnginePage() {
 
       <Card sx={{ p: { xs: 3, md: 4 } }}>
         <Typography variant="h6" sx={{ mb: 1 }}>אילוצים קשים שנכשלו</Typography>
-        {(!engineStatus.failedConstraints || engineStatus.failedConstraints.length === 0) ? (
+        {(!engineStatus || engineStatus.failedConstraints.length === 0) ? (
           <Typography color="text.secondary">אין כשלים באילוצים בריצה האחרונה.</Typography>
         ) : (
           <List dense>

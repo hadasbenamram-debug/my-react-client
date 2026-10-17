@@ -1,316 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import {useCallback, useEffect, useState} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
-import Typography from '@mui/material/Typography';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Stack from '@mui/material/Stack';
 import CheckIcon from '@mui/icons-material/Check';
-import PageTitle from '../components/PageTitle.jsx';
+import CloseIcon from '@mui/icons-material/Close';
+import PageTitle from '../components/PageTitle';
+import {EmptyState, LoadingBlock} from '../components/PageParts';
+import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
+import {authHeaders} from '../utils/auth';
+import {readErrorMessage} from '../utils/apiError';
+import type {MatchResponseDto, RouteDto} from '../types/api';
 
-function CountdownTimer({ onExpire }: { onExpire: () => void }) {
-  const [timeLeft, setTimeLeft] = useState<number>(300);
-
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      onExpire();
-      return;
-    }
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, onExpire]);
-
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-
-  return (
-    <Chip
-      icon={<AccessTimeIcon />}
-      color={timeLeft <= 60 ? 'error' : 'default'}
-      variant="outlined"
-      label={`זמן נותר לאישור: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`}
-      sx={{ mb: 2 }}
-    />
-  );
-}
-
+// בקשת התנדבות נכנסת (למתנדב מחובר). הבקשה היא מסלול שלם - אישור או דחייה אחת לכל התחנות.
+// (קישור מהמייל, בלי התחברות, מגיע לעמוד /app/respond)
 export function IncomingRequestPage() {
-  const { id } = useParams<{ id?: string }>();
-  const navigate = useNavigate();
+    const {id} = useParams<{id?: string}>();
+    const navigate = useNavigate();
+    const [route, setRoute] = useState<RouteDto | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState(false);
+    const [message, setMessage] = useState<{text: string; ok: boolean} | null>(null);
 
-  const [requests, setRequests] = useState<any[]>([]);
-  const [singleRequest, setSingleRequest] = useState<any | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [message, setMessage] = useState<string>('');
-  
-  const [activeMatch, setActiveMatch] = useState<any | null>(null);
-  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
-  const [routeStage, setRouteStage] = useState<'pickup' | 'delivery'>('pickup');
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            let next: RouteDto | null = null;
+            if (id) {
+                const matchRes = await fetch(`/api/matches/${id}`, {headers: authHeaders()});
+                if (!matchRes.ok) throw new Error(await readErrorMessage(matchRes, 'הבקשה לא נמצאה.'));
+                const match = (await matchRes.json()) as MatchResponseDto;
+                if (match.volunteerRouteId) {
+                    const routeRes = await fetch(`/api/matches/routes/${match.volunteerRouteId}`, {headers: authHeaders()});
+                    if (routeRes.ok) next = (await routeRes.json()) as RouteDto;
+                }
+            } else {
+                const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()});
+                if (res.status === 200) next = (await res.json()) as RouteDto;
+            }
+            setRoute(next);
+        } catch (err) {
+            setMessage({text: err instanceof Error ? err.message : 'שגיאה בטעינת הבקשה.', ok: false});
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
 
-  useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const urlToken = queryParams.get('token');
+    useEffect(() => {
+        void load();
+    }, [load]);
 
-    if (urlToken) {
-      localStorage.setItem('token', urlToken);
-      queryParams.delete('token');
-      const newSearch = queryParams.toString();
-      const newPath = window.location.pathname + (newSearch ? `?${newSearch}` : '');
-      window.history.replaceState({}, document.title, newPath);
-    }
+    const respond = async (accept: boolean) => {
+        if (!route || route.stops.length === 0) return;
+        if (!accept && !window.confirm('לדחות את הבקשה? התרומות יועברו למתנדב אחר.')) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setMessage('לא נמצא טוקן התחברות.');
-      setLoading(false);
-      return;
-    }
-
-    if (id) {
-      axios.get(`/api/matches/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(response => {
-          setSingleRequest(response.data);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error(err);
-          setMessage('שגיאה בטעינת פרטי הבקשה.');
-          setLoading(false);
+        setBusy(true);
+        setMessage(null);
+        const firstMatchId = route.stops[0].matchId;
+        const res = await fetch(`/api/matches/${firstMatchId}/${accept ? 'accept' : 'decline'}`, {
+            method: 'POST',
+            headers: authHeaders(),
         });
-    } else {
-      fetchIncomingRequests(token);
-    }
-  }, [id]);
+        setBusy(false);
 
-  const fetchIncomingRequests = (tokenParam?: string) => {
-    setLoading(true);
-    const token = tokenParam || localStorage.getItem('token');
-
-    axios.get('/api/matches/active', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(response => {
-        if (Array.isArray(response.data)) setRequests(response.data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    if (!activeMatch) return;
-
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const pos = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        setCurrentPosition(pos);
-        
-        const token = localStorage.getItem('token');
-        const routeId = activeMatch.volunteerRouteId || activeMatch.routeId || activeMatch.id;
-
-        if (token && routeId) {
-          const statusDesc = routeStage === 'pickup' 
-            ? 'בדרך לאיסוף מהספק - עדכון מיקום חי' 
-            : 'בדרך למסירה לעמותה - עדכון מיקום חי';
-
-          const payload = {
-            volunteerRouteId: routeId,
-            status: statusDesc,
-            latitude: pos.lat,
-            longitude: pos.lng,
-            notes: statusDesc
-          };
-
-          axios.post('/api/deliverylogs', payload, {
-            headers: { Authorization: `Bearer ${token}` }
-          }).catch(err => console.warn('שגיאה בשליחת לוג מיקום:', err.response?.data || err.message));
+        if (!res.ok) {
+            setMessage({text: await readErrorMessage(res, 'הפעולה נכשלה.'), ok: false});
+            await load();
+            return;
         }
-      },
-      (error) => console.error(error),
-      { enableHighAccuracy: true }
-    );
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [activeMatch, routeStage]);
-
-  const handleAccept = (match: any) => {
-    if (!window.confirm('אשר ניווט למסלול איסוף')) return;
-
-    const token = localStorage.getItem('token');
-    
-    axios.post(`/api/matches/${match.id}/accept`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((response) => {
-        const acceptedMatch = response.data.match || match;
-        setActiveMatch(acceptedMatch);
-        setRouteStage('pickup'); 
-        setMessage('המסלול התחיל בהצלחה!');
-        
-        if (id) {
-          navigate('/app/volunteer/incoming-request', { replace: true });
+        if (accept) {
+            navigate('/app/volunteer/active-route');
+        } else {
+            setMessage({text: 'הבקשה נדחתה. תודה על העדכון!', ok: true});
+            setRoute(null);
         }
-      })
-      .catch(err => {
-        alert(err.response?.data?.message || 'שגיאה באישור השידוך');
-      });
-  };
+    };
 
-  // פונקציה לסיום המשלוח
-  const handleCompleteDelivery = () => {
-    if (!window.confirm('האם אתה בטוח שהמשלוח הובא בהצלחה ליעדו?')) return;
-
-    const token = localStorage.getItem('token');
-    const matchId = activeMatch?.id;
-
-    if (!matchId) return;
-
-    // קריאה לשרת לסיום המשלוח (בהנחה שהנתיב הוא /api/matches/{id}/complete או דומה)
-    axios.post(`/api/matches/${matchId}/complete`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(() => {
-        alert('המשלוח הסתיים בהצלחה! תודה רבה על העזרה.');
-        setActiveMatch(null); // איפוס המסלול הפעיל כדי לחזור למסך הרגיל
-        fetchIncomingRequests(token ?? undefined); // טעינת רשימת הבקשות מחדש
-      })
-      .catch(err => {
-        // אם בשרת שם הנתיב שונה (למשל complete-delivery), תוכל לעדכן כאן
-        alert(err.response?.data?.message || 'שגיאה בעדכון סיום המשלוח');
-      });
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  const messageAlert = message ? (
-    <Alert severity="info" sx={{ mb: 3 }}>{message}</Alert>
-  ) : null;
-
-  if (activeMatch) {
-    const supplierAddress = activeMatch.donation?.address || activeMatch.address || "כתובת ספק";
-    const ngoAddress = activeMatch.ngo?.address || activeMatch.destinationAddress || "כתובת עמותה";
-    const currentDestination = routeStage === 'pickup' ? supplierAddress : ngoAddress;
+    if (loading) return <LoadingBlock text="טוען את הבקשה..." />;
 
     return (
-      <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-        <PageTitle eyebrow="מתנדב" title="מסלול איסוף ומסירה פעיל" />
+        <Box sx={{maxWidth: 800, mx: 'auto'}}>
+            <PageTitle eyebrow="מתנדב" title="בקשת איסוף נכנסת" />
+            {message && <Alert severity={message.ok ? 'success' : 'error'} sx={{mb: 2}}>{message.text}</Alert>}
 
-        <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
-          <Typography sx={{ mb: 1 }}>
-            <strong>שלב נוכחי:</strong> {routeStage === 'pickup' ? 'נסיעה אל הספק' : 'נסיעה אל העמותה'}
-          </Typography>
-          <Typography>
-            <strong>יעד:</strong> {currentDestination}
-          </Typography>
-        </Card>
-
-        <Box sx={{ width: '100%', height: 350, bgcolor: 'grey.200', borderRadius: 4, overflow: 'hidden', mb: 3 }}>
-          {currentPosition && (
-            <iframe
-              title="Live Route Map"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              src={`https://maps.google.com/maps?saddr=${currentPosition.lat},${currentPosition.lng}&daddr=${encodeURIComponent(currentDestination)}&output=embed`}
-            ></iframe>
-          )}
+            {!route ? (
+                <EmptyState text="אין כרגע בקשות איסוף שממתינות לך." />
+            ) : !route.awaitingResponse ? (
+                <Stack spacing={2}>
+                    <Alert severity="info">המסלול כבר אושר.</Alert>
+                    <Button variant="contained" onClick={() => navigate('/app/volunteer/active-route')}>למסלול הפעיל</Button>
+                </Stack>
+            ) : (
+                <Stack spacing={2}>
+                    <Box><DeadlineCountdown deadline={route.responseDeadline} onExpire={() => void load()} /></Box>
+                    <RouteSummary route={route} />
+                    <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5}>
+                        <Button variant="contained" size="large" startIcon={<CheckIcon />} disabled={busy} onClick={() => void respond(true)}>
+                            מאשר/ת את כל המסלול
+                        </Button>
+                        <Button variant="outlined" color="error" size="large" startIcon={<CloseIcon />} disabled={busy} onClick={() => void respond(false)}>
+                            לא יכול/ה הפעם
+                        </Button>
+                    </Stack>
+                </Stack>
+            )}
         </Box>
-
-        {routeStage === 'pickup' ? (
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            endIcon={<ArrowBackIcon />}
-            onClick={() => setRouteStage('delivery')}
-          >
-            אספתי מהספק - המשך לעמותה
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            startIcon={<CheckIcon />}
-            onClick={handleCompleteDelivery}
-          >
-            סיום משלוח - הבאתי את המשלוח לעמותה
-          </Button>
-        )}
-
-        {routeStage === 'delivery' && (
-          <Button variant="text" fullWidth onClick={() => setRouteStage('pickup')} sx={{ mt: 1.5 }}>
-            חזור לשלב האיסוף
-          </Button>
-        )}
-      </Box>
     );
-  }
-
-  if (id && singleRequest) {
-    return (
-      <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-        <PageTitle eyebrow="מתנדב" title="פרטי בקשת איסוף נכנסת" />
-        {messageAlert}
-        <Card sx={{ p: { xs: 3, md: 4 } }}>
-          <Typography sx={{ mb: 2 }}>
-            <strong>מזהה שידוך:</strong> #{singleRequest.id}
-          </Typography>
-          <CountdownTimer onExpire={() => navigate('/app/volunteer/incoming-request')} />
-          <Box>
-            <Button variant="contained" size="large" onClick={() => handleAccept(singleRequest)}>
-              אישור איסוף ומעבר למפה
-            </Button>
-          </Box>
-        </Card>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-      <PageTitle eyebrow="מתנדב" title="בקשות איסוף נכנסות" />
-      {messageAlert}
-
-      {requests.length === 0 ? (
-        <Card sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
-          <Typography color="text.secondary">אין כרגע בקשות איסוף פעילות.</Typography>
-        </Card>
-      ) : (
-        requests.map((item) => (
-          <Card key={item.id} sx={{ p: { xs: 3, md: 4 }, mb: 2 }}>
-            <Typography sx={{ mb: 2 }}>
-              <strong>מזהה שידוך:</strong> #{item.id}
-            </Typography>
-            <CountdownTimer onExpire={() => fetchIncomingRequests()} />
-            <Box>
-              <Button variant="contained" onClick={() => handleAccept(item)}>
-                אישור איסוף ומעבר למפה
-              </Button>
-            </Box>
-          </Card>
-        ))
-      )}
-    </Box>
-  );
 }

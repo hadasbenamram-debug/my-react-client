@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import PageTitle from '../components/PageTitle.jsx';
-import { StatusAlert } from '../components/FormParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { StatusAlert } from '../components/FormParts';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
+    setStatus(null);
 
     try {
       const response = await fetch('/api/auth/forgot-password', {
@@ -23,14 +25,16 @@ export function ForgotPasswordPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
+      const body = await response.json().catch(() => null);
 
+      // השרת מחזיר תמיד אותה הודעה כללית (גם אם המייל לא קיים) - כדי לא לחשוף אילו כתובות רשומות
       if (response.ok) {
-        setMessage('קישור/קוד לאיפוס סיסמה נשלח למייל שלך בהצלחה.');
+        setStatus({ ok: true, text: body?.message ?? 'אם הכתובת קיימת במערכת, נשלח אליה קישור לאיפוס.' });
       } else {
-        setMessage('אירעה שגיאה. ודא שהכתובת קיימת במערכת.');
+        setStatus({ ok: false, text: body?.message ?? 'אירעה שגיאה. נסו שוב.' });
       }
-    } catch (error) {
-      setMessage('שגיאת תקשורת מול השרת.');
+    } catch {
+      setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
     } finally {
       setLoading(false);
     }
@@ -54,7 +58,10 @@ export function ForgotPasswordPage() {
             </Button>
           </Stack>
         </form>
-        <StatusAlert message={message} />
+        <StatusAlert message={status?.text ?? ''} success={!!status?.ok} />
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Link component={RouterLink} to="/app/reset-password">כבר קיבלתי קוד במייל</Link>
+        </Box>
       </Card>
     </Box>
   );

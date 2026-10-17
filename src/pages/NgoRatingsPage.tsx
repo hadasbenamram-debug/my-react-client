@@ -1,57 +1,55 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import MenuItem from '@mui/material/MenuItem';
 import Rating from '@mui/material/Rating';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
+import { authHeaders } from '../utils/auth';
+import { readErrorMessage } from '../utils/apiError';
+import type { CreateFeedbackDto } from '../types/api';
 
+// דירוג אחרי אישור קבלה. תוקן: העמוד שלח ל-api/ratings שלא קיים.
+// עכשיו: POST api/feedbacks עם מזהה השידוך. דירוג המתנדב משפיע על ציון האמינות שלו בשיבוצים הבאים.
 export function NgoRatingsPage() {
-  const { id } = useParams(); // שליפת ה-ID אוטומטית מכתובת ה-URL
+  const { id } = useParams();
   const navigate = useNavigate();
+  const matchId = Number(id);
 
-  const [ratingData, setRatingData] = useState({
-    targetType: 'Volunteer', // Volunteer או Supplier
-    targetId: id || '',      // נשמר ב-State מאחורי הקלעים
-    score: 5,
-    comment: ''
-  });
+  const [rating, setRating] = useState(5);
+  const [volunteerRating, setVolunteerRating] = useState(5);
+  const [comments, setComments] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    const token = localStorage.getItem('token');
+    const payload: CreateFeedbackDto = { matchId, rating, volunteerRating, comments: comments.trim() || null };
+    const res = await fetch('/api/feedbacks', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+    setLoading(false);
 
-    fetch('/api/ratings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        ...ratingData,
-        targetId: Number(ratingData.targetId)
-      })
-    })
-      .then(res => {
-        setLoading(false);
-        if (res.ok) {
-          alert('הדירוג והמשוב נשמרו בהצלחה!');
-          navigate('/dashboard'); // חזרה לדשבורד לאחר שליחה מוצלחת
-        } else {
-          alert('שגיאה בשמירת הדירוג.');
-        }
-      })
-      .catch(err => {
-        setLoading(false);
-        console.error('שגיאת תקשורת:', err);
-      });
+    if (res.ok) {
+      alert('תודה! הדירוג נשמר.');
+      navigate('/app/ngo/dashboard');
+    } else {
+      setError(await readErrorMessage(res, 'שגיאה בשמירת הדירוג.'));
+    }
   };
+
+  if (!matchId) {
+    return (
+      <Box sx={{ maxWidth: 640, mx: 'auto' }}>
+        <PageTitle eyebrow="עמותה" title="דירוג ומשוב" />
+        <Alert severity="info">אפשר לדרג מסירה אחרי אישור הקבלה שלה (בעמוד "אישור קבלת תרומה").</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 640, mx: 'auto' }}>
@@ -60,35 +58,26 @@ export function NgoRatingsPage() {
       <Card sx={{ p: { xs: 3, md: 5 } }}>
         <form onSubmit={handleSubmit}>
           <Box sx={{ display: 'grid', gap: 3 }}>
-            <TextField
-              select
-              label="סוג דירוג"
-              value={ratingData.targetType}
-              onChange={(e) => setRatingData({ ...ratingData, targetType: e.target.value })}
-            >
-              <MenuItem value="Volunteer">מתנדב</MenuItem>
-              <MenuItem value="Supplier">ספק (תורם)</MenuItem>
-            </TextField>
-
             <Box>
-              <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: '0.9rem' }}>ציון</Typography>
-              <Rating
-                size="large"
-                value={ratingData.score}
-                onChange={(_, value) => setRatingData({ ...ratingData, score: value || 1 })}
-              />
+              <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: '0.9rem' }}>התרומה (איכות / כמות)</Typography>
+              <Rating size="large" value={rating} onChange={(_, value) => setRating(value || 1)} />
             </Box>
-
+            <Box>
+              <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: '0.9rem' }}>המתנדב (זמינות, אדיבות, זמן הגעה)</Typography>
+              <Rating size="large" value={volunteerRating} onChange={(_, value) => setVolunteerRating(value || 1)} />
+            </Box>
             <TextField
               label="הערות / משוב"
               multiline
               minRows={4}
-              value={ratingData.comment}
-              onChange={(e) => setRatingData({ ...ratingData, comment: e.target.value })}
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
               slotProps={{ htmlInput: { maxLength: 500 } }}
-              helperText={`${ratingData.comment.length}/500 תווים`}
+              helperText={`${comments.length}/500 תווים`}
             />
           </Box>
+
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
           <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
             {loading ? 'שולח...' : 'שלח דירוג'}

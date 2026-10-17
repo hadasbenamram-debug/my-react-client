@@ -4,11 +4,12 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Rating from '@mui/material/Rating';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
-import { LoadingBlock, EmptyState } from '../components/PageParts.jsx';
+import PageTitle from '../components/PageTitle';
+import { LoadingBlock, EmptyState } from '../components/PageParts';
+import type { FeedbackView } from '../types/api';
 
 export function VolunteerRatingsPage() {
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<FeedbackView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,11 +26,11 @@ export function VolunteerRatingsPage() {
         if (!res.ok) throw new Error('שגיאה בטעינת המשובים מהשרת');
         return res.json();
       })
-      .then(data => {
+      .then((data: FeedbackView[]) => {
         setFeedbacks(data);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err: Error) => {
         console.error(err);
         setError(err.message);
         setLoading(false);
@@ -60,8 +61,9 @@ export function VolunteerRatingsPage() {
           <Card key={idx} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>{fb.volunteerName || 'מתנדב'}</Typography>
-              {fb.rating ? (
-                <Rating value={Number(fb.rating)} precision={0.5} readOnly />
+              {/* דירוג המתנדב (משפיע על ציון האמינות שלו); fb.rating הוא דירוג התרומה עצמה */}
+              {fb.volunteerRating ? (
+                <Rating value={Number(fb.volunteerRating)} precision={0.5} readOnly />
               ) : (
                 <Typography color="text.secondary">N/A</Typography>
               )}

@@ -1,93 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import {useEffect, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle.jsx';
+import PageTitle from '../components/PageTitle';
+import {LoadingBlock} from '../components/PageParts';
+import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
+import {authHeaders} from '../utils/auth';
+import type {RouteDto} from '../types/api';
 
 export function VolunteerDashboard() {
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
+    const [route, setRoute] = useState<RouteDto | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // שליפת הטוקן מ-localStorage לצורך אימות מול השרת
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
-      setLoading(false);
-      return;
-    }
+    useEffect(() => {
+        fetch('/api/matches/routes/my-active', {headers: authHeaders()})
+            .then(async (res) => {
+                if (res.status === 204) return null;
+                if (!res.ok) throw new Error();
+                return (await res.json()) as RouteDto;
+            })
+            .then(setRoute)
+            .catch(() => setError('שגיאה בטעינת הנתונים.'))
+            .finally(() => setLoading(false));
+    }, []);
 
-    fetch(`/api/matches/active`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        // אם השרת מחזיר 404, המשמעות היא שאין שיבוץ פעיל כרגע - נחזיר null ברוגע
-        if (res.status === 404) {
-          return null;
-        }
-        if (!res.ok) {
-          throw new Error('שגיאה בהרשאה או בטעינת הנתונים');
-        }
-        return res.json();
-      })
-      .then(data => {
-        setDashboardData(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת הנתונים מהשרת', err);
-        setError('שגיאה בטעינת הנתונים. ייתכן שפג תוקף ההתחברות.');
-        setLoading(false);
-      });
-  }, []);
+    if (loading) return <LoadingBlock text="טוען..." />;
 
-  if (loading) {
     return (
-      <Box sx={{ textAlign: 'center', py: 10 }}>
-        <CircularProgress size={32} />
-        <Typography color="text.secondary" sx={{ mt: 2 }}>טוען נתונים מהשרת...</Typography>
-      </Box>
-    );
-  }
+        <Box sx={{maxWidth: 800, mx: 'auto'}}>
+            <PageTitle eyebrow="מתנדב" title="הדשבורד שלי" subtitle="הבקשה או המסלול הפעיל שלך." />
+            {error && <Alert severity="error" sx={{mb: 2}}>{error}</Alert>}
 
-  if (error) {
-    return (
-      <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-      <PageTitle eyebrow="מתנדב" title="הדשבורד שלי" subtitle="סטטוס ושיבוצים פעילים." />
-
-      <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Typography variant="h5">סטטוס נוכחי במערכת:</Typography>
-          <Chip label="Available" color="primary" />
+            {!route ? (
+                <Card sx={{p: {xs: 3, md: 4}, textAlign: 'center'}}>
+                    <Typography color="text.secondary" sx={{mb: 2}}>אין כרגע בקשה או מסלול פעיל.</Typography>
+                    <Button variant="outlined" onClick={() => navigate('/app/volunteer/availability')}>עדכון זמינות שבועית</Button>
+                </Card>
+            ) : (
+                <Stack spacing={2}>
+                    {route.awaitingResponse ? (
+                        <Alert severity="warning" action={<Button color="inherit" onClick={() => navigate('/app/volunteer/incoming-request')}>לבקשה</Button>}>
+                            מחכה לך בקשת איסוף חדשה. <DeadlineCountdown deadline={route.responseDeadline} />
+                        </Alert>
+                    ) : (
+                        <Alert severity="success" action={<Button color="inherit" onClick={() => navigate('/app/volunteer/active-route')}>למסלול</Button>}>
+                            יש לך מסלול פעיל.
+                        </Alert>
+                    )}
+                    <RouteSummary route={route} />
+                </Stack>
+            )}
         </Box>
-        <Typography color="text.secondary" sx={{ mt: 1.5 }}>
-          כאן מוצגים הנתונים האמיתיים שנשלפו ישירות מבסיס הנתונים.
-        </Typography>
-      </Card>
-
-      {dashboardData ? (
-        <Alert severity="success" icon={false} sx={{ p: 3 }}>
-          <Typography sx={{ fontWeight: 500, mb: 0.5 }}>שיבוץ פעיל נמצא!</Typography>
-          <Typography>מזהה שיבוץ: #{dashboardData.id}</Typography>
-        </Alert>
-      ) : (
-        <Card sx={{ p: { xs: 3, md: 4 }, textAlign: 'center' }}>
-          <Typography color="text.secondary">אין שיבוצים פעילים כרגע במסד הנתונים.</Typography>
-        </Card>
-      )}
-    </Box>
-  );
+    );
 }
