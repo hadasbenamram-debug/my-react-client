@@ -13,6 +13,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
+import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
@@ -108,16 +109,19 @@ export function OpenDonationsPage() {
         donations.map((item) => (
           <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
-                <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
-                <Chip size="small" variant="outlined" color={item.status === 'Pending' ? 'warning' : 'primary'}
-                  label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+              <DonationImage image={item.image} />
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+                  <Chip size="small" variant="outlined" color={item.status === 'Pending' ? 'warning' : 'primary'}
+                    label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
+                </Box>
+                <Typography color="text.secondary">
+                  <strong>אזור:</strong> {item.regionName} · <strong>איסוף עד:</strong> {formatTimeSpan(item.latestPickupTime)} · <strong>תוקף:</strong> {formatDateTime(item.expirationTime)}
+                </Typography>
               </Box>
-              <Typography color="text.secondary">
-                <strong>אזור:</strong> {item.regionName} · <strong>איסוף עד:</strong> {formatTimeSpan(item.latestPickupTime)} · <strong>תוקף:</strong> {formatDateTime(item.expirationTime)}
-              </Typography>
-            </Box>
+            </Stack>
             <Stack direction="row" spacing={1}>
               <Button variant="text" onClick={() => navigate(`/app/supplier/donation-details?id=${item.id}`)}>פרטים</Button>
               {item.status === 'Pending' && (

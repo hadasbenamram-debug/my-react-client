@@ -320,7 +320,8 @@ export interface CreateDonationDto {
     latitude: number;
     longitude: number;
     googlePlaceId?: string | null;
-    imageFilePath: string | null;
+    /** שם קובץ התמונה שהתקבל מ-analyze-image (רק שם, בלי נתיב) */
+    image: string | null;
     latestPickupTime: TimeSpanString;
     /** אופציונלי. בלי ערך - סוף היום (שעון ישראל) */
     expirationTime?: IsoDateString | null;
@@ -345,7 +346,8 @@ export interface DonationResponseDto {
     latitude: number;
     longitude: number;
     googlePlaceId: string | null;
-    imageFilePath: string | null;
+    /** שם קובץ התמונה בלבד. כתובת התמונה: imageUrl(image) */
+    image: string | null;
     latestPickupTime: TimeSpanString;
     expirationTime: IsoDateString;
     createdAt: IsoDateString;
@@ -371,6 +373,7 @@ export interface SupplierDonationSummaryDto {
     createdAt: IsoDateString;
     expirationTime: IsoDateString;
     latestPickupTime: TimeSpanString;
+    image: string | null;
 }
 
 export interface AdminDonationSummaryDto {
@@ -382,10 +385,12 @@ export interface AdminDonationSummaryDto {
     expirationTime: IsoDateString;
     urgencyScore: number;
     priorityScore: number;
+    image: string | null;
 }
 
 export interface ImageAnalysisResponseDto {
-    filePath: string;
+    /** שם הקובץ שנשמר בשרת (בלי נתיב). נשלח בחזרה בשדה image ביצירת התרומה */
+    image: string;
     aiParsedData: string | null;
     message: string | null;
 }

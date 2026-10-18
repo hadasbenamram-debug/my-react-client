@@ -6,6 +6,7 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
+import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import { authHeaders } from '../utils/auth';
 import { DONATION_STATUS_LABELS, MATCH_STATUS_LABELS, formatDateTime, formatTime, formatTimeSpan } from '../utils/format';
@@ -44,6 +45,11 @@ export function DonationDetailsPage() {
       <PageTitle eyebrow="ארגון תורם" title={`פרטי תרומה #${donation.id}`} />
 
       <Card sx={{ p: { xs: 3, md: 4 } }}>
+        {donation.image && (
+          <Box sx={{ mb: 2.5 }}>
+            <DonationImage image={donation.image} size="large" />
+          </Box>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Typography><strong>סטטוס:</strong></Typography>
           <Chip size="small" color="primary" label={DONATION_STATUS_LABELS[donation.status] ?? donation.status} />

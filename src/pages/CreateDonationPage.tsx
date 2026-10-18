@@ -54,7 +54,8 @@ export function CreateDonationPage() {
   const [expirationTime, setExpirationTime] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFilePath, setImageFilePath] = useState<string>('');
+  // שם קובץ התמונה שהשרת שמר (לא נתיב ולא כתובת)
+  const [imageFileName, setImageFileName] = useState<string>('');
 
   const [categories, setCategories] = useState<DonationCategoryLineDto[]>([
     { categoryId: '', quantity: 1, weightKg: 1 }
@@ -171,7 +172,7 @@ export function CreateDonationPage() {
     setImagePreview(URL.createObjectURL(file));
     setError(null);
     setSuccessMessage(null);
-    setImageFilePath('');
+    setImageFileName('');
 
     const token = localStorage.getItem('token');
     if (!token) {
@@ -196,8 +197,8 @@ export function CreateDonationPage() {
         throw new Error(data.message || 'שגיאה בניתוח התמונה מול השרת.');
       }
 
-      // שומרים את נתיב התמונה
-      if (data.filePath) setImageFilePath(data.filePath);
+      // שומרים את שם הקובץ שהשרת החזיר
+      if (data.image) setImageFileName(data.image);
 
       if (!data.aiParsedData) {
         setError(data.message || 'לא ניתן לנתח את התמונה. נא למלא ידנית.');
@@ -327,7 +328,7 @@ export function CreateDonationPage() {
       googlePlaceId,
       latestPickupTime: formattedPickupTime,
       expirationTime: expirationPayload,
-      imageFilePath: imageFilePath || null,
+      image: imageFileName || null,
       categories: categories.map((c) => ({ categoryId: Number(c.categoryId), quantity: c.quantity, weightKg: c.weightKg }))
     };
 

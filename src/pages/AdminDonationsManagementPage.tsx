@@ -5,6 +5,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
+import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS } from '../utils/format';
@@ -93,14 +94,17 @@ export function AdminDonationsManagementPage() {
               gap: 2,
             }}
           >
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
-                <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
-                <Chip size="small" variant="outlined" color="primary" label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <DonationImage image={item.image} />
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+                  <Chip size="small" variant="outlined" color="primary" label={DONATION_STATUS_LABELS[item.status] ?? item.status} />
+                </Box>
+                <Typography color="text.secondary">
+                  <strong>ספק:</strong> {item.supplierName || `מזהה #${item.supplierId}`}
+                </Typography>
               </Box>
-              <Typography color="text.secondary">
-                <strong>ספק:</strong> {item.supplierName || `מזהה #${item.supplierId}`}
-              </Typography>
             </Box>
             {(item.status === 'Pending' || item.status === 'Matched') && (
               <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>

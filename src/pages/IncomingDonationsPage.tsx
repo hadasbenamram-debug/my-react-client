@@ -4,6 +4,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
+import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { NgoDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS, formatTime } from '../utils/format';
@@ -58,7 +59,10 @@ export function IncomingDonationsPage() {
         incoming.map((item) => (
           <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <DonationImage image={item.image} />
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+              </Box>
               <Chip size="small" color="primary" label="בדרך" />
             </Box>
             <Typography color="text.secondary">
