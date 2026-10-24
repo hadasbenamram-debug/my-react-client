@@ -20,7 +20,8 @@ const userFields: FieldDef[] = [
 
 const businessFields: FieldDef[] = [
   { name: 'businessName', label: 'שם העסק', minLength: 2, maxLength: 100 },
-  { name: 'address', label: 'כתובת העסק', maxLength: 200 },
+  // המיקום על המפה נקבע בשרת לפי הכתובת (Google Maps), ולכן צריך כתובת מלאה
+  { name: 'address', label: 'כתובת העסק המלאה (רחוב, מספר ועיר)', maxLength: 200 },
   { name: 'taxId', label: 'מספר ח.פ / תיק מע"מ', minLength: 5, maxLength: 20 },
 ];
 

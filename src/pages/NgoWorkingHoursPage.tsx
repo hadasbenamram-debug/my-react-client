@@ -15,9 +15,7 @@ const timeField = { inputLabel: { shrink: true } };
 
 export function NgoWorkingHoursPage() {
   const [workingHours, setWorkingHours] = useState({
-    address: 'בורוכוב 12',
-    latitude: 32.0853,
-    longitude: 34.7818,
+    address: '',
     sunToThuOpenTime: '09:00',
     sunToThuCloseTime: '17:00',
     receivesOnFriday: false,
@@ -34,8 +32,6 @@ export function NgoWorkingHoursPage() {
     axios.get<NgoResponseDto>('/api/ngos/me')
       .then(({ data }) => setWorkingHours({
         address: data.address ?? '',
-        latitude: data.latitude,
-        longitude: data.longitude,
         sunToThuOpenTime: (data.sunToThuOpenTime ?? '09:00').substring(0, 5),
         sunToThuCloseTime: (data.sunToThuCloseTime ?? '17:00').substring(0, 5),
         receivesOnFriday: data.receivesOnFriday,
@@ -67,9 +63,8 @@ export function NgoWorkingHoursPage() {
     }
 
     const payload: UpdateNgoHoursDto = {
+      // המיקום המדויק נקבע בשרת לפי הכתובת (Google Maps)
       address: workingHours.address,
-      latitude: Number(workingHours.latitude),
-      longitude: Number(workingHours.longitude),
       sunToThuOpenTime: workingHours.sunToThuOpenTime.length === 5 ? `${workingHours.sunToThuOpenTime}:00` : workingHours.sunToThuOpenTime,
       sunToThuCloseTime: workingHours.sunToThuCloseTime.length === 5 ? `${workingHours.sunToThuCloseTime}:00` : workingHours.sunToThuCloseTime,
       receivesOnFriday: workingHours.receivesOnFriday,
@@ -102,6 +97,7 @@ export function NgoWorkingHoursPage() {
           <FormSection title="מיקום" columns={1}>
             <TextField
               label="כתובת מדויקת"
+              helperText="רחוב, מספר בית ועיר. המיקום על המפה נקבע לפי הכתובת."
               value={workingHours.address}
               onChange={(e) => setWorkingHours({ ...workingHours, address: e.target.value })}
               required

@@ -315,11 +315,9 @@ export interface DonationCategoryLineDto {
     categoryName?: string | null;
 }
 
+/** אין כאן מיקום: השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps) */
 export interface CreateDonationDto {
     regionId: number;
-    latitude: number;
-    longitude: number;
-    googlePlaceId?: string | null;
     /** שם קובץ התמונה שהתקבל מ-analyze-image (רק שם, בלי נתיב) */
     image: string | null;
     latestPickupTime: TimeSpanString;
@@ -583,11 +581,9 @@ export interface NgoResponseDto extends NgoHoursFields {
     approvalStatus: number;
 }
 
-/** PUT api/ngos/my-hours */
+/** PUT api/ngos/my-hours. המיקום (קו רוחב ואורך) נקבע בשרת לפי הכתובת, דרך Google Maps */
 export interface UpdateNgoHoursDto extends NgoHoursFields {
     address: string;
-    latitude: number;
-    longitude: number;
     sunToThuOpenTime: TimeSpanString | null;
     sunToThuCloseTime: TimeSpanString | null;
 }

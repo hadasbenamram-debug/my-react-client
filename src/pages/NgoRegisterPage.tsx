@@ -30,7 +30,8 @@ const userFields: FieldDef[] = [
 const ngoFields: FieldDef[] = [
   { name: 'ngoName', label: 'שם העמותה', minLength: 2, maxLength: 100 },
   { name: 'registrationNumber', label: 'מספר רישום (חברה/עמותה)', maxLength: 20 },
-  { name: 'address', label: 'כתובת', maxLength: 200 },
+  // המיקום על המפה נקבע בשרת לפי הכתובת (Google Maps), ולכן צריך כתובת מלאה
+  { name: 'address', label: 'כתובת מלאה (רחוב, מספר ועיר)', maxLength: 200 },
   { name: 'dailyCapacity', label: 'קיבולת יומית (ק"ג)', type: 'number' },
 ];
 
@@ -43,8 +44,6 @@ export function NgoRegisterPage() {
     registrationNumber: '',
     address: '',
     dailyCapacity: 100,
-    latitude: 32.0853,
-    longitude: 34.7818,
     regionId: 1,
     // חדש: שעות קבלה (בעבר לא נשלחו, והעמותה נשמרה עם 00:00-00:00 - כלומר "סגורה תמיד")
     sunToThuOpenTime: '09:00',

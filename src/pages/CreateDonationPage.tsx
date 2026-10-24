@@ -12,7 +12,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import type { FoodCategoryResponseDto, ImageAnalysisResponseDto, RegionResponseDto, SupplierResponseDto, ValidationProblemBody } from '../types/api';
+import type { FoodCategoryResponseDto, ImageAnalysisResponseDto, RegionResponseDto, ValidationProblemBody } from '../types/api';
 
 interface DonationCategoryLineDto {
   categoryId: number | '';
@@ -40,14 +40,10 @@ type AnalyzeImageResponse = Partial<Omit<ImageAnalysisResponseDto, 'aiParsedData
 
 export function CreateDonationPage() {
   // אזור האיסוף נבחר מתוך האזורים שבמסד (GET api/region), ולא מזהה קבוע.
-  // מיקום האיסוף: הכתובת של העסק (GET api/suppliers/current), ואם אין - מרכז האזור שנבחר.
+  // מיקום האיסוף לא נשלח מכאן: השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps).
   const [availableRegions, setAvailableRegions] = useState<RegionResponseDto[]>([]);
   const [regionId, setRegionId] = useState<number | ''>('');
-  const [supplierLocation, setSupplierLocation] = useState<{ lat: number; lng: number } | null>(null);
   const selectedRegion = availableRegions.find((r) => r.id === regionId);
-  const latitude = supplierLocation?.lat ?? selectedRegion?.centerLatitude ?? 0;
-  const longitude = supplierLocation?.lng ?? selectedRegion?.centerLongitude ?? 0;
-  const [googlePlaceId] = useState<string>('default_place');
 
   const [latestPickupTime, setLatestPickupTime] = useState<string>('18:00');
   // חדש: שעת תפוגה (אופציונלי). בלי ערך - סוף היום (תרומה מיועדת לאותו יום בלבד)
@@ -75,19 +71,10 @@ export function CreateDonationPage() {
     };
   }, [imagePreview]);
 
-  // שליפת קטגוריות, אזורים ומיקום העסק.
+  // שליפת קטגוריות ואזורים.
   // תוקן: בעבר טוקן מהכתובת נשמר כטוקן התחברות.
   useEffect(() => {
     const token = localStorage.getItem('token');
-
-    fetch('/api/suppliers/current', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(async (res) => (res.ok ? ((await res.json()) as SupplierResponseDto) : null))
-      .then((supplier) => {
-        if (supplier && (supplier.latitude !== 0 || supplier.longitude !== 0)) {
-          setSupplierLocation({ lat: supplier.latitude, lng: supplier.longitude });
-        }
-      })
-      .catch(() => { /* נשארים עם מרכז האזור */ });
 
     fetch('/api/categories', {
       headers: {
@@ -323,9 +310,6 @@ export function CreateDonationPage() {
 
     const donationPayload = {
       regionId,
-      latitude,
-      longitude,
-      googlePlaceId,
       latestPickupTime: formattedPickupTime,
       expirationTime: expirationPayload,
       image: imageFileName || null,
