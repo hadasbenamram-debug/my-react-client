@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -11,6 +11,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
 import RouteSummary from '../components/RouteSummary';
+import {StaticMap} from '../components/GoogleMapView';
 import {authHeaders} from '../utils/auth';
 import {readErrorMessage} from '../utils/apiError';
 import type {RouteDto, RouteStopDto} from '../types/api';
@@ -96,6 +97,11 @@ export function ActiveRoutePage() {
         ? {label: `איסוף מ${nextPickup.supplierName ?? 'ספק'}`, lat: nextPickup.latitude, lng: nextPickup.longitude}
         : {label: `מסירה ל${route.ngoName ?? 'עמותה'}`, lat: route.ngoLatitude, lng: route.ngoLongitude};
 
+    // קישור רשמי של Google Maps לניווט (לא צריך מפתח). בלי נקודת מוצא - Google מתחיל מהמיקום הנוכחי של הטלפון.
+    const googleMapsNavigationUrl = 'https://www.google.com/maps/dir/?api=1'
+        + (position ? `&origin=${position.lat},${position.lng}` : '')
+        + `&destination=${destination.lat},${destination.lng}&travelmode=driving`;
+
     const stopActions = (stop: RouteStopDto) => {
         if (route.status !== 'InProgress') return null;
         if (stop.status === 'Confirmed' || stop.status === 'InPickup') {
@@ -135,20 +141,15 @@ export function ActiveRoutePage() {
                         href={`https://waze.com/ul?ll=${destination.lat},${destination.lng}&navigate=yes`} target="_blank" rel="noopener noreferrer">
                         ניווט ב-Waze
                     </Button>
+                    <Button variant="outlined" startIcon={<NavigationIcon />}
+                        href={googleMapsNavigationUrl} target="_blank" rel="noopener noreferrer">
+                        ניווט ב-Google Maps
+                    </Button>
                 </Stack>
             </Card>
 
-            {position && (
-                <Box sx={{width: '100%', height: 320, borderRadius: 4, overflow: 'hidden', mb: 2, bgcolor: 'grey.200'}}>
-                    <iframe
-                        title="מפת המסלול"
-                        width="100%"
-                        height="100%"
-                        style={{border: 0}}
-                        src={`https://maps.google.com/maps?saddr=${position.lat},${position.lng}&daddr=${destination.lat},${destination.lng}&output=embed`}
-                    />
-                </Box>
-            )}
+            {/* מפת המסלול מגיעה מהשרת כתמונה (Google Maps Static API - המפתח נשאר בשרת) */}
+            <StaticMap src={`/api/map/routes/${route.id}/image`} alt="מפת המסלול" height={320} />
 
             <RouteSummary route={route} stopActions={stopActions} />
         </Box>

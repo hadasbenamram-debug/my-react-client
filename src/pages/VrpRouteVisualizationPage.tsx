@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -6,44 +6,12 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
-import { MapShell, MapView, MAP_COLORS, useGeocodedStops, type GeocodedStop, type MapMarker } from '../components/GoogleMapView';
-import type { LatLng } from '../types';
+import { StaticMap, MAP_COLORS } from '../components/GoogleMapView';
 import type { LiveMissionDto, RouteDto, RouteStop, RoutePlan } from '../types/api';
 import { authHeaders } from '../utils/auth';
 
-function RouteMap({ stops }: { stops: RouteStop[] }) {
-  const geocoded = useGeocodedStops(stops);
-
-  const markers = useMemo(
-    () =>
-      geocoded
-        .map((stop, index: number) => ({ stop, index }))
-        .filter((entry): entry is { stop: GeocodedStop<RouteStop> & { position: LatLng }; index: number } => entry.stop.position !== null)
-        .map(({ stop, index }): MapMarker => ({
-          id: index,
-          position: stop.position,
-          title: stop.locationName,
-          glyph: String(index + 1),
-          color: stop.actionType === 'Pickup' ? MAP_COLORS.donor : MAP_COLORS.ngo,
-          info: (
-            <Box>
-              <Typography sx={{ fontWeight: 700 }}>
-                {index + 1}. {stop.locationName}
-              </Typography>
-              <Typography sx={{ fontSize: '0.85rem' }}>
-                {stop.actionType === 'Pickup' ? 'איסוף מספק' : 'מסירה לעמותה'}
-              </Typography>
-              {stop.address && <Typography sx={{ fontSize: '0.85rem' }}>{stop.address}</Typography>}
-            </Box>
-          ),
-        })),
-    [geocoded]
-  );
-
-  const routePoints = useMemo(() => markers.map((m: MapMarker) => m.position), [markers]);
-
-  return <MapView markers={markers} routePoints={routePoints} />;
-}
+// המפה מגיעה מהשרת כתמונה (Google Maps Static API - המפתח נשאר בשרת).
+// התחנות ממוספרות באותו סדר כמו ברשימה שמתחת למפה, והעמותה אחרונה.
 
 // המחשת מסלול (מנהל). תוקן: העמוד פנה ל-api/routing/current-plan שלא קיים.
 // עכשיו: המסלולים הפעילים מהמוניטור, והתחנות של המסלול שנבחר מ-api/matches/routes/{id}.
@@ -109,9 +77,7 @@ export function VrpRouteVisualizationPage() {
       </Box>
 
       {stops.length > 0 && (
-        <MapShell height={460}>
-          <RouteMap stops={stops} />
-        </MapShell>
+        <StaticMap src={`/api/map/routes/${routePlan.routeId}/image`} alt={`מפת מסלול #${routePlan.routeId}`} height={460} />
       )}
 
       {stops.length === 0 ? (

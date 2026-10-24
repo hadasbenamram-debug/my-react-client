@@ -4,7 +4,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock } from '../components/PageParts';
-import { MapShell, MapView, MAP_COLORS } from '../components/GoogleMapView';
+import { StaticMap, MAP_COLORS } from '../components/GoogleMapView';
 import type { MapEntityView } from '../types/api';
 
 type EntityKind = 'donor' | 'ngo' | 'volunteer' | 'other';
@@ -14,6 +14,14 @@ const KIND_LABELS: Record<EntityKind, string> = {
   ngo: 'עמותות',
   volunteer: 'מתנדבים',
   other: 'אחר',
+};
+
+// השם של כל סוג בשרת (MapEntityDto.type) - כך השרת יודע אילו סוגים להסתיר בתמונת המפה
+const KIND_TO_TYPE: Record<EntityKind, string> = {
+  donor: 'supplier',
+  ngo: 'ngo',
+  volunteer: 'volunteer',
+  other: 'other',
 };
 
 // ממפה את סוג הישות שמגיע מהשרת לאחת מהקטגוריות
@@ -52,7 +60,7 @@ export function GeneralMapPage() {
       });
   }, []);
 
-  // רק ישויות עם קואורדינטות תקינות מוצגות כסיכה
+  // רק ישויות עם מיקום מוצגות כסיכה (0,0 = עדיין אין מיקום, כמו בשרת)
   const entities = useMemo(
     () =>
       locations
@@ -61,7 +69,7 @@ export function GeneralMapPage() {
           const lng = Number(loc.longitude ?? loc.lng ?? loc.lon);
           return { loc, index, lat, lng, kind: getKind(loc) };
         })
-        .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lng)),
+        .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lng) && !(e.lat === 0 && e.lng === 0)),
     [locations]
   );
 
@@ -71,25 +79,12 @@ export function GeneralMapPage() {
     return c;
   }, [entities]);
 
-  const markers = useMemo(
-    () =>
-      entities
-        .filter(e => !hidden[e.kind])
-        .map(e => ({
-          id: `${e.kind}-${e.loc.id ?? e.index}`,
-          position: { lat: e.lat, lng: e.lng },
-          title: e.loc.name || e.loc.title || KIND_LABELS[e.kind],
-          color: MAP_COLORS[e.kind],
-          info: (
-            <Box>
-              <Typography sx={{ fontWeight: 700 }}>{e.loc.name || e.loc.title || KIND_LABELS[e.kind]}</Typography>
-              <Typography sx={{ fontSize: '0.85rem' }}>{KIND_LABELS[e.kind]}</Typography>
-              {e.loc.address && <Typography sx={{ fontSize: '0.85rem' }}>{e.loc.address}</Typography>}
-            </Box>
-          ),
-        })),
-    [entities, hidden]
-  );
+  // הסוגים שהוסתרו נשלחים לשרת, והוא מחזיר תמונת מפה בלעדיהם
+  const hiddenTypes = (Object.keys(KIND_LABELS) as EntityKind[])
+    .filter(kind => hidden[kind])
+    .map(kind => KIND_TO_TYPE[kind])
+    .join(',');
+  const mapSrc = '/api/map/all-entities/image' + (hiddenTypes ? `?hide=${hiddenTypes}` : '');
 
   if (loading) return <LoadingBlock text="טוען נתוני מוקדים במערכת..." />;
 
@@ -122,14 +117,12 @@ export function GeneralMapPage() {
           ))}
       </Box>
 
-      <MapShell height={560}>
-        <MapView markers={markers} />
-      </MapShell>
+      <StaticMap src={mapSrc} alt="מפת התורמים, העמותות והמתנדבים" height={560} />
 
       <Typography color="text.secondary" sx={{ fontSize: '0.9rem' }}>
         {entities.length} מוקדים מוצגים על המפה
         {locations.length > entities.length ? ` (${locations.length - entities.length} ללא מיקום)` : ''}.
-        לחיצה על סיכה מציגה פרטים, ולחיצה על קטגוריה מסתירה או מציגה אותה.
+        לחיצה על קטגוריה מסתירה או מציגה אותה במפה.
       </Typography>
     </Box>
   );
