@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { StoredUser } from '../types';
+import { otherRoles, roleTitle, switchRole } from '../utils/auth';
 
 interface SideMenuProps {
     open: boolean;
@@ -19,6 +20,8 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
     
     const role = (currentUser.role || currentUser.type || '').toLowerCase();
     const isGuest = !role || role === 'guest';
+    // תיקון 10: לחשבון יכולים להיות כמה תפקידים (למשל ספק שהוא גם מתנדב) - מעבר ביניהם מכאן
+    const switchable = isGuest ? [] : otherRoles();
 
     return (
         <aside className={`side-menu ${open ? 'is-open' : ''}`}>
@@ -59,8 +62,31 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                     <div className="menu-section">
                         <h3 className="side-group-title">כללי</h3>
                         <div className="side-group-items">
-                            <Link to="/app/profile" onClick={onClose} className="side-link">פרופיל אישי</Link>
+                            <Link to="/app/profile" onClick={onClose} className="side-link">פרופיל אישי ושינוי סיסמה</Link>
                             <Link to="/app/notifications" onClick={onClose} className="side-link">התראות</Link>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- מעבר בין התפקידים של אותו חשבון --- */}
+                {switchable.length > 0 && (
+                    <div className="menu-section">
+                        <h3 className="side-group-title">התפקידים שלי</h3>
+                        <div className="side-group-items">
+                            <span className="side-link" aria-current="true" style={{ cursor: 'default', opacity: 0.75 }}>
+                                ✓ עכשיו: {roleTitle(role)}
+                            </span>
+                            {switchable.map((r) => (
+                                <button
+                                    key={r}
+                                    type="button"
+                                    className="side-link"
+                                    style={{ width: '100%', fontFamily: 'inherit' }}
+                                    onClick={() => { onClose(); switchRole(r); }}
+                                >
+                                    מעבר לאזור {roleTitle(r)}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 )}

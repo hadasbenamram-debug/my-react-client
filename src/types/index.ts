@@ -5,7 +5,10 @@ export type CSSVarStyle = CSSProperties & {[customProperty: `--${string}`]: stri
 
 /** Shape of the `currentUser` object stored in localStorage after login. */
 export interface StoredUser {
+    /** התפקיד הפעיל - לפיו נבנים המסכים והתפריט */
     role?: string;
+    /** כל התפקידים המאושרים של החשבון (תיקון 10: חשבון אחד יכול להיות גם ספק וגם מתנדב) */
+    roles?: string[];
     type?: string;
     [key: string]: unknown;
 }

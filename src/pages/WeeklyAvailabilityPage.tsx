@@ -16,6 +16,7 @@ import PageTitle from '../components/PageTitle';
 import { StatusAlert } from '../components/FormParts';
 import { getApiErrorMessage } from '../utils/apiError';
 import type { AvailabilitySlotResponseDto } from '../types/api';
+import { getToken } from '../utils/auth';
 
 interface AvailabilitySlot {
   day: number;
@@ -32,15 +33,29 @@ interface RegionOption {
   name?: string;
 }
 
+// בשבת עצמה אין שיבוצים. יום 6 הוא מוצאי שבת: משבצת בו מתחילה לכל המוקדם ב-17:00 (השרת בודק את אותו דבר),
+// ומנוע השידוכים שולח הצעות רק אחרי צאת השבת. בשישי ההצעות נשלחות רק עד כניסת השבת.
+const FRIDAY = 5;
+const SATURDAY_NIGHT = 6;
+const SATURDAY_NIGHT_EARLIEST = '17:00';
+
 const daysOfWeek = [
   { label: 'ראשון', value: 0 },
   { label: 'שני', value: 1 },
   { label: 'שלישי', value: 2 },
   { label: 'רביעי', value: 3 },
   { label: 'חמישי', value: 4 },
-  { label: 'שישי', value: 5 },
-  { label: 'שבת', value: 6 },
+  { label: 'שישי', value: FRIDAY },
+  { label: 'מוצאי שבת', value: SATURDAY_NIGHT },
 ];
+
+const dayHelperText = (day: number) =>
+  day === SATURDAY_NIGHT ? 'הצעות נשלחות רק אחרי צאת השבת'
+    : day === FRIDAY ? 'הצעות נשלחות רק עד כניסת השבת'
+      : undefined;
+
+const startsTooEarlyOnSaturday = (slot: AvailabilitySlot) =>
+  slot.day === SATURDAY_NIGHT && slot.startTime < SATURDAY_NIGHT_EARLIEST;
 
 export const WeeklyAvailabilityPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -52,7 +67,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
 
   useEffect(() => {
     // תוקן: בעבר טוקן מהכתובת נשמר כטוקן התחברות. עכשיו רק הטוקן מההתחברות.
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (!token) {
       setError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
       setLoading(false);
@@ -116,6 +131,18 @@ export const WeeklyAvailabilityPage: React.FC = () => {
     setAvailabilitySlots(updated);
   };
 
+  // מעבר למוצאי שבת: אם השעות שנבחרו הן של שבת עצמה - מציעים שעות של מוצאי שבת
+  const handleDayChange = (index: number, day: number) => {
+    const updated = [...availabilitySlots];
+    const slot = { ...updated[index], day };
+    if (startsTooEarlyOnSaturday(slot)) {
+      slot.startTime = '20:00';
+      if (slot.endTime <= slot.startTime) slot.endTime = '23:00';
+    }
+    updated[index] = slot;
+    setAvailabilitySlots(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -129,8 +156,14 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       setError(`משבצת ${invalid + 1}: שעת ההתחלה חייבת להיות לפני שעת הסיום, ואזור היעד שונה מאזור הפעילות.`);
       return;
     }
+    const onShabbat = availabilitySlots.findIndex(startsTooEarlyOnSaturday);
+    if (onShabbat >= 0) {
+      setSaving(false);
+      setError(`משבצת ${onShabbat + 1}: בשבת אפשר להגדיר זמינות רק במוצאי שבת, משעה ${SATURDAY_NIGHT_EARLIEST} ואילך.`);
+      return;
+    }
 
-    const token = localStorage.getItem('token');
+    const token = getToken();
     try {
       await axios.post(`/api/volunteers/availability`,
         availabilitySlots.map((s) => ({ ...s, toRegionId: s.toRegionId === 0 ? null : s.toRegionId })), {
@@ -166,7 +199,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       <PageTitle
         eyebrow="מתנדב"
         title="ניהול זמינות"
-        subtitle="הגדירו את ימי ושעות הזמינות שלכם להתנדבות."
+        subtitle="הגדירו את ימי ושעות הזמינות שלכם להתנדבות. בשבת אין שיבוצים - אפשר להגדיר זמינות במוצאי שבת."
       />
 
       <Card sx={{ p: { xs: 3, md: 5 } }}>
@@ -190,7 +223,8 @@ export const WeeklyAvailabilityPage: React.FC = () => {
                   select
                   label="יום בשבוע"
                   value={slot.day}
-                  onChange={(e) => handleSlotChange(index, 'day', parseInt(e.target.value))}
+                  onChange={(e) => handleDayChange(index, parseInt(e.target.value))}
+                  helperText={dayHelperText(slot.day)}
                 >
                   {daysOfWeek.map((d) => (
                     <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
@@ -202,6 +236,8 @@ export const WeeklyAvailabilityPage: React.FC = () => {
                   type="time"
                   value={slot.startTime}
                   onChange={(e) => handleSlotChange(index, 'startTime', e.target.value)}
+                  error={startsTooEarlyOnSaturday(slot)}
+                  helperText={startsTooEarlyOnSaturday(slot) ? `משעה ${SATURDAY_NIGHT_EARLIEST} ואילך` : undefined}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
 

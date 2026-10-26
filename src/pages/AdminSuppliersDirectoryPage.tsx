@@ -9,6 +9,7 @@ import PageTitle from '../components/PageTitle';
 import { openSupplierLicense } from '../utils/openSupplierLicense';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminSupplierListItemView } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function AdminSuppliersDirectoryPage() {
   const [suppliers, setSuppliers] = useState<AdminSupplierListItemView[]>([]);
@@ -16,7 +17,7 @@ export function AdminSuppliersDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch('/api/admin/suppliers', {
       method: 'GET',
       headers: {

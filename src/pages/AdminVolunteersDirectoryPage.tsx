@@ -7,6 +7,7 @@ import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminVolunteerListItemDto } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function AdminVolunteersDirectoryPage() {
   const [volunteers, setVolunteers] = useState<AdminVolunteerListItemDto[]>([]);
@@ -14,7 +15,7 @@ export function AdminVolunteersDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     
     // תיקון הנתיב ל-/api/volunteers בהתאם לשרת ה-Backend
     fetch('/api/volunteers', {

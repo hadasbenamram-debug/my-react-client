@@ -9,7 +9,10 @@ import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import { AddRoleNotice } from '../components/AddRoleNotice';
+import { useAddRoleMode } from '../hooks/useAddRoleMode';
 import { readErrorMessage } from '../utils/apiError';
+import { authHeaders } from '../utils/auth';
 import type { RegionResponseDto } from '../types/api';
 
 interface RegionOption {
@@ -35,6 +38,9 @@ const ngoFields: FieldDef[] = [
   { name: 'dailyCapacity', label: 'קיבולת יומית (ק"ג)', type: 'number' },
 ];
 
+// בשבת עצמה אין קבלת תרומות; במוצאי שבת - משעה 17:00 לכל המוקדם (השרת בודק את אותו דבר)
+const SATURDAY_NIGHT_EARLIEST = '17:00';
+
 export function NgoRegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -51,11 +57,18 @@ export function NgoRegisterPage() {
     receivesOnFriday: false,
     fridayOpenTime: '',
     fridayCloseTime: '',
+    receivesOnSaturdayNight: false,
+    saturdayNightOpenTime: '20:00',
+    saturdayNightCloseTime: '23:00',
   });
 
   const [regions, setRegions] = useState<RegionOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState(false);
+  // תיקון 10: משתמש מחובר מוסיף לחשבון שלו גם תפקיד עמותה
+  const { loggedIn, account, existing, blocked } = useAddRoleMode('Ngo');
+  const [roleRequested, setRoleRequested] = useState(false);
 
   // שליפת רשימת האזורים מהשרת בעת טעינת העמוד
   useEffect(() => {
@@ -82,6 +95,7 @@ export function NgoRegisterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
+    setSuccess(false);
 
     if (formData.sunToThuOpenTime >= formData.sunToThuCloseTime) {
       setMessage('שעת הפתיחה חייבת להיות לפני שעת הסגירה.');
@@ -91,26 +105,44 @@ export function NgoRegisterPage() {
       setMessage('יש להזין שעות קבלה תקינות ליום שישי.');
       return;
     }
+    if (formData.receivesOnSaturdayNight && (!formData.saturdayNightOpenTime || !formData.saturdayNightCloseTime
+        || formData.saturdayNightOpenTime < SATURDAY_NIGHT_EARLIEST || formData.saturdayNightOpenTime >= formData.saturdayNightCloseTime)) {
+      setMessage(`יש להזין שעות קבלה תקינות למוצאי שבת (משעה ${SATURDAY_NIGHT_EARLIEST} ועד חצות).`);
+      return;
+    }
 
     setLoading(true);
 
-    fetch('/api/ngos/register', {
+    // מחוברים: רק פרטי העמותה, והתפקיד מצורף לחשבון הקיים (POST api/ngos). אחרת - הרשמה חדשה.
+    const { name, email, phone, ...ngoFields } = formData;
+    fetch(loggedIn ? '/api/ngos' : '/api/ngos/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: loggedIn ? authHeaders(true) : { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...formData,
+        ...(loggedIn ? ngoFields : { ...ngoFields, name, email, phone }),
         dailyCapacity: Number(formData.dailyCapacity),
         regionId: Number(formData.regionId),
         sunToThuOpenTime: formData.sunToThuOpenTime + ':00',
         sunToThuCloseTime: formData.sunToThuCloseTime + ':00',
         fridayOpenTime: formData.receivesOnFriday && formData.fridayOpenTime ? formData.fridayOpenTime + ':00' : null,
         fridayCloseTime: formData.receivesOnFriday && formData.fridayCloseTime ? formData.fridayCloseTime + ':00' : null,
+        saturdayNightOpenTime: formData.receivesOnSaturdayNight ? formData.saturdayNightOpenTime + ':00' : null,
+        saturdayNightCloseTime: formData.receivesOnSaturdayNight ? formData.saturdayNightCloseTime + ':00' : null,
       }),
     })
       .then(async res => {
         setLoading(false);
-        if (res.ok) {
-          setMessage('רישום העמותה בוצע בהצלחה! סיסמה זמנית נשלחה למייל.');
+        if (res.ok && loggedIn) {
+          const body = (await res.json().catch(() => null)) as { message?: string } | null;
+          setMessage(body?.message || 'הבקשה נשלחה לאישור מנהל.');
+          setSuccess(true);
+          setRoleRequested(true);
+        } else if (res.ok) {
+          // השרת מחזיר אותה הודעה גם כשהמייל כבר רשום (כדי לא לחשוף אילו מיילים קיימים) - הפרטים נשלחים למייל
+          const body = (await res.json().catch(() => null)) as { message?: string } | null;
+          setMessage(body?.message || 'הבקשה נקלטה. פרטי ההמשך נשלחו לכתובת המייל שהזנת.');
+          setSuccess(true);
+          setFormData((prev) => ({ ...prev, name: '', email: '', phone: '', ngoName: '', registrationNumber: '', address: '' }));
         } else {
           setMessage(await readErrorMessage(res, 'אירעה שגיאה בעת הרישום. נסה שוב.'));
         }
@@ -152,13 +184,19 @@ export function NgoRegisterPage() {
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
       <PageTitle
         eyebrow="הצטרפות"
-        title="הרשמת עמותה חדשה"
-        subtitle="עמותות ומוסדות שמקבלים תרומות מזון."
+        title={loggedIn ? 'הצטרפות גם כעמותה' : 'הרשמת עמותה חדשה'}
+        subtitle={loggedIn ? 'ממלאים רק את פרטי העמותה - בלי חשבון חדש.' : 'עמותות ומוסדות שמקבלים תרומות מזון.'}
       />
       <Card sx={{ p: { xs: 3, md: 5 } }}>
+        {loggedIn && !roleRequested && <AddRoleNotice role="Ngo" account={account} existing={existing} />}
+        {!(loggedIn && (blocked || roleRequested)) && (
         <form onSubmit={handleSubmit}>
-          <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
-          <Divider sx={{ my: 4 }} />
+          {!loggedIn && (
+            <>
+              <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
+              <Divider sx={{ my: 4 }} />
+            </>
+          )}
           <FormSection title="פרטי העמותה">
             {ngoFields.map(renderField)}
             
@@ -189,13 +227,20 @@ export function NgoRegisterPage() {
             />
             {formData.receivesOnFriday && timeField('fridayOpenTime', 'שישי משעה')}
             {formData.receivesOnFriday && timeField('fridayCloseTime', 'שישי עד שעה')}
+            <FormControlLabel
+              control={<Switch name="receivesOnSaturdayNight" checked={formData.receivesOnSaturdayNight} onChange={handleChange} />}
+              label="מקבלים תרומות גם במוצאי שבת"
+            />
+            {formData.receivesOnSaturdayNight && timeField('saturdayNightOpenTime', `מוצאי שבת משעה (${SATURDAY_NIGHT_EARLIEST} ואילך)`)}
+            {formData.receivesOnSaturdayNight && timeField('saturdayNightCloseTime', 'מוצאי שבת עד שעה')}
           </FormSection>
 
           <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
-            {loading ? 'שולח לאישור...' : 'הירשם כעמותה'}
+            {loading ? 'שולח לאישור...' : loggedIn ? 'שליחת הבקשה לאישור' : 'הירשם כעמותה'}
           </Button>
         </form>
-        <StatusAlert message={message} success={message.includes('בהצלחה')} />
+        )}
+        <StatusAlert message={message} success={success} />
       </Card>
     </Box>
   );

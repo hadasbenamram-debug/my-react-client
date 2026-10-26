@@ -10,6 +10,12 @@ import PageTitle from '../components/PageTitle';
 import type { ApiErrorBody, AuthResponseDto } from '../types/api';
 import { homePathForRole, saveSession } from '../utils/auth';
 
+// ?returnTo=/app/... - רק כתובת פנימית של האפליקציה (לא כתובת חיצונית)
+const safeReturnTo = (): string | null => {
+  const value = new URLSearchParams(window.location.search).get('returnTo');
+  return value && value.startsWith('/app/') ? value : null;
+};
+
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,8 +50,8 @@ export const LoginPage: React.FC = () => {
         }
 
         setMessage('התחברת בהצלחה!');
-        // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד
-        const target = homePathForRole(data.role);
+        // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד, או למסך שממנו הגיעו (למשל המסלול שאושר מהקישור)
+        const target = safeReturnTo() ?? homePathForRole(data.role);
         setTimeout(() => {
           window.location.href = target;
         }, 800);

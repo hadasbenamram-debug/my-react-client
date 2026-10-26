@@ -8,6 +8,7 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import PageTitle from '../components/PageTitle';
 import StatGrid from '../components/StatGrid';
 import type { ApiErrorBody, SupplierDonationSummaryDto } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function SupplierDashboard() {
   const [stats, setStats] = useState({ activeDonations: 0, completedDonations: 0 });
@@ -16,7 +17,7 @@ export function SupplierDashboard() {
 
   useEffect(() => {
     const fetchSupplierData = async () => {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (!token) {
         setError('לא נמצא טוקן התחברות.');
         setLoading(false);

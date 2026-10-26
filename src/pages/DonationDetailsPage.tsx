@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
@@ -15,6 +17,10 @@ import type { DonationResponseDto } from '../types/api';
 // פרטי תרומה (?id=). תוקן: מזהה התרומה היה קבוע (1), ופרטי השיבוץ לא הגיעו מהשרת.
 export function DonationDetailsPage() {
   const [params] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // הגענו לכאן מיד אחרי פרסום התרומה (CreateDonationPage)
+  const justPublished = (location.state as { justPublished?: boolean } | null)?.justPublished === true;
   const donationId = Number(params.get('id'));
   const [donation, setDonation] = useState<DonationResponseDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -43,6 +49,16 @@ export function DonationDetailsPage() {
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
       <PageTitle eyebrow="ארגון תורם" title={`פרטי תרומה #${donation.id}`} />
+
+      {justPublished && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          action={<Button color="inherit" onClick={() => navigate('/app/supplier/create-donation')}>תרומה נוספת</Button>}
+        >
+          התרומה פורסמה בהצלחה! מנוע השידוכים יחפש לה מתנדב ועמותה.
+        </Alert>
+      )}
 
       <Card sx={{ p: { xs: 3, md: 4 } }}>
         {donation.image && (

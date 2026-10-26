@@ -12,7 +12,7 @@ import PageTitle from '../components/PageTitle';
 import { openSupplierLicense } from '../utils/openSupplierLicense';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
-import { formatDateTime } from '../utils/format';
+import { formatDateTime, isDateBeforeToday } from '../utils/format';
 import type { PendingApprovalRequestDto, RequestedRoleName } from '../types/api';
 
 // אישורי משתמשים - מנגנון האישור היחיד בשרת (api/approvalrequests):
@@ -127,6 +127,11 @@ export function AdminUserApprovalsPage() {
               <Typography color="text.secondary">
                 רכב: {item.vehicleType} · עד {item.maxCapacityKg ?? '—'} ק"ג · רישיון בתוקף עד {item.driverLicenseExpiry ? formatDateTime(item.driverLicenseExpiry).split(' ')[0] : '—'}
               </Typography>
+            )}
+            {role === 'Volunteer' && (!item.driverLicenseExpiry || isDateBeforeToday(item.driverLicenseExpiry)) && (
+              <Alert severity="warning" sx={{ mt: 1.5 }}>
+                רישיון הנהיגה אינו בתוקף (או שלא הוזן תוקף), ולכן אי אפשר לאשר את המתנדב.
+              </Alert>
             )}
             {item.address && <Typography color="text.secondary">כתובת: {item.address}</Typography>}
             {item.taxId && <Typography color="text.secondary">ח.פ / תיק עוסק: {item.taxId}</Typography>}

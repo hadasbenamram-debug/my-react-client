@@ -8,6 +8,7 @@ import {LoginPage} from './pages/LoginPage';
 import {ForgotPasswordPage} from './pages/ForgotPasswordPage';
 import {ResetPasswordPage} from './pages/ResetPasswordPage';
 import {RespondByLinkPage} from './pages/RespondByLinkPage';
+import {WelcomeLinkPage} from './pages/WelcomeLinkPage';
 import {ProfilePage} from './pages/ProfilePage';
 import {NotificationsPage} from './pages/NotificationsPage';
 import {ContactSupportPage} from './pages/ContactSupportPage';
@@ -69,6 +70,7 @@ import {GeneralMapPage} from './pages/GeneralMapPage';
 import {VrpRouteVisualizationPage} from './pages/VrpRouteVisualizationPage';
 import type {StoredUser} from './types';
 import {getCurrentUser} from './utils/auth';
+import RoleFallback from './components/RoleFallback';
 
 export default function App() {
     const currentUser: StoredUser = getCurrentUser();
@@ -91,6 +93,8 @@ export default function App() {
                         <Route path="/app/reset-password" element={<ResetPasswordPage />} />
                         {/* קישור מהמייל לבקשת התנדבות - עובד גם בלי התחברות (טוקן חד-פעמי למסלול) */}
                         <Route path="/app/respond" element={<RespondByLinkPage />} />
+                        {/* קישור מהמייל "הבקשה שלך אושרה" - נכנסים ישר למערכת בלי מסך התחברות (טוקן חד-פעמי) */}
+                        <Route path="/app/welcome" element={<WelcomeLinkPage />} />
                         <Route path="/app/register-volunteer" element={<VolunteerRegisterPage />} />
                         <Route path="/app/register-supplier" element={<SupplierRegisterPage />} />
                         <Route path="/app/register-ngo" element={<NgoRegisterPage />} />
@@ -122,7 +126,7 @@ export default function App() {
                                 <Route path="/app/map" element={<GeneralMapPage />} />
                                 <Route path="/app/vrp-route" element={<VrpRouteVisualizationPage />} />
 
-                                <Route path="*" element={<Navigate to="/app/admin/dashboard" replace />} />
+                                <Route path="*" element={<RoleFallback home="/app/admin/dashboard" />} />
                             </>
                         )}
 
@@ -141,7 +145,7 @@ export default function App() {
                                 <Route path="/app/volunteer/ratings" element={<VolunteerRatingsPage />} />
                                 <Route path="/app/volunteer/comments" element={<CommentsSection />} />
 
-                                <Route path="*" element={<Navigate to="/app/volunteer/dashboard" replace />} />
+                                <Route path="*" element={<RoleFallback home="/app/volunteer/dashboard" />} />
                             </>
                         )}
 
@@ -158,7 +162,7 @@ export default function App() {
                                 <Route path="/app/supplier/history" element={<SupplierHistoryPage />} />
                                 <Route path="/app/supplier/comments" element={<SupplierCommentsPage />} />
 
-                                <Route path="*" element={<Navigate to="/app/supplier/dashboard" replace />} />
+                                <Route path="*" element={<RoleFallback home="/app/supplier/dashboard" />} />
                             </>
                         )}
 
@@ -177,7 +181,7 @@ export default function App() {
                                 <Route path="/app/ngo/ratings/:id?" element={<NgoRatingsPage />} />
                                 <Route path="/app/ngo/comments" element={<NgoCommentsPage />} />
 
-                                <Route path="*" element={<Navigate to="/app/ngo/dashboard" replace />} />
+                                <Route path="*" element={<RoleFallback home="/app/ngo/dashboard" />} />
                             </>
                         )}
 

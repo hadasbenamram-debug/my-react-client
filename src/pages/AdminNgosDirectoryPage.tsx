@@ -7,6 +7,7 @@ import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminNgoListItemView } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function AdminNgosDirectoryPage() {
   const [ngos, setNgos] = useState<AdminNgoListItemView[]>([]);
@@ -14,7 +15,7 @@ export function AdminNgosDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch('/api/admin/ngos', {
       method: 'GET',
       headers: {

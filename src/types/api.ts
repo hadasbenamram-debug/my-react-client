@@ -99,7 +99,10 @@ export interface RegisterDto {
 
 export interface AuthResponseDto {
     token: string;
+    /** התפקיד שבו נכנסים */
     role: UserRoleName;
+    /** כל התפקידים המאושרים של החשבון (למשל ספק שהוא גם מתנדב) - אפשר לעבור ביניהם בתפריט */
+    roles?: UserRoleName[];
     expiresAt: IsoDateString;
     /** סיסמה זמנית מההרשמה - חובה להחליף לפני שימוש במערכת */
     mustChangePassword: boolean;
@@ -110,8 +113,24 @@ export interface ChangePasswordResponse {
     message: string;
     token?: string;
     role?: UserRoleName;
+    roles?: UserRoleName[];
     expiresAt?: IsoDateString;
     mustChangePassword: boolean;
+}
+
+/** POST api/auth/link-login - כניסה מהקישור במייל "הבקשה שלך אושרה" */
+export interface LinkLoginDto {
+    token: string;
+    /** רק כשהשרת החזיר requiresPassword (המשתמש עדיין עם הסיסמה הזמנית מההרשמה) */
+    newPassword?: string | null;
+}
+
+export interface LinkLoginResponseDto extends AuthResponseDto {
+    /** true = צריך לבחור סיסמה אישית ולשלוח שוב (הקישור עוד לא נוצל) */
+    requiresPassword: boolean;
+    /** לאן להיכנס (למתנדב: מסך הזמינות) */
+    nextPath: string | null;
+    email: string | null;
 }
 
 export interface ForgotPasswordDto {
@@ -135,6 +154,15 @@ export interface MyProfileDto {
     isEmailVerified: boolean;
     isPhoneVerified: boolean;
     mustChangePassword: boolean;
+    /** כל התפקידים של החשבון, עם הסטטוס של כל אחד */
+    roles: AccountRoleDto[];
+    /** אפשר להוסיף לחשבון תפקיד נוסף (לא למנהל) */
+    canAddRoles: boolean;
+}
+
+export interface AccountRoleDto {
+    role: UserRoleName;
+    status: ApprovalStatusName;
 }
 
 export interface UserDto {
@@ -143,6 +171,8 @@ export interface UserDto {
     email: string;
     phone: string;
     role: UserRoleName;
+    /** כל התפקידים של החשבון (למשל Supplier + Volunteer) */
+    roles: UserRoleName[];
     isEmailVerified: boolean;
     isPhoneVerified: boolean;
     createdAt: IsoDateString;
@@ -185,13 +215,19 @@ export interface AdminVolunteerListItemDto {
 
 export interface TopVolunteerDto {
     name: string;
+    /** משלוחים שהושלמו */
     deliveriesCount: number;
 }
 
+// תיקון 17: כל הערכים מחושבים בשרת מהנתונים בפועל. "—" = עוד אין נתונים
 export interface SystemReportDto {
+    /** ק"ג מזון בתרומות שהגיעו לעמותות */
     totalDonationsVolume: number;
+    /** דקות בממוצע עד שמתנדב עונה להצעה ("2.5") */
     averageResponseTime: string;
+    /** מתוך התרומות שהסתיימו - כמה הגיעו לעמותה ("87%") */
     successRate: string;
+    /** המתנדבים עם הכי הרבה משלוחים שהושלמו, מהמוביל ומטה */
     topVolunteers: TopVolunteerDto[];
 }
 
@@ -469,6 +505,15 @@ export interface RespondByLinkDto {
     accept: boolean;
 }
 
+/** POST api/matches/respond-by-link */
+export interface RespondByLinkResultDto {
+    route: RouteDto;
+    /** אחרי אישור: כניסה למערכת בלי מסך התחברות (null = צריך להתחבר, למשל עם סיסמה זמנית) */
+    session: AuthResponseDto | null;
+    /** לאן ממשיכים אחרי אישור (המסלול הפעיל) */
+    nextPath: string | null;
+}
+
 export interface AssignDonationResultDto {
     matched: boolean;
     matchId?: number | null;
@@ -526,7 +571,7 @@ export interface CreateAvailabilitySlotDto {
     regionId: number;
     /** אזור יעד (לנסיעה בין אזורים). null = אותו אזור */
     toRegionId: number | null;
-    /** 0 = ראשון ... 6 = שבת */
+    /** 0 = ראשון ... 5 = שישי, 6 = מוצאי שבת */
     day: number;
     /** "HH:mm" */
     startTime: string;
@@ -564,6 +609,10 @@ interface NgoHoursFields {
     receivesOnFriday: boolean;
     fridayOpenTime: TimeSpanString | null;
     fridayCloseTime: TimeSpanString | null;
+    /** בשבת עצמה העמותה סגורה. מוצאי שבת: משעה 17:00 ועד חצות (בפועל משבצים רק אחרי צאת השבת) */
+    receivesOnSaturdayNight: boolean;
+    saturdayNightOpenTime: TimeSpanString | null;
+    saturdayNightCloseTime: TimeSpanString | null;
 }
 
 export interface NgoResponseDto extends NgoHoursFields {
@@ -623,20 +672,24 @@ export interface DeliveryLogResponseDto extends CreateDeliveryLogDto {
     timestamp: IsoDateString;
 }
 
-/** POST api/comments - תגובה חדשה על תרומה (donationId) או שידוך (matchId), או תשובה (parentCommentId) */
+/**
+ * POST api/comments - תגובה חדשה על תרומה (donationId), או תשובה לתגובה (parentCommentId).
+ * תיקון 18: כל תגובה היא על תרומה מסוימת. תשובה שייכת לתרומה של התגובה שאליה עונים. אין יותר matchId.
+ */
 export interface CreateCommentDto {
     content: string;
     parentCommentId?: number | null;
     donationId?: number | null;
-    matchId?: number | null;
 }
 
-/** GET api/comments/tree, GET api/comments (Admin) */
+/** GET api/comments/tree?role=Volunteer|Supplier|Ngo, GET api/comments (Admin) */
 export interface CommentDto {
     id: number;
     parentCommentId: number | null;
-    donationId: number | null;
-    matchId: number | null;
+    /** תיקון 18: התרומה שעליה התגובה - תמיד קיימת */
+    donationId: number;
+    /** שם הספק של התרומה */
+    donationSupplierName: string | null;
     authorName: string;
     text: string;
     createdAt: IsoDateString;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -9,9 +10,22 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import { authHeaders, getCurrentUser, homePathForRole, saveSession } from '../utils/auth';
+import { authHeaders, getCurrentUser, homePathForRole, roleTitle, saveSession, switchRole, syncRoles } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
-import type { ChangePasswordResponse, MyProfileDto } from '../types/api';
+import type { AccountRoleDto, ChangePasswordResponse, MyProfileDto } from '../types/api';
+
+// תיקון 10: חשבון אחד יכול להחזיק כמה תפקידים. אלה התפקידים שאפשר להוסיף, וטופס ההצטרפות של כל אחד
+// (כשמחוברים, הטופס מצרף את התפקיד לחשבון הזה - בלי פרטי משתמש ובלי סיסמה נוספת).
+const addableRoles = [
+  { role: 'Volunteer', path: '/app/register-volunteer' },
+  { role: 'Supplier', path: '/app/register-supplier' },
+  { role: 'Ngo', path: '/app/register-ngo' },
+] as const;
+
+const statusChip = (status: AccountRoleDto['status']) =>
+  status === 'Approved' ? <Chip size="small" color="success" label="מאושר" />
+    : status === 'Pending' ? <Chip size="small" color="warning" variant="outlined" label="ממתין לאישור מנהל" />
+      : <Chip size="small" color="error" variant="outlined" label="הבקשה נדחתה" />;
 
 type Status = { ok: boolean; text: string } | null;
 type Channel = 'email' | 'phone';
@@ -31,6 +45,9 @@ export function ProfilePage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordStatus, setPasswordStatus] = useState<Status>(null);
   const [verifyStatus, setVerifyStatus] = useState<Status>(null);
+  const [roles, setRoles] = useState<AccountRoleDto[]>([]);
+  const [canAddRoles, setCanAddRoles] = useState(false);
+  const activeRole = getCurrentUser().role;
 
   const loadProfile = async () => {
     try {
@@ -43,6 +60,10 @@ export function ProfilePage() {
       setProfile({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '' });
       setVerified({ email: data.isEmailVerified, phone: data.isPhoneVerified });
       setMustChange(data.mustChangePassword);
+      setRoles(data.roles ?? []);
+      setCanAddRoles(data.canAddRoles === true);
+      // תפקיד שהמנהל אישר בינתיים מופיע מיד גם בתפריט (מעבר בין תפקידים)
+      syncRoles((data.roles ?? []).filter((r) => r.status === 'Approved').map((r) => r.role));
     } catch {
       setProfileStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
     }
@@ -51,6 +72,15 @@ export function ProfilePage() {
   useEffect(() => {
     void loadProfile();
   }, []);
+
+  // /app/profile#password (למשל מעמוד הגדרות המערכת של המנהל) - גלילה ישר לכרטיס החלפת הסיסמה.
+  // /app/profile#roles - לכרטיס "התפקידים שלי" (הוא מופיע אחרי טעינת הפרופיל)
+  useEffect(() => {
+    const target = window.location.hash.slice(1);
+    if (target === 'password' || (target === 'roles' && roles.length > 0)) {
+      document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [roles.length]);
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -116,13 +146,14 @@ export function ProfilePage() {
         // כל הטוקנים הקודמים בוטלו - שומרים את הטוקן החדש שהשרת החזיר
         const data = (await response.json()) as ChangePasswordResponse;
         if (data.token && data.role) {
-          saveSession({ token: data.token, role: data.role, mustChangePassword: false });
+          // נשארים בתפקיד שנבחר (לחשבון יכולים להיות כמה תפקידים)
+          saveSession({ token: data.token, role: data.role, roles: data.roles, mustChangePassword: false }, undefined, true);
         }
         setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
         if (mustChange) {
           setPasswordStatus({ ok: true, text: 'הסיסמה נקבעה בהצלחה! מעבירים אותך למערכת...' });
-          setTimeout(() => { window.location.href = homePathForRole(data.role); }, 1000);
+          setTimeout(() => { window.location.href = homePathForRole(getCurrentUser().role); }, 1000);
         } else {
           setPasswordStatus({ ok: true, text: 'הסיסמה שונתה בהצלחה. החיבורים בשאר המכשירים נותקו.' });
         }
@@ -142,8 +173,10 @@ export function ProfilePage() {
     setVerifyStatus(null);
     const response = await fetch(`/api/auth/send-${channel}-verification`, { method: 'POST', headers: authHeaders() });
     if (response.ok) {
+      // ההודעה מהשרת: "נשלח במסרון", או בסביבת פיתוח בלי ספק SMS - שהקוד נכתב ביומן השרת ולא נשלח בפועל
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
       setCodeSent({ ...codeSent, [channel]: true });
-      setVerifyStatus({ ok: true, text: channel === 'email' ? 'קוד נשלח למייל.' : 'קוד נשלח במסרון.' });
+      setVerifyStatus({ ok: true, text: body?.message || (channel === 'email' ? 'קוד נשלח למייל.' : 'קוד נשלח במסרון.') });
     } else {
       setVerifyStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לשלוח קוד כרגע.') });
     }
@@ -202,7 +235,7 @@ export function ProfilePage() {
         </Alert>
       )}
 
-      <Card sx={{ p: { xs: 3, md: 5 }, mb: 3 }}>
+      <Card id="password" sx={{ p: { xs: 3, md: 5 }, mb: 3, scrollMarginTop: 96 }}>
         <form onSubmit={handleChangePasswordSubmit}>
           <FormSection title={mustChange ? 'בחירת סיסמה חדשה' : 'החלפת סיסמה'}>
             <TextField name="currentPassword" label={mustChange ? 'הסיסמה הזמנית מהמייל' : 'סיסמה נוכחית'} type="password"
@@ -248,6 +281,47 @@ export function ProfilePage() {
             {verificationRow('phone', 'טלפון')}
             <StatusAlert message={verifyStatus?.text ?? ''} success={!!verifyStatus?.ok} />
           </Card>
+
+          {/* תיקון 10: אותו חשבון יכול להיות למשל גם ספק וגם מתנדב */}
+          {roles.length > 0 && (
+            <Card id="roles" sx={{ p: { xs: 3, md: 5 }, mt: 3, scrollMarginTop: 96 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>התפקידים שלי</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                אפשר להחזיק כמה תפקידים באותו חשבון - אותו מייל ואותה סיסמה. המעבר בין התפקידים נמצא גם בתפריט.
+              </Typography>
+
+              {roles.map((r) => {
+                const isActive = r.role.toLowerCase() === String(activeRole ?? '').toLowerCase();
+                return (
+                  <Stack key={r.role} direction={{ xs: 'column', sm: 'row' }} spacing={1.5}
+                    sx={{ alignItems: { sm: 'center' }, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Typography sx={{ minWidth: 110, fontWeight: 500 }}>{roleTitle(r.role)}</Typography>
+                    {statusChip(r.status)}
+                    {isActive && <Chip size="small" variant="outlined" color="primary" label="התפקיד הפעיל עכשיו" />}
+                    {!isActive && r.status === 'Approved' && (
+                      <Button size="small" variant="outlined" onClick={() => switchRole(r.role)}>מעבר לאזור הזה</Button>
+                    )}
+                  </Stack>
+                );
+              })}
+
+              {canAddRoles && addableRoles.some((a) => !roles.some((r) => r.role === a.role)) && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography sx={{ fontWeight: 500, mb: 1 }}>הצטרפות בתפקיד נוסף</Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    {addableRoles.filter((a) => !roles.some((r) => r.role === a.role)).map((a) => (
+                      <Button key={a.role} component={RouterLink} to={a.path} variant="outlined">
+                        גם כ{roleTitle(a.role)}
+                      </Button>
+                    ))}
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                    ממלאים רק את פרטי התפקיד החדש. הבקשה עוברת לאישור מנהל, ועד אז ממשיכים לעבוד כרגיל בתפקידים הקיימים.
+                  </Typography>
+                </Box>
+              )}
+            </Card>
+          )}
         </>
       )}
     </Box>

@@ -1,3 +1,4 @@
+import {getToken} from './auth';
 // פתיחת קובץ רישיון העסק של ספק (מנהל בלבד).
 // הקובץ לא נמצא בכתובת ציבורית, ולכן אי אפשר להשתמש ב-<a href> רגיל: קישור כזה לא שולח
 // את הטוקן. מורידים את הקובץ עם כותרת Authorization ופותחים אותו מ-blob בלשונית חדשה.
@@ -8,7 +9,7 @@ export async function openSupplierLicense(supplierId: number): Promise<void> {
 
   try {
     const res = await fetch(`/api/admin/suppliers/${supplierId}/license`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
     });
 
     if (!res.ok) {

@@ -8,13 +8,14 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import PageTitle from '../components/PageTitle';
 import StatGrid from '../components/StatGrid';
 import type { NgoDonationView } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function NgoDashboard() {
   const [ngoData, setNgoData] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     // פנייה לנתיב הייעודי המותאם לעמותה המחוברת
     fetch(`/api/donations/my-ngo-donations`, {

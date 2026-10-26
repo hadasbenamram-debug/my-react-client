@@ -9,13 +9,14 @@ import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS } from '../utils/format';
+import { getToken } from '../utils/auth';
 
 export function AdminDonationsManagementPage() {
   const [donations, setDonations] = useState<AdminDonationView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDonations = () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     fetch('/api/donations', {
       method: 'GET',
@@ -45,7 +46,7 @@ export function AdminDonationsManagementPage() {
   }, []);
 
   const handleManualIntervention = (donationId: number) => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const reason = window.prompt('סיבת הביטול (תישלח למתנדב אם כבר שובץ):', 'התרומה בוטלה ע"י מנהל.');
     if (reason === null) return;
 

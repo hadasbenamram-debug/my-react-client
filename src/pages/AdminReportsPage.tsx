@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -13,42 +14,33 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import PageTitle from '../components/PageTitle';
 import StatGrid from '../components/StatGrid';
 import { LoadingBlock } from '../components/PageParts';
-import type { SystemReportDto, TopVolunteerDto } from '../types/api';
+import type { SystemReportDto } from '../types/api';
+import { authHeaders } from '../utils/auth';
+import { readErrorMessage } from '../utils/apiError';
+
+// דוחות וסטטיסטיקות למנהל.
+// תיקון 17: "מובילי ביצועי מתנדבים" הציג 0 משלוחים מוצלחים גם אחרי משלוח שהושלם - המספר היה קבוע בשרת.
+// עכשיו השרת סופר משלוחים שהושלמו ומדרג לפיהם, וגם שלושת המספרים בראש הדף מחושבים מהנתונים בפועל
+// (בעבר: "4 דקות", "95%" ומספר המתנדבים כפול 50). "—" = עוד אין נתונים.
+
+const deliveriesText = (count: number) => (count === 1 ? 'משלוח מוצלח אחד' : `${count} משלוחים מוצלחים`);
 
 export function AdminReportsPage() {
-  const [reports, setReports] = useState<SystemReportDto>({
-    totalDonationsVolume: 0,
-    averageResponseTime: '0 דקות',
-    successRate: '0%',
-    topVolunteers: []
-  });
+  const [reports, setReports] = useState<SystemReportDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // שליפת טוקן ההתחברות (ודאי שהמפתח תואם למה ששמור אצלכם בפרויקט, לדוגמה 'token' או 'jwt')
-    const token = localStorage.getItem('token');
-
-    fetch('/api/admin/volunteers/reports', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
+    fetch('/api/admin/volunteers/reports', { headers: authHeaders() })
+      .then(async (res) => {
         if (!res.ok) {
-          throw new Error(`שגיאה בשרת: ${res.status}`);
+          setError(await readErrorMessage(res, 'לא הצלחנו לטעון את הדוחות. נא לרענן את הדף.'));
+          return;
         }
-        return res.json();
+        setReports((await res.json()) as SystemReportDto);
       })
-      .then((data: SystemReportDto) => {
-        setReports(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת דוחות וסטטיסטיקות:', err);
-        setLoading(false);
-      });
+      .catch(() => setError('לא הצלחנו לטעון את הדוחות. נא לבדוק את החיבור ולרענן את הדף.'))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingBlock text="טוען דוחות מערכתיים..." />;
@@ -58,37 +50,44 @@ export function AdminReportsPage() {
       <PageTitle
         eyebrow="ניהול מערכת"
         title="דוחות וסטטיסטיקות"
-        subtitle="ניתוח נפחי תרומות, זמני תגובה, אחוזי הצלחה וביצועי מתנדבים."
+        subtitle="כמות המזון שהגיעה לעמותות, זמני התגובה של המתנדבים, אחוז ההצלחה וביצועי המתנדבים. מחושב מכל הפעילות במערכת עד עכשיו."
       />
 
-      <StatGrid
-        columns={3}
-        cards={[
-          { label: 'נפח תרומות כולל (ק"ג)', value: reports.totalDonationsVolume, icon: <ScaleIcon /> },
-          { label: 'זמן תגובה ממוצע', value: reports.averageResponseTime, icon: <TimerIcon /> },
-          { label: 'אחוז הצלחה', value: reports.successRate, icon: <TaskAltIcon /> },
-        ]}
-      />
+      {error || !reports ? (
+        <Alert severity="error">{error || 'לא הצלחנו לטעון את הדוחות. נא לרענן את הדף.'}</Alert>
+      ) : (
+        <>
+          <StatGrid
+            columns={3}
+            cards={[
+              { label: 'ק"ג מזון שהגיעו לעמותות', value: reports.totalDonationsVolume.toLocaleString('he-IL'), icon: <ScaleIcon /> },
+              { label: 'דקות בממוצע עד שמתנדב עונה להצעה', value: reports.averageResponseTime, icon: <TimerIcon /> },
+              { label: 'מהתרומות שהסתיימו הגיעו לעמותה', value: reports.successRate, icon: <TaskAltIcon /> },
+            ]}
+          />
 
-      <Card sx={{ p: { xs: 3, md: 4 }, mt: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>מובילי ביצועי מתנדבים</Typography>
-        {(!reports.topVolunteers || reports.topVolunteers.length === 0) ? (
-          <Typography color="text.secondary">אין נתונים זמינים כרגע.</Typography>
-        ) : (
-          <List>
-            {reports.topVolunteers.map((vol: TopVolunteerDto, index: number) => (
-              <ListItem key={index} disableGutters>
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 700 }}>
-                    {index + 1}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText primary={vol.name} secondary={`${vol.deliveriesCount} משלוחים מוצלחים`} />
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </Card>
+          <Card sx={{ p: { xs: 3, md: 4 }, mt: 3 }}>
+            <Typography variant="h6" component="h2">מובילי ביצועי מתנדבים</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>לפי מספר המשלוחים שהושלמו</Typography>
+            {reports.topVolunteers.length === 0 ? (
+              <Typography color="text.secondary" sx={{ mt: 2 }}>עוד אין משלוחים שהושלמו.</Typography>
+            ) : (
+              <List>
+                {reports.topVolunteers.map((vol, index) => (
+                  <ListItem key={`${index}-${vol.name}`} disableGutters>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 700 }}>
+                        {index + 1}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText primary={vol.name} secondary={deliveriesText(vol.deliveriesCount)} />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Card>
+        </>
+      )}
     </Box>
   );
 }

@@ -13,6 +13,12 @@ import type { NgoResponseDto, UpdateNgoHoursDto } from '../types/api';
 
 const timeField = { inputLabel: { shrink: true } };
 
+// בשבת עצמה אין קבלת תרומות. במוצאי שבת - משעה 17:00 לכל המוקדם (השרת בודק את אותו דבר),
+// ובפועל מנוע השידוכים משבץ רק אחרי צאת השבת.
+const SATURDAY_NIGHT_EARLIEST = '17:00';
+
+const withSeconds = (t: string) => (t.length === 5 ? `${t}:00` : t);
+
 export function NgoWorkingHoursPage() {
   const [workingHours, setWorkingHours] = useState({
     address: '',
@@ -20,7 +26,10 @@ export function NgoWorkingHoursPage() {
     sunToThuCloseTime: '17:00',
     receivesOnFriday: false,
     fridayOpenTime: '09:00',
-    fridayCloseTime: '13:00'
+    fridayCloseTime: '13:00',
+    receivesOnSaturdayNight: false,
+    saturdayNightOpenTime: '20:00',
+    saturdayNightCloseTime: '23:00'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +46,9 @@ export function NgoWorkingHoursPage() {
         receivesOnFriday: data.receivesOnFriday,
         fridayOpenTime: (data.fridayOpenTime ?? '08:00').substring(0, 5),
         fridayCloseTime: (data.fridayCloseTime ?? '13:00').substring(0, 5),
+        receivesOnSaturdayNight: data.receivesOnSaturdayNight ?? false,
+        saturdayNightOpenTime: (data.saturdayNightOpenTime ?? '20:00').substring(0, 5),
+        saturdayNightCloseTime: (data.saturdayNightCloseTime ?? '23:00').substring(0, 5),
       }))
       .catch(() => { /* אין פרופיל עדיין - נשארים עם ברירת המחדל */ });
   }, []);
@@ -62,6 +74,19 @@ export function NgoWorkingHoursPage() {
       return;
     }
 
+    if (workingHours.receivesOnSaturdayNight) {
+      if (workingHours.saturdayNightOpenTime < SATURDAY_NIGHT_EARLIEST) {
+        setError(`במוצאי שבת אפשר לקבל תרומות רק משעה ${SATURDAY_NIGHT_EARLIEST} ואילך.`);
+        setLoading(false);
+        return;
+      }
+      if (workingHours.saturdayNightOpenTime >= workingHours.saturdayNightCloseTime) {
+        setError('שעת הפתיחה במוצאי שבת חייבת להיות לפני שעת הסגירה (עד חצות).');
+        setLoading(false);
+        return;
+      }
+    }
+
     const payload: UpdateNgoHoursDto = {
       // המיקום המדויק נקבע בשרת לפי הכתובת (Google Maps)
       address: workingHours.address,
@@ -69,7 +94,10 @@ export function NgoWorkingHoursPage() {
       sunToThuCloseTime: workingHours.sunToThuCloseTime.length === 5 ? `${workingHours.sunToThuCloseTime}:00` : workingHours.sunToThuCloseTime,
       receivesOnFriday: workingHours.receivesOnFriday,
       fridayOpenTime: workingHours.receivesOnFriday ? (workingHours.fridayOpenTime.length === 5 ? `${workingHours.fridayOpenTime}:00` : workingHours.fridayOpenTime) : null,
-      fridayCloseTime: workingHours.receivesOnFriday ? (workingHours.fridayCloseTime.length === 5 ? `${workingHours.fridayCloseTime}:00` : workingHours.fridayCloseTime) : null
+      fridayCloseTime: workingHours.receivesOnFriday ? (workingHours.fridayCloseTime.length === 5 ? `${workingHours.fridayCloseTime}:00` : workingHours.fridayCloseTime) : null,
+      receivesOnSaturdayNight: workingHours.receivesOnSaturdayNight,
+      saturdayNightOpenTime: workingHours.receivesOnSaturdayNight ? withSeconds(workingHours.saturdayNightOpenTime) : null,
+      saturdayNightCloseTime: workingHours.receivesOnSaturdayNight ? withSeconds(workingHours.saturdayNightCloseTime) : null
     };
 
     try {
@@ -160,6 +188,48 @@ export function NgoWorkingHoursPage() {
                     htmlInput: { max: '16:00' },
                     inputLabel: { shrink: true }
                   }}
+                />
+              </FormSection>
+            </Box>
+          )}
+
+          <Box sx={{ mt: 4 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  color="primary"
+                  checked={workingHours.receivesOnSaturdayNight}
+                  onChange={(e) => setWorkingHours({ ...workingHours, receivesOnSaturdayNight: e.target.checked })}
+                />
+              }
+              label="מקבלים במוצאי שבת"
+            />
+          </Box>
+
+          {workingHours.receivesOnSaturdayNight && (
+            <Box sx={{ mt: 2 }}>
+              <FormSection title="שעות קבלה (מוצאי שבת)">
+                <TextField
+                  label="שעת פתיחה"
+                  type="time"
+                  value={workingHours.saturdayNightOpenTime}
+                  onChange={(e) => {
+                    setError(null);
+                    setWorkingHours({ ...workingHours, saturdayNightOpenTime: e.target.value });
+                  }}
+                  helperText={`משעה ${SATURDAY_NIGHT_EARLIEST}. משלוחים מגיעים רק אחרי צאת השבת`}
+                  slotProps={timeField}
+                />
+                <TextField
+                  label="שעת סגירה"
+                  type="time"
+                  value={workingHours.saturdayNightCloseTime}
+                  onChange={(e) => {
+                    setError(null);
+                    setWorkingHours({ ...workingHours, saturdayNightCloseTime: e.target.value });
+                  }}
+                  helperText="עד חצות"
+                  slotProps={timeField}
                 />
               </FormSection>
             </Box>

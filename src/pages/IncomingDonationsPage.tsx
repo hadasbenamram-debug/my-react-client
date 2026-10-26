@@ -8,13 +8,14 @@ import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { NgoDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS, formatTime } from '../utils/format';
+import { getToken } from '../utils/auth';
 
 export function IncomingDonationsPage() {
   const [incoming, setIncoming] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     // שליפת התרומות מהנתיב הייעודי לעמותות המחוברות
     fetch('/api/donations/my-ngo-donations', {

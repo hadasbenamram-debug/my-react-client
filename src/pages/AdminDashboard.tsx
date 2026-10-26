@@ -9,6 +9,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PageTitle from '../components/PageTitle';
 import type { DashboardStatsDto } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStatsDto>({
@@ -21,7 +22,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     // שליפת הטוקן מ-localStorage והוספתו לכותרת הבקשה
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     fetch('/api/admin/dashboard-stats', {
       method: 'GET',

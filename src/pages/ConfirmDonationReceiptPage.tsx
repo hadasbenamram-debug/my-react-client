@@ -10,6 +10,7 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { NgoDonationView } from '../types/api';
 import { readErrorMessage } from '../utils/apiError';
 import { DONATION_STATUS_LABELS } from '../utils/format';
+import { getToken } from '../utils/auth';
 
 export function ConfirmDonationReceiptPage() {
   const [donations, setDonations] = useState<NgoDonationView[]>([]);
@@ -17,7 +18,7 @@ export function ConfirmDonationReceiptPage() {
   const navigate = useNavigate();
 
   const fetchPendingReceipts = () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     // פנייה לנתיב הייעודי המותאם לעמותה המחוברת עם שליחת טוקן ההזדהות
     fetch(`/api/donations/my-ngo-donations`, {
@@ -50,7 +51,7 @@ export function ConfirmDonationReceiptPage() {
   }, []);
 
   const handleConfirmReceipt = (item: NgoDonationView) => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     // תוקן: היה PUT לנתיב שלא קיים, ואחר כך מעבר ל-/rate/... שגם הוא לא קיים
     fetch(`/api/donations/${item.id}/confirm-receipt`, {

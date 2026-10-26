@@ -19,3 +19,15 @@ export const readErrorMessage = async (res: Response, fallback: string): Promise
     const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
     return fromBody(body) ?? fallback;
 };
+
+/** כמו readErrorMessage, וגם ה-code שהשרת החזיר (למשל Expired) - כדי להבדיל בין שגיאה למצב צפוי */
+export const readApiError = async (res: Response, fallback: string): Promise<{message: string; code?: string}> => {
+    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+    return {message: fromBody(body) ?? fallback, code: body?.code ?? undefined};
+};
+
+/**
+ * תיקון 12: תשובות "צפויות" לבקשת התנדבות - זמן התגובה עבר, הבקשה כבר נענתה, הקישור כבר לא בתוקף.
+ * מוצגות כהודעה רגילה ולא כשגיאה.
+ */
+export const RESPONSE_WINDOW_CODES = ['Expired', 'NotAwaiting', 'LinkInvalid', 'LicenseInvalid'];

@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock } from '../components/PageParts';
 import { authHeaders } from '../utils/auth';
-import { formatDateTime } from '../utils/format';
+import { formatDateTime, isDateBeforeToday } from '../utils/format';
 import type { AdminVolunteerListItemDto } from '../types/api';
 
 const STATUS_LABELS: Record<string, string> = { Pending: 'ממתין לאישור', Approved: 'מאושר', Rejected: 'נדחה' };
@@ -33,8 +33,9 @@ export function VolunteersPage() {
 
   if (loading) return <LoadingBlock text="טוען מתנדבים..." />;
 
-  const licenseExpired = (v: AdminVolunteerListItemDto) =>
-    v.driverLicenseExpiry != null && new Date(v.driverLicenseExpiry) < new Date();
+  // אותו כלל כמו בשרת (DriverLicensePolicy): תאריך תוקף שעבר, או שלא הוזן - המתנדב לא ישובץ
+  const licenseExpired = (v: AdminVolunteerListItemDto) => isDateBeforeToday(v.driverLicenseExpiry);
+  const licenseMissing = (v: AdminVolunteerListItemDto) => !v.driverLicenseExpiry;
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto' }}>
@@ -59,7 +60,8 @@ export function VolunteersPage() {
                 <Chip size="small" variant="outlined" color={v.status === 'Approved' ? 'success' : v.status === 'Rejected' ? 'error' : 'warning'}
                   label={STATUS_LABELS[v.status] ?? v.status} />
                 <Chip size="small" label={v.isAvailable ? 'זמין' : 'לא זמין'} color={v.isAvailable ? 'primary' : 'default'} />
-                {licenseExpired(v) && <Chip size="small" color="error" label="רישיון לא בתוקף" />}
+                {licenseExpired(v) && <Chip size="small" color="error" label="רישיון לא בתוקף - לא ישובץ" />}
+                {licenseMissing(v) && <Chip size="small" color="error" variant="outlined" label="תוקף רישיון לא הוזן - לא ישובץ" />}
               </Box>
             </Box>
             <Typography color="text.secondary"><strong>טלפון:</strong> {v.phone || '—'} · <strong>אימייל:</strong> {v.email || '—'}</Typography>

@@ -10,8 +10,14 @@ import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import {authHeaders} from '../utils/auth';
-import {readErrorMessage} from '../utils/apiError';
+import {readApiError, readErrorMessage, RESPONSE_WINDOW_CODES} from '../utils/apiError';
 import type {MatchResponseDto, RouteDto} from '../types/api';
+
+type Notice = {text: string; severity: 'success' | 'info' | 'error'};
+
+// סטטוסים של תחנה אחרי שהמתנדב אישר את המסלול
+const ACCEPTED_STATUSES = ['Confirmed', 'InPickup', 'InTransit', 'Delivered', 'Completed'];
+const isAccepted = (route: RouteDto) => route.stops.some((s) => ACCEPTED_STATUSES.includes(s.status));
 
 // בקשת התנדבות נכנסת (למתנדב מחובר). הבקשה היא מסלול שלם - אישור או דחייה אחת לכל התחנות.
 // (קישור מהמייל, בלי התחברות, מגיע לעמוד /app/respond)
@@ -21,7 +27,10 @@ export function IncomingRequestPage() {
     const [route, setRoute] = useState<RouteDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
-    const [message, setMessage] = useState<{text: string; ok: boolean} | null>(null);
+    const [message, setMessage] = useState<Notice | null>(null);
+    // תיקון 13: הספירה לאחור הגיעה ל-0 - הכפתורים נעלמים מיד. בעבר הדף נטען מחדש כל שנייה ("לולאה"),
+    // והכפתורים נשארו עד שהשרת סימן את הבקשה, כך שנראה שאפשר לאשר גם אחרי 5 הדקות.
+    const [expiredRouteId, setExpiredRouteId] = useState<number | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -41,7 +50,7 @@ export function IncomingRequestPage() {
             }
             setRoute(next);
         } catch (err) {
-            setMessage({text: err instanceof Error ? err.message : 'שגיאה בטעינת הבקשה.', ok: false});
+            setMessage({text: err instanceof Error ? err.message : 'שגיאה בטעינת הבקשה.', severity: 'error'});
         } finally {
             setLoading(false);
         }
@@ -50,6 +59,12 @@ export function IncomingRequestPage() {
     useEffect(() => {
         void load();
     }, [load]);
+
+    const handleExpire = useCallback(() => {
+        setExpiredRouteId(route?.id ?? null);
+        // השרת מעביר את הבקשה למתנדב הבא תוך שניות - טוענים פעם אחת את המצב המעודכן
+        window.setTimeout(() => void load(), 3000);
+    }, [route?.id, load]);
 
     const respond = async (accept: boolean) => {
         if (!route || route.stops.length === 0) return;
@@ -65,7 +80,9 @@ export function IncomingRequestPage() {
         setBusy(false);
 
         if (!res.ok) {
-            setMessage({text: await readErrorMessage(res, 'הפעולה נכשלה.'), ok: false});
+            // תיקון 12: למשל אחרי שזמן התגובה עבר - הודעה ברורה מהשרת (ולא "נפילה" או שגיאה אדומה)
+            const {message: text, code} = await readApiError(res, 'הפעולה נכשלה.');
+            setMessage({text, severity: code && RESPONSE_WINDOW_CODES.includes(code) ? 'info' : 'error'});
             await load();
             return;
         }
@@ -73,7 +90,7 @@ export function IncomingRequestPage() {
         if (accept) {
             navigate('/app/volunteer/active-route');
         } else {
-            setMessage({text: 'הבקשה נדחתה. תודה על העדכון!', ok: true});
+            setMessage({text: 'הבקשה נדחתה. תודה על העדכון!', severity: 'success'});
             setRoute(null);
         }
     };
@@ -83,18 +100,29 @@ export function IncomingRequestPage() {
     return (
         <Box sx={{maxWidth: 800, mx: 'auto'}}>
             <PageTitle eyebrow="מתנדב" title="בקשת איסוף נכנסת" />
-            {message && <Alert severity={message.ok ? 'success' : 'error'} sx={{mb: 2}}>{message.text}</Alert>}
+            {message && <Alert severity={message.severity} sx={{mb: 2}}>{message.text}</Alert>}
 
             {!route ? (
                 <EmptyState text="אין כרגע בקשות איסוף שממתינות לך." />
             ) : !route.awaitingResponse ? (
-                <Stack spacing={2}>
-                    <Alert severity="info">המסלול כבר אושר.</Alert>
-                    <Button variant="contained" onClick={() => navigate('/app/volunteer/active-route')}>למסלול הפעיל</Button>
-                </Stack>
+                // תוקן: בקשה שזמן התגובה שלה עבר הוצגה בעבר כ"המסלול כבר אושר"
+                isAccepted(route) ? (
+                    <Stack spacing={2}>
+                        <Alert severity="info">המסלול כבר אושר.</Alert>
+                        <Button variant="contained" onClick={() => navigate('/app/volunteer/active-route')}>למסלול הפעיל</Button>
+                    </Stack>
+                ) : (
+                    !message && (
+                        <Alert severity="info">
+                            הבקשה הזו כבר לא ממתינה לתגובה: זמן התגובה הסתיים או שהיא נדחתה, והיא הועברה למתנדב אחר.
+                        </Alert>
+                    )
+                )
+            ) : expiredRouteId === route.id ? (
+                <Alert severity="info">זמן התגובה הסתיים, והבקשה עוברת עכשיו למתנדב הבא. תודה על הנכונות!</Alert>
             ) : (
                 <Stack spacing={2}>
-                    <Box><DeadlineCountdown deadline={route.responseDeadline} onExpire={() => void load()} /></Box>
+                    <Box><DeadlineCountdown deadline={route.responseDeadline} onExpire={handleExpire} /></Box>
                     <RouteSummary route={route} />
                     <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5}>
                         <Button variant="contained" size="large" startIcon={<CheckIcon />} disabled={busy} onClick={() => void respond(true)}>

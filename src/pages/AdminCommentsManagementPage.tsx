@@ -6,9 +6,9 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import { CommentRow } from '../components/CommentParts';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
-import { formatDateTime } from '../utils/format';
 import type { CommentDto } from '../types/api';
 
 // ניהול תגובות (מנהל). תוקן: העמוד פנה ל-api/admin/comments שלא קיים ובלי טוקן.
@@ -57,32 +57,22 @@ export function AdminCommentsManagementPage() {
       {comments.length === 0 ? (
         <EmptyState text="אין תגובות במערכת." />
       ) : (
+        // תיקון 15: אותו עיצוב כמו בלוח התגובות (אות הכותב, שם וזמן, הטקסט בבועה)
         [...comments].reverse().map((item) => (
-          <Card
-            key={item.id}
-            sx={{
-              p: { xs: 2.5, md: 3 },
-              mb: 2,
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'space-between',
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              gap: 2,
-            }}
-          >
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
-                <Typography variant="h6" sx={{ fontWeight: 500 }}>{item.authorName}</Typography>
-                <Chip size="small" variant="outlined"
-                  label={item.donationId ? `תרומה #${item.donationId}` : item.matchId ? `שידוך #${item.matchId}` : 'כללי'} />
-                {item.parentCommentId && <Chip size="small" label="תשובה" />}
-                <Typography variant="body2" color="text.secondary">{formatDateTime(item.createdAt)}</Typography>
+          <Card key={item.id} sx={{ p: { xs: 2, md: 2.5 }, mb: 1.5 }}>
+            <CommentRow authorName={item.authorName} text={item.text} createdAt={item.createdAt}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {/* תיקון 18: כל תגובה שייכת לתרומה - אין יותר "שיבוץ" או "כללי" */}
+                  <Chip size="small" variant="outlined"
+                    label={`תרומה #${item.donationId}${item.donationSupplierName ? ` – ${item.donationSupplierName}` : ''}`} />
+                  {item.parentCommentId && <Chip size="small" label="תשובה לתגובה" />}
+                </Box>
+                <Button size="small" variant="text" color="error" sx={{ px: 1 }} onClick={() => void handleDeleteComment(item)}>
+                  מחיקת התגובה
+                </Button>
               </Box>
-              <Typography color="text.secondary">"{item.text}"</Typography>
-            </Box>
-            <Button variant="outlined" color="error" onClick={() => void handleDeleteComment(item)}>
-              מחק תגובה
-            </Button>
+            </CommentRow>
           </Card>
         ))
       )}

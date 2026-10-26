@@ -7,13 +7,14 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { MatchView } from '../types/api';
 import { formatTime, MATCH_STATUS_LABELS } from '../utils/format';
+import { getToken } from '../utils/auth';
 
 export function AdminRoutesManagementPage() {
   const [routes, setRoutes] = useState<MatchView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRoutes = () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     fetch('/api/matches/active', {
       method: 'GET',

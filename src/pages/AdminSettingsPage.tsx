@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import PageTitle from '../components/PageTitle';
 import { FormSection } from '../components/FormParts';
 import { LoadingBlock } from '../components/PageParts';
@@ -47,6 +50,7 @@ const FIELDS: { section: string; items: { key: Key; label: string; step?: number
 ];
 
 export function AdminSettingsPage() {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<SystemSettingsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
@@ -118,6 +122,17 @@ export function AdminSettingsPage() {
           </form>
         </Card>
       )}
+
+      {/* המנהל מחליף את הסיסמה שלו כמו כל משתמש - בעמוד הפרופיל האישי (api/auth/change-password) */}
+      <Card sx={{ p: { xs: 3, md: 4 }, mt: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>אבטחת החשבון שלך</Typography>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          החלפת הסיסמה של חשבון המנהל. אחרי ההחלפה כל החיבורים בשאר המכשירים מתנתקים.
+        </Typography>
+        <Button variant="outlined" startIcon={<LockResetIcon />} onClick={() => navigate('/app/profile#password')}>
+          לשינוי הסיסמה
+        </Button>
+      </Card>
     </Box>
   );
 }

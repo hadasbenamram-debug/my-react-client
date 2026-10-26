@@ -31,17 +31,83 @@ export const getCurrentUser = (): StoredUser => {
     }
 };
 
-/** שמירת הסשן אחרי התחברות / החלפת סיסמה (השרת מחזיר טוקן חדש - הישן כבר לא תקף) */
-export const saveSession = (auth: Pick<AuthResponseDto, 'token' | 'role' | 'mustChangePassword'>, email?: string): void => {
+const sameRole = (a: string | undefined, b: string | undefined) =>
+    String(a || '').toLowerCase() === String(b || '').toLowerCase();
+
+/**
+ * שמירת הסשן אחרי התחברות / החלפת סיסמה (השרת מחזיר טוקן חדש - הישן כבר לא תקף).
+ * keepActiveRole: באמצע עבודה (למשל החלפת סיסמה) נשארים בתפקיד שנבחר, אם הוא עדיין מאושר.
+ */
+export const saveSession = (
+    auth: Pick<AuthResponseDto, 'token' | 'role' | 'mustChangePassword' | 'roles'>,
+    email?: string,
+    keepActiveRole = false,
+): void => {
     localStorage.setItem('token', auth.token);
     const previous = getCurrentUser();
+    const roles: string[] = auth.roles && auth.roles.length > 0 ? auth.roles : [auth.role];
+    const keep = keepActiveRole && roles.some((r) => sameRole(r, previous.role));
     const user: StoredUser = {
         ...previous,
         email: email ?? previous.email,
-        role: auth.role,
+        role: keep ? previous.role : auth.role,
+        roles,
         mustChangePassword: auth.mustChangePassword === true,
     };
     localStorage.setItem('currentUser', JSON.stringify(user));
+};
+
+// ───────── תיקון 10: חשבון אחד עם כמה תפקידים (למשל ספק שהוא גם מתנדב) ─────────
+
+/** איך מציגים כל תפקיד למשתמש */
+export const roleTitle = (roleValue: string | undefined): string => {
+    const role = String(roleValue || '').toLowerCase();
+    if (role === 'admin') return 'מנהל/ת מערכת';
+    if (role.includes('volunt')) return 'מתנדב/ת';
+    if (role.includes('suppl')) return 'ספק / תורם';
+    if (role.includes('ngo')) return 'עמותה';
+    return 'משתמש/ת';
+};
+
+/** התפקידים המאושרים של החשבון, חוץ מהתפקיד הפעיל */
+export const otherRoles = (): string[] => {
+    const user = getCurrentUser();
+    return (user.roles ?? []).filter((r) => !sameRole(r, user.role));
+};
+
+/** עדכון רשימת התפקידים המאושרים מהשרת (למשל אחרי שהמנהל אישר תפקיד נוסף) */
+export const syncRoles = (approved: string[]): void => {
+    if (approved.length === 0) return;
+    const user = getCurrentUser();
+    localStorage.setItem('currentUser', JSON.stringify({ ...user, roles: approved }));
+};
+
+/**
+ * מעבר לתפקיד אחר של אותו חשבון. בשרת אין מה לעדכן: ההרשאות נבדקות לפי הפרופילים של המשתמש,
+ * ורק המסכים והתפריט נבנים לפי התפקיד הפעיל - לכן טוענים מחדש את האפליקציה במסך הבית של התפקיד.
+ */
+export const switchRole = (role: string, path?: string): void => {
+    const user = getCurrentUser();
+    if (!(user.roles ?? []).some((r) => sameRole(r, role))) return;
+    localStorage.setItem('currentUser', JSON.stringify({ ...user, role }));
+    window.location.assign(path ?? homePathForRole(role));
+};
+
+/** לאיזה תפקיד שייך מסך (למשל קישור מהתראה למסך של מתנדב). null = מסך משותף לכולם */
+export const roleForPath = (path: string): string | null => {
+    if (path.startsWith('/app/volunteer/')) return 'Volunteer';
+    if (path.startsWith('/app/supplier/')) return 'Supplier';
+    if (path.startsWith('/app/ngo/')) return 'Ngo';
+    if (path.startsWith('/app/admin/')) return 'Admin';
+    return null;
+};
+
+/** האם המסך שייך לתפקיד אחר (מאושר) של אותו חשבון - ואז עוברים אליו במקום "לאבד" את הקישור */
+export const otherRoleForPath = (path: string): string | null => {
+    const role = roleForPath(path);
+    const user = getCurrentUser();
+    if (!role || sameRole(role, user.role)) return null;
+    return (user.roles ?? []).find((r) => sameRole(r, role)) ?? null;
 };
 
 export const clearSession = (): void => {

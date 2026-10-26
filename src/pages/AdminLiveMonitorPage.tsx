@@ -7,13 +7,14 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { LiveMissionView } from '../types/api';
 import { formatTime, MATCH_STATUS_LABELS } from '../utils/format';
+import { getToken } from '../utils/auth';
 
 export function AdminLiveMonitorPage() {
   const [activeMissions, setActiveMissions] = useState<LiveMissionView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch('/api/admin/live-monitor', {
       method: 'GET',
       headers: {

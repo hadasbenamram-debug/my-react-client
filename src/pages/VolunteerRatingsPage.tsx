@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { FeedbackView } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function VolunteerRatingsPage() {
   const [feedbacks, setFeedbacks] = useState<FeedbackView[]>([]);
@@ -15,7 +16,7 @@ export function VolunteerRatingsPage() {
 
   useEffect(() => {
     // שליפת הטוקן מהאחסון המקומי
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     fetch('/api/feedbacks', {
       headers: {

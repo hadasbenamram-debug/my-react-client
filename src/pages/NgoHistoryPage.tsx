@@ -7,13 +7,14 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { NgoDonationView } from '../types/api';
 import { formatDateTime } from '../utils/format';
+import { getToken } from '../utils/auth';
 
 export function NgoHistoryPage() {
   const [completedDonations, setCompletedDonations] = useState<NgoDonationView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     // פנייה לנתיב הייעודי המותאם לעמותה המחוברת עם שליחת טוקן ההזדהות
     fetch(`/api/donations/my-ngo-donations`, {

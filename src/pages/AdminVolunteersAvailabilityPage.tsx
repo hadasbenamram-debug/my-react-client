@@ -7,6 +7,7 @@ import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { VolunteerAvailabilityView } from '../types/api';
+import { getToken } from '../utils/auth';
 
 export function AdminVolunteersAvailabilityPage() {
   const [availabilityList, setAvailabilityList] = useState<VolunteerAvailabilityView[]>([]);
@@ -14,7 +15,7 @@ export function AdminVolunteersAvailabilityPage() {
   const [dayFilter, setDayFilter] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch('/api/admin/volunteers/availability', {
       method: 'GET',
       headers: {

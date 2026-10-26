@@ -7,7 +7,10 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
+import { AddRoleNotice } from '../components/AddRoleNotice';
+import { useAddRoleMode } from '../hooks/useAddRoleMode';
 import { readErrorMessage } from '../utils/apiError';
+import { authHeaders } from '../utils/auth';
 
 // האורכים תואמים לעמודות במסד (בעבר שם העסק עד 150 ו-ח.פ עד 50, בזמן שהמסד מקבל 100 ו-20)
 interface FieldDef { name: string; label: string; type?: string; maxLength?: number; minLength?: number; }
@@ -28,19 +31,25 @@ const businessFields: FieldDef[] = [
 const ALLOWED_LICENSE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
 const MAX_LICENSE_SIZE = 5 * 1024 * 1024;
 
+const emptyForm = {
+  name: '',
+  email: '',
+  phone: '',
+  businessName: '',
+  address: '',
+  taxId: '',
+};
+
 export function SupplierRegisterPage() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    businessName: '',
-    address: '',
-    taxId: '',
-  });
+  const [formData, setFormData] = useState(emptyForm);
 
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState(false);
+  // תיקון 10: משתמש מחובר (למשל מתנדב שיש לו עסק) מוסיף לחשבון שלו גם תפקיד ספק
+  const { loggedIn, account, existing, blocked } = useAddRoleMode('Supplier');
+  const [roleRequested, setRoleRequested] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -50,6 +59,7 @@ export function SupplierRegisterPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSuccess(false);
 
     // בדיקה מקדימה בצד הלקוח (השרת בודק שוב: סיומת, גודל ותוכן הקובץ)
     const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
@@ -70,6 +80,7 @@ export function SupplierRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSuccess(false);
 
     // ה-input של הקובץ מוסתר, ולכן הדפדפן לא יכול להציג עליו הודעת required - בודקים כאן.
     if (!licenseFile) {
@@ -82,23 +93,37 @@ export function SupplierRegisterPage() {
 
     // שימוש ב-FormData לצורך שליחת קבצים וטקסט יחד לשרת
     const data = new FormData();
-    data.append('Name', formData.name);
-    data.append('Email', formData.email);
-    data.append('Phone', formData.phone);
+    if (!loggedIn) {
+      data.append('Name', formData.name);
+      data.append('Email', formData.email);
+      data.append('Phone', formData.phone);
+    }
     data.append('BusinessName', formData.businessName);
     data.append('Address', formData.address);
     data.append('TaxId', formData.taxId);
     data.append('LicenseFile', licenseFile);
 
     try {
-      const response = await fetch('/api/suppliers/register', {
+      // מחוברים: התפקיד מצורף לחשבון הקיים (POST api/suppliers), אחרת - הרשמה חדשה
+      const response = await fetch(loggedIn ? '/api/suppliers' : '/api/suppliers/register', {
         method: 'POST',
         // אין לציין 'Content-Type': 'application/json' משום שהדפדפן מגדיר זאת אוטומטית עבור FormData
+        headers: loggedIn ? authHeaders() : undefined,
         body: data,
       });
 
-      if (response.ok) {
-        setMessage('רישום הספק בוצע בהצלחה! סיסמה זמנית נשלחה לכתובת האימייל שלך.');
+      if (response.ok && loggedIn) {
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+        setMessage(body?.message || 'הבקשה נשלחה לאישור מנהל.');
+        setSuccess(true);
+        setRoleRequested(true);
+      } else if (response.ok) {
+        // השרת מחזיר אותה הודעה גם כשהמייל כבר רשום (כדי לא לחשוף אילו מיילים קיימים) - הפרטים נשלחים למייל
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+        setMessage(body?.message || 'הבקשה נקלטה. פרטי ההמשך נשלחו לכתובת המייל שהזנת.');
+        setSuccess(true);
+        setFormData(emptyForm);
+        setLicenseFile(null);
       } else {
         setMessage(await readErrorMessage(response, 'אירעה שגיאה בעת הרישום. נסה שוב.'));
       }
@@ -126,13 +151,19 @@ export function SupplierRegisterPage() {
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
       <PageTitle
         eyebrow="הצטרפות"
-        title="רישום ספק / תורם"
-        subtitle="עסקים ואירועים שרוצים לתרום עודפי מזון."
+        title={loggedIn ? 'הצטרפות גם כספק / תורם' : 'רישום ספק / תורם'}
+        subtitle={loggedIn ? 'ממלאים רק את פרטי העסק - בלי חשבון חדש.' : 'עסקים ואירועים שרוצים לתרום עודפי מזון.'}
       />
       <Card sx={{ p: { xs: 3, md: 5 } }}>
+        {loggedIn && !roleRequested && <AddRoleNotice role="Supplier" account={account} existing={existing} />}
+        {!(loggedIn && (blocked || roleRequested)) && (
         <form onSubmit={handleSubmit}>
-          <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
-          <Divider sx={{ my: 4 }} />
+          {!loggedIn && (
+            <>
+              <FormSection title="פרטי משתמש">{userFields.map(renderField)}</FormSection>
+              <Divider sx={{ my: 4 }} />
+            </>
+          )}
           <FormSection title="פרטי העסק">
             {businessFields.map(renderField)}
 
@@ -159,10 +190,11 @@ export function SupplierRegisterPage() {
           </FormSection>
 
           <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
-            {loading ? 'שולח...' : 'הירשם כספק'}
+            {loading ? 'שולח...' : loggedIn ? 'שליחת הבקשה לאישור' : 'הירשם כספק'}
           </Button>
         </form>
-      <StatusAlert message={message} success={message.includes('בהצלחה')} />
+        )}
+      <StatusAlert message={message} success={success} />
       </Card>
     </Box>
   );

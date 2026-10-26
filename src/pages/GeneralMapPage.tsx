@@ -6,6 +6,7 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock } from '../components/PageParts';
 import { StaticMap, MAP_COLORS } from '../components/GoogleMapView';
 import type { MapEntityView } from '../types/api';
+import { getToken } from '../utils/auth';
 
 type EntityKind = 'donor' | 'ngo' | 'volunteer' | 'other';
 
@@ -39,7 +40,7 @@ export function GeneralMapPage() {
   const [hidden, setHidden] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch('/api/map/all-entities', {
       method: 'GET',
       headers: {

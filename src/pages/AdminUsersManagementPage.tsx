@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import SearchIcon from '@mui/icons-material/Search';
 import PageTitle from '../components/PageTitle';
 import type { UserListItemView } from '../types/api';
+import { getToken, roleTitle } from '../utils/auth';
 
 export function AdminUsersManagementPage() {
   const [users, setUsers] = useState<UserListItemView[]>([]);
@@ -17,7 +18,7 @@ export function AdminUsersManagementPage() {
   const [total, setTotal] = useState<number | null>(null);
 
   const fetchUsers = () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     // הרשימה מעומדת בשרת; סך המשתמשים מגיע בכותרת X-Total-Count
     fetch('/api/users?page=1&pageSize=500', {
@@ -113,7 +114,11 @@ export function AdminUsersManagementPage() {
                 <Chip size="small" variant="outlined" color={user.isPhoneVerified ? 'success' : 'default'}
                   label={user.isPhoneVerified ? 'טלפון מאומת' : 'טלפון לא מאומת'} />
               </Box>
-              <Typography color="text.secondary"><strong>תפקיד:</strong> {user.role}</Typography>
+              {/* תיקון 10: לחשבון יכולים להיות כמה תפקידים (למשל ספק שהוא גם מתנדב) */}
+              <Typography color="text.secondary">
+                <strong>{(user.roles?.length ?? 0) > 1 ? 'תפקידים:' : 'תפקיד:'}</strong>{' '}
+                {(user.roles?.length ? user.roles : [user.role]).map(roleTitle).join(' + ')}
+              </Typography>
               <Typography color="text.secondary"><strong>אימייל:</strong> {user.email}</Typography>
               <Typography color="text.secondary"><strong>טלפון:</strong> {user.phone || '—'}</Typography>
             </Box>

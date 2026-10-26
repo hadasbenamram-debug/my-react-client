@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -12,7 +13,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import type { FoodCategoryResponseDto, ImageAnalysisResponseDto, RegionResponseDto, ValidationProblemBody } from '../types/api';
+import type { DonationResponseDto, FoodCategoryResponseDto, ImageAnalysisResponseDto, RegionResponseDto, ValidationProblemBody } from '../types/api';
+import { getToken } from '../utils/auth';
 
 interface DonationCategoryLineDto {
   categoryId: number | '';
@@ -39,6 +41,10 @@ type AnalyzeImageResponse = Partial<Omit<ImageAnalysisResponseDto, 'aiParsedData
 };
 
 export function CreateDonationPage() {
+  const navigate = useNavigate();
+  // תוקן: אחרי פרסום מוצלח נשארו בטופס, ולחיצה נוספת על "פרסם" שלחה את אותה תרומה שוב
+  // (עם תמונה שכבר נוצלה) - והשרת נכשל. עכשיו: שליחה אחת בלבד, ואחרי ההצלחה יוצאים מעמוד הפרסום.
+  const submitting = useRef(false);
   // אזור האיסוף נבחר מתוך האזורים שבמסד (GET api/region), ולא מזהה קבוע.
   // מיקום האיסוף לא נשלח מכאן: השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps).
   const [availableRegions, setAvailableRegions] = useState<RegionResponseDto[]>([]);
@@ -74,7 +80,7 @@ export function CreateDonationPage() {
   // שליפת קטגוריות ואזורים.
   // תוקן: בעבר טוקן מהכתובת נשמר כטוקן התחברות.
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
 
     fetch('/api/categories', {
       headers: {
@@ -161,7 +167,7 @@ export function CreateDonationPage() {
     setSuccessMessage(null);
     setImageFileName('');
 
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (!token) {
       setError('יש להתחבר למערכת מחדש.');
       return;
@@ -253,26 +259,33 @@ export function CreateDonationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // לחיצה כפולה מהירה (לפני שהכפתור הספיק להיות מושבת) לא שולחת את התרומה פעמיים
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    let published = false;
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('יש להתחבר למערכת מחדש.');
+    const stop = (message: string) => {
+      setError(message);
       setLoading(false);
+      submitting.current = false;
+    };
+
+    const token = getToken();
+    if (!token) {
+      stop('יש להתחבר למערכת מחדש.');
       return;
     }
 
     if (categories.length === 0) {
-      setError('יש להוסיף לפחות מוצר אחד לתרומה.');
-      setLoading(false);
+      stop('יש להוסיף לפחות מוצר אחד לתרומה.');
       return;
     }
 
     if (regionId === '' || !selectedRegion) {
-      setError('נא לבחור את אזור האיסוף.');
-      setLoading(false);
+      stop('נא לבחור את אזור האיסוף.');
       return;
     }
 
@@ -286,8 +299,7 @@ export function CreateDonationPage() {
         !Number.isFinite(cat.weightKg) ||
         cat.weightKg <= 0
       ) {
-        setError(`נא לוודא שכל השדות במוצר ${index + 1} תקינים.`);
-        setLoading(false);
+        stop(`נא לוודא שכל השדות במוצר ${index + 1} תקינים.`);
         return;
       }
     }
@@ -299,8 +311,7 @@ export function CreateDonationPage() {
     let expirationPayload: string | null = null;
     if (expirationTime) {
       if (expirationTime <= latestPickupTime) {
-        setError('שעת התפוגה חייבת להיות אחרי שעת האיסוף האחרונה.');
-        setLoading(false);
+        stop('שעת התפוגה חייבת להיות אחרי שעת האיסוף האחרונה.');
         return;
       }
       const now = new Date();
@@ -327,7 +338,14 @@ export function CreateDonationPage() {
       });
 
       if (response.ok) {
-        setSuccessMessage('התרומה נוצרה בהצלחה! מנוע השידוכים יחפש לה מתנדב ועמותה.');
+        const created = (await response.json().catch(() => null)) as DonationResponseDto | null;
+        published = true;
+        // יוצאים מעמוד הפרסום (replace - כך שגם "חזרה" בדפדפן לא מחזירה לטופס המלא)
+        navigate(created?.id ? `/app/supplier/donation-details?id=${created.id}` : '/app/supplier/open-donations', {
+          replace: true,
+          state: { justPublished: true },
+        });
+        return;
       } else {
         const errData: ValidationProblemBody = await response.json().catch(() => ({}));
         let errorText = 'שגיאה בשמירת התרומה בשרת.';
@@ -342,7 +360,10 @@ export function CreateDonationPage() {
       console.error('שגיאת תקשורת:', err);
       setError('שגיאת תקשורת מול השרת.');
     } finally {
-      setLoading(false);
+      if (!published) {
+        submitting.current = false;
+        setLoading(false);
+      }
     }
   };
 
