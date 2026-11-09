@@ -11,15 +11,17 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
 import RouteSummary from '../components/RouteSummary';
-import {StaticMap} from '../components/GoogleMapView';
+import LiveRouteMap from '../components/LiveRouteMap';
 import {authHeaders} from '../utils/auth';
 import {readErrorMessage} from '../utils/apiError';
 import type {RouteDto, RouteStopDto} from '../types/api';
 
-const LOCATION_INTERVAL_MS = 20_000;
+// כל 10 שניות - כך העמותה רואה את המתנדב זז על המפה כמעט בזמן אמת (השרת שומר לכל היותר רישום אחד ל-8 שניות)
+const LOCATION_INTERVAL_MS = 10_000;
 
 // המסלול הפעיל של המתנדב: יציאה לדרך -> איסוף בכל תחנה -> מסירה לעמותה.
-// בזמן המסלול המיקום נשלח לשרת, והעמותה / הספק / המנהל רואים אותו בזמן אמת.
+// בזמן המסלול המיקום נשלח לשרת ונרשם ביומן המשלוח, והעמותה / הספק / המנהל רואים אותו בזמן אמת.
+// לפני היציאה לדרך המיקום לא נשלח.
 export function ActiveRoutePage() {
     const navigate = useNavigate();
     const [route, setRoute] = useState<RouteDto | null>(null);
@@ -28,6 +30,7 @@ export function ActiveRoutePage() {
     const [message, setMessage] = useState<{text: string; ok: boolean} | null>(null);
     const [position, setPosition] = useState<{lat: number; lng: number} | null>(null);
     const lastSent = useRef(0);
+    const latest = useRef<{lat: number; lng: number} | null>(null);
 
     const load = useCallback(async () => {
         const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()});
@@ -43,22 +46,35 @@ export function ActiveRoutePage() {
     useEffect(() => {
         if (!route || route.status !== 'InProgress' || !navigator.geolocation) return;
 
+        const send = () => {
+            const pos = latest.current;
+            if (!pos || Date.now() - lastSent.current < LOCATION_INTERVAL_MS - 500) return;
+            lastSent.current = Date.now();
+            void fetch('/api/volunteers/me/location', {
+                method: 'PUT',
+                headers: authHeaders(true),
+                body: JSON.stringify({latitude: pos.lat, longitude: pos.lng}),
+            });
+        };
+
         const watchId = navigator.geolocation.watchPosition(
             (p) => {
                 const pos = {lat: p.coords.latitude, lng: p.coords.longitude};
+                latest.current = pos;
                 setPosition(pos);
-                if (Date.now() - lastSent.current < LOCATION_INTERVAL_MS) return;
-                lastSent.current = Date.now();
-                void fetch('/api/volunteers/me/location', {
-                    method: 'PUT',
-                    headers: authHeaders(true),
-                    body: JSON.stringify({latitude: pos.lat, longitude: pos.lng}),
-                });
+                send();
             },
             (err) => console.warn('geolocation', err.message),
-            {enableHighAccuracy: true}
+            {enableHighAccuracy: true, maximumAge: 5000}
         );
-        return () => navigator.geolocation.clearWatch(watchId);
+
+        // גם כשהמתנדב עומד במקום (למשל ממתין באיסוף) - העמותה רואה שהמיקום עדכני
+        const heartbeat = window.setInterval(send, LOCATION_INTERVAL_MS);
+
+        return () => {
+            navigator.geolocation.clearWatch(watchId);
+            window.clearInterval(heartbeat);
+        };
     }, [route]);
 
     const act = async (url: string, success: string) => {
@@ -148,8 +164,15 @@ export function ActiveRoutePage() {
                 </Stack>
             </Card>
 
-            {/* מפת המסלול מגיעה מהשרת כתמונה (Google Maps Static API - המפתח נשאר בשרת) */}
-            <StaticMap src={`/api/map/routes/${route.id}/image`} alt="מפת המסלול" height={320} />
+            {/* מפה אינטראקטיבית (מפתח דפדפן מוגבל מהשרת). בלי מפתח דפדפן - תמונת המפה מהשרת */}
+            <LiveRouteMap
+                route={route}
+                current={route.status === 'InProgress' ? position : null}
+                live={route.status === 'InProgress'}
+                followLabel="עקוב אחריי"
+                height={360}
+                fallbackSrc={`/api/map/routes/${route.id}/image`}
+            />
 
             <RouteSummary route={route} stopActions={stopActions} />
         </Box>

@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
-import { StaticMap, MAP_COLORS } from '../components/GoogleMapView';
+import { MAP_COLORS } from '../components/GoogleMapView';
+import LiveRouteMap from '../components/LiveRouteMap';
 import type { LiveMissionDto, RouteDto, RouteStop, RoutePlan } from '../types/api';
 import { authHeaders } from '../utils/auth';
 
-// המפה מגיעה מהשרת כתמונה (Google Maps Static API - המפתח נשאר בשרת).
+// מפה אינטראקטיבית של המסלול (בלי מפתח דפדפן - תמונת המפה מהשרת).
 // התחנות ממוספרות באותו סדר כמו ברשימה שמתחת למפה, והעמותה אחרונה.
 
 // המחשת מסלול (מנהל). תוקן: העמוד פנה ל-api/routing/current-plan שלא קיים.
@@ -30,8 +34,10 @@ const toPlan = (route: RouteDto): RoutePlan => ({
 });
 
 export function VrpRouteVisualizationPage() {
+  const navigate = useNavigate();
   const [missions, setMissions] = useState<LiveMissionDto[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [route, setRoute] = useState<RouteDto | null>(null);
   const [routePlan, setRoutePlan] = useState<RoutePlan>({ routeId: 0, stops: [] });
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +57,10 @@ export function VrpRouteVisualizationPage() {
     setLoading(true);
     fetch(`/api/matches/routes/${selectedId}`, { headers: authHeaders() })
       .then(async (res) => (res.ok ? ((await res.json()) as RouteDto) : null))
-      .then((route) => setRoutePlan(route ? toPlan(route) : { routeId: selectedId, stops: [] }))
+      .then((loaded) => {
+        setRoute(loaded);
+        setRoutePlan(loaded ? toPlan(loaded) : { routeId: selectedId, stops: [] });
+      })
       .finally(() => setLoading(false));
   }, [selectedId]);
 
@@ -74,10 +83,22 @@ export function VrpRouteVisualizationPage() {
             label={`מסלול #${m.id} · ${m.volunteerName}`} onClick={() => setSelectedId(m.id)} />
         ))}
         <Chip variant="outlined" label={`${stops.length} תחנות`} />
+        {route && (
+          <Button size="small" variant="outlined" startIcon={<MyLocationIcon />} onClick={() => navigate(`/app/track/${route.id}`)}>
+            מעקב חי
+          </Button>
+        )}
       </Box>
 
-      {stops.length > 0 && (
-        <StaticMap src={`/api/map/routes/${routePlan.routeId}/image`} alt={`מפת מסלול #${routePlan.routeId}`} height={460} />
+      {route && stops.length > 0 && (
+        <LiveRouteMap
+          route={route}
+          current={route.volunteerLatitude != null && route.volunteerLongitude != null
+            ? { lat: route.volunteerLatitude, lng: route.volunteerLongitude }
+            : null}
+          height={460}
+          fallbackSrc={`/api/map/routes/${route.id}/image`}
+        />
       )}
 
       {stops.length === 0 ? (

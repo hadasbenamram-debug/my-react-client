@@ -63,6 +63,17 @@ export type UserRoleName = 'User' | 'Admin' | 'Supplier' | 'Volunteer' | 'Ngo';
 
 export type MapEntityType = 'supplier' | 'ngo' | 'volunteer';
 
+/** סוג הרישום ביומן המשלוח (DeliveryLogs) */
+export type DeliveryLogTypeName =
+    | 'Note'
+    | 'Location'
+    | 'Accepted'
+    | 'RouteStarted'
+    | 'PickedUp'
+    | 'Delivered'
+    | 'ReceiptConfirmed'
+    | 'Cancelled';
+
 // ───────────────────────── שגיאות ─────────────────────────
 
 /** מבנה השגיאה האחיד של השרת (ExceptionHandlingMiddleware / ולידציה) */
@@ -342,6 +353,19 @@ export interface MapEntityDto {
     type: MapEntityType;
 }
 
+/**
+ * GET api/map/browser-config - רק למשתמש מחובר.
+ * מפתח הדפדפן (Maps JavaScript API בלבד, מוגבל ב-Google Cloud לכתובות האתר) - לא המפתח של השרת.
+ * enabled=false: אין מפתח דפדפן בשרת, ומציגים את תמונת המפה מהשרת.
+ */
+export interface BrowserMapConfigDto {
+    enabled: boolean;
+    apiKey: string | null;
+    mapId: string;
+    language: string;
+    region: string;
+}
+
 // ───────────────────────── תרומות ─────────────────────────
 
 export interface DonationCategoryLineDto {
@@ -396,6 +420,8 @@ export interface DonationResponseDto {
     volunteerId: number | null;
     volunteerName: string | null;
     estimatedArrival: IsoDateString | null;
+    /** המסלול של השידוך - למעקב החי (/app/track/:routeId). null = עוד אין מסלול */
+    volunteerRouteId: number | null;
 }
 
 export interface SupplierDonationSummaryDto {
@@ -473,6 +499,8 @@ export interface RouteStopDto {
     latestPickupTime: TimeSpanString;
     weightKg: number;
     items: DonationCategoryLineDto[];
+    pickedUpAt: IsoDateString | null;
+    deliveredAt: IsoDateString | null;
 }
 
 /** מסלול: כמה תחנות איסוף ועמותה אחת. אישור / דחייה - לכל המסלול יחד */
@@ -495,9 +523,53 @@ export interface RouteDto {
     ngoLatitude: number;
     ngoLongitude: number;
     estimatedNgoArrival: IsoDateString | null;
+    /** המיקום של המתנדב - רק בזמן שהמסלול בביצוע (InProgress) */
     volunteerLatitude: number | null;
     volunteerLongitude: number | null;
+    startedAt: IsoDateString | null;
+    completedAt: IsoDateString | null;
     stops: RouteStopDto[];
+}
+
+/** נקודה במסלול הנסיעה בפועל (מיומן המשלוח) */
+export interface TrackingPointDto {
+    latitude: number;
+    longitude: number;
+    at: IsoDateString;
+}
+
+/**
+ * GET api/tracking/routes/{id} - מעקב חי אחרי המסלול (עמותה, ספקים במסלול, המתנדב, מנהל).
+ * נבנה מיומן המשלוח. אחרי הטעינה כל רישום חדש מגיע ב-SignalR (WatchRoute + DeliveryLogAdded).
+ */
+export interface RouteTrackingDto {
+    route: RouteDto;
+    /** המתנדב בדרך עכשיו */
+    isLive: boolean;
+    currentPosition: TrackingPointDto | null;
+    /** מסלול הנסיעה בפועל מאז היציאה לדרך */
+    trail: TrackingPointDto[];
+    /** האירועים לפי הסדר (בלי עדכוני המיקום) */
+    events: DeliveryLogResponseDto[];
+    totalStops: number;
+    pickedUpStops: number;
+    deliveredStops: number;
+    estimatedNgoArrival: IsoDateString | null;
+    remainingMinutes: number | null;
+    remainingDistanceKm: number | null;
+    /** הדרך שנשארה מהמיקום הנוכחי (Polyline מקודד של Google). null = מציירים קו ישר */
+    remainingPolyline: string | null;
+    /** live = Google לפי התנועה עכשיו, estimate = קו אווירי, plan = התכנון המקורי, none = אין */
+    etaSource: 'live' | 'estimate' | 'plan' | 'none' | string;
+    generatedAt: IsoDateString;
+}
+
+/** SignalR: MatchStatusChanged (לקבוצת המסלול ולמנהלים) */
+export interface MatchStatusChangedEvent {
+    matchId: number;
+    donationId: number;
+    routeId: number | null;
+    status: string;
 }
 
 export interface RespondByLinkDto {
@@ -667,8 +739,12 @@ export interface CreateDeliveryLogDto {
     longitude: number | null;
 }
 
+/** רישום ביומן המשלוח. מגיע גם בזמן אמת (SignalR, האירוע DeliveryLogAdded) */
 export interface DeliveryLogResponseDto extends CreateDeliveryLogDto {
     id: number;
+    type: DeliveryLogTypeName;
+    /** התחנה (השידוך) שהרישום מתייחס אליה */
+    matchId: number | null;
     timestamp: IsoDateString;
 }
 

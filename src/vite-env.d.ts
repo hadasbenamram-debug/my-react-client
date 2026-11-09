@@ -1,3 +1,4 @@
 /// <reference types="vite/client" />
 
-// אין כאן מפתח של Google Maps: המפתח נמצא רק בשרת, והמפות מגיעות ממנו כתמונה.
+// אין כאן מפתח של Google Maps ואין קובץ .env: מפתח השרת לא יוצא מהשרת, ומפתח הדפדפן (מוגבל, נפרד)
+// מגיע מהשרת רק למשתמש מחובר - api/map/browser-config (ראו src/utils/googleMaps.ts).

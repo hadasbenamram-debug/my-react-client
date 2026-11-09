@@ -7,6 +7,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import PageTitle from '../components/PageTitle';
 import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
@@ -96,6 +97,12 @@ export function DonationDetailsPage() {
             <Typography color="text.secondary"><strong>הגעה משוערת לאיסוף:</strong> {formatTime(donation.estimatedArrival)}</Typography>
             {donation.receivedAt && (
               <Typography color="text.secondary"><strong>העמותה אישרה קבלה:</strong> {formatDateTime(donation.receivedAt)}</Typography>
+            )}
+            {donation.volunteerRouteId != null && (
+              <Button variant="outlined" startIcon={<MyLocationIcon />} sx={{ mt: 2 }}
+                onClick={() => navigate(`/app/track/${donation.volunteerRouteId}`)}>
+                מעקב אחר המשלוח על המפה
+              </Button>
             )}
           </Box>
         ) : (

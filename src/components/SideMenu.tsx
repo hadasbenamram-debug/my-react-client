@@ -156,6 +156,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                             <Link to="/app/admin/volunteers-directory" onClick={onClose} className="side-link">ספריית מתנדבים</Link>
 <Link to="/app/admin/volunteers-availability" onClick={onClose} className="side-link">מעקב זמינות מתנדבים</Link>
 <Link to="/app/admin/live-monitor" onClick={onClose} className="side-link">מוניטור פעילות בשטח</Link>
+<Link to="/app/admin/live-map" onClick={onClose} className="side-link">מפת מסלולים חיה</Link>
 <Link to="/app/admin/suppliers-directory" onClick={onClose} className="side-link">ספריית ספקים ותורמים</Link>
 <Link to="/app/admin/ngos-directory" onClick={onClose} className="side-link">ספריית עמותות</Link>
                             <Link to="/app/map" onClick={onClose} className="side-link">מפה כללית</Link>

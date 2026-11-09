@@ -58,6 +58,8 @@ import {AdminSettingsPage} from './pages/AdminSettingsPage';
 import {AdminVolunteersDirectoryPage} from './pages/AdminVolunteersDirectoryPage';
 import {AdminVolunteersAvailabilityPage} from './pages/AdminVolunteersAvailabilityPage';
 import {AdminLiveMonitorPage} from './pages/AdminLiveMonitorPage';
+// המפה החיה של כל המסלולים שבדרך עכשיו (מנהל)
+import {AdminLiveRoutesMapPage} from './pages/AdminLiveRoutesMapPage';
 import {AdminSuppliersDirectoryPage} from './pages/AdminSuppliersDirectoryPage';
 import {AdminNgosDirectoryPage} from './pages/AdminNgosDirectoryPage';
 
@@ -68,6 +70,8 @@ import {SupplierRegisterPage} from './pages/SupplierRegisterPage';
 // --- מסכי מפה ומסלול ---
 import {GeneralMapPage} from './pages/GeneralMapPage';
 import {VrpRouteVisualizationPage} from './pages/VrpRouteVisualizationPage';
+// מעקב חי אחרי משלוח (עמותה / ספק / מנהל) - מיומן המשלוח בשרת
+import {RouteTrackingPage} from './pages/RouteTrackingPage';
 import type {StoredUser} from './types';
 import {getCurrentUser} from './utils/auth';
 import RoleFallback from './components/RoleFallback';
@@ -120,11 +124,13 @@ export default function App() {
                                 <Route path="/app/admin/volunteers-directory" element={<AdminVolunteersDirectoryPage />} />
                                 <Route path="/app/admin/volunteers-availability" element={<AdminVolunteersAvailabilityPage />} />
                                 <Route path="/app/admin/live-monitor" element={<AdminLiveMonitorPage />} />
+                                <Route path="/app/admin/live-map" element={<AdminLiveRoutesMapPage />} />
                                 <Route path="/app/admin/suppliers-directory" element={<AdminSuppliersDirectoryPage />} />
                                 <Route path="/app/admin/ngos-directory" element={<AdminNgosDirectoryPage />} />
 
                                 <Route path="/app/map" element={<GeneralMapPage />} />
                                 <Route path="/app/vrp-route" element={<VrpRouteVisualizationPage />} />
+                                <Route path="/app/track/:routeId" element={<RouteTrackingPage />} />
 
                                 <Route path="*" element={<RoleFallback home="/app/admin/dashboard" />} />
                             </>
@@ -161,6 +167,7 @@ export default function App() {
                                 <Route path="/app/supplier/donation-details" element={<DonationDetailsPage />} />
                                 <Route path="/app/supplier/history" element={<SupplierHistoryPage />} />
                                 <Route path="/app/supplier/comments" element={<SupplierCommentsPage />} />
+                                <Route path="/app/track/:routeId" element={<RouteTrackingPage />} />
 
                                 <Route path="*" element={<RoleFallback home="/app/supplier/dashboard" />} />
                             </>
@@ -180,6 +187,7 @@ export default function App() {
                                 <Route path="/app/ngo/history" element={<NgoHistoryPage />} />
                                 <Route path="/app/ngo/ratings/:id?" element={<NgoRatingsPage />} />
                                 <Route path="/app/ngo/comments" element={<NgoCommentsPage />} />
+                                <Route path="/app/track/:routeId" element={<RouteTrackingPage />} />
 
                                 <Route path="*" element={<RoleFallback home="/app/ngo/dashboard" />} />
                             </>

@@ -4,7 +4,8 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock } from '../components/PageParts';
-import { StaticMap, MAP_COLORS } from '../components/GoogleMapView';
+import { InteractiveMap, StaticMap, MAP_COLORS } from '../components/GoogleMapView';
+import type { MapMarker } from '../components/GoogleMapView';
 import type { MapEntityView } from '../types/api';
 import { getToken } from '../utils/auth';
 
@@ -80,12 +81,28 @@ export function GeneralMapPage() {
     return c;
   }, [entities]);
 
-  // הסוגים שהוסתרו נשלחים לשרת, והוא מחזיר תמונת מפה בלעדיהם
+  // מפה אינטראקטיבית: סינון בדפדפן. בתמונת הגיבוי מהשרת - הסוגים שהוסתרו נשלחים לשרת
   const hiddenTypes = (Object.keys(KIND_LABELS) as EntityKind[])
     .filter(kind => hidden[kind])
     .map(kind => KIND_TO_TYPE[kind])
     .join(',');
   const mapSrc = '/api/map/all-entities/image' + (hiddenTypes ? `?hide=${hiddenTypes}` : '');
+
+  const markers: MapMarker[] = entities
+    .filter(e => !hidden[e.kind])
+    .map(e => ({
+      id: `${e.kind}-${e.index}`,
+      position: { lat: e.lat, lng: e.lng },
+      title: e.loc.name,
+      color: MAP_COLORS[e.kind],
+      info: (
+        <>
+          <Typography sx={{ fontWeight: 700 }}>{e.loc.name || KIND_LABELS[e.kind]}</Typography>
+          <Typography variant="body2" color="text.secondary">{KIND_LABELS[e.kind]}</Typography>
+          {e.loc.address && <Typography variant="body2">{e.loc.address}</Typography>}
+        </>
+      ),
+    }));
 
   if (loading) return <LoadingBlock text="טוען נתוני מוקדים במערכת..." />;
 
@@ -118,12 +135,17 @@ export function GeneralMapPage() {
           ))}
       </Box>
 
-      <StaticMap src={mapSrc} alt="מפת התורמים, העמותות והמתנדבים" height={560} />
+      <InteractiveMap
+        markers={markers}
+        height={560}
+        fitKey="all-entities"
+        fallback={<StaticMap src={mapSrc} alt="מפת התורמים, העמותות והמתנדבים" height={560} />}
+      />
 
       <Typography color="text.secondary" sx={{ fontSize: '0.9rem' }}>
         {entities.length} מוקדים מוצגים על המפה
         {locations.length > entities.length ? ` (${locations.length - entities.length} ללא מיקום)` : ''}.
-        לחיצה על קטגוריה מסתירה או מציגה אותה במפה.
+        לחיצה על קטגוריה מסתירה או מציגה אותה במפה, ולחיצה על סיכה מציגה את הפרטים.
       </Typography>
     </Box>
   );

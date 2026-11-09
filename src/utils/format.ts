@@ -59,6 +59,23 @@ export const secondsUntil = (iso: string | null | undefined): number => {
     return d ? Math.max(0, Math.floor((d.getTime() - Date.now()) / 1000)) : 0;
 };
 
+/** כמה שניות עברו מאז (0 אם אין תאריך) */
+export const secondsSince = (iso: string | null | undefined, nowMs: number = Date.now()): number => {
+    const d = asDate(iso);
+    return d ? Math.max(0, Math.floor((nowMs - d.getTime()) / 1000)) : 0;
+};
+
+/** "עכשיו" / "לפני 12 שניות" / "לפני 3 דקות" - למעקב החי */
+export const formatAgo = (iso: string | null | undefined, nowMs: number = Date.now()): string => {
+    if (!asDate(iso)) return '—';
+    const seconds = secondsSince(iso, nowMs);
+    if (seconds < 10) return 'עכשיו';
+    if (seconds < 60) return `לפני ${seconds} שניות`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes === 1 ? 'לפני דקה' : `לפני ${minutes} דקות`;
+    return formatRelativeTime(iso);
+};
+
 export const MATCH_STATUS_LABELS: Record<string, string> = {
     AwaitingVolunteerConfirmation: 'ממתין לאישור המתנדב',
     Confirmed: 'אושר',
