@@ -11,13 +11,17 @@ import type {RouteDto, RouteStopDto} from '../types/api';
 import {formatTime, formatTimeSpan, MATCH_STATUS_LABELS, secondsUntil} from '../utils/format';
 
 // ספירה לאחור עד מועד התגובה שהשרת קבע (ResponseDeadline) - לא 5 דקות קבועות בצד הלקוח
-export function DeadlineCountdown({deadline, onExpire}: {deadline: string | null; onExpire?: () => void}) {
-    const [left, setLeft] = useState(() => secondsUntil(deadline));
+// תיקון 38: secondsLeft (מהשרת) - הספירה מתחילה ממה שהשרת מדד, כך ששעון לא מדויק במכשיר לא מקצר / מאריך
+// את הזמן שמוצג. בלעדיו - לפי deadline ושעון המכשיר (כמו קודם). ההחלטה עצמה תמיד בשרת.
+export function DeadlineCountdown({deadline, secondsLeft, onExpire}: {deadline: string | null; secondsLeft?: number | null; onExpire?: () => void}) {
+    const [left, setLeft] = useState(() => secondsLeft ?? secondsUntil(deadline));
 
     useEffect(() => {
-        setLeft(secondsUntil(deadline));
+        const endsAt = secondsLeft != null ? Date.now() + secondsLeft * 1000 : null;
+        const remaining = () => (endsAt != null ? Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)) : secondsUntil(deadline));
+        setLeft(remaining());
         const timer = setInterval(() => {
-            const next = secondsUntil(deadline);
+            const next = remaining();
             setLeft(next);
             if (next <= 0) {
                 clearInterval(timer);
@@ -25,7 +29,7 @@ export function DeadlineCountdown({deadline, onExpire}: {deadline: string | null
             }
         }, 1000);
         return () => clearInterval(timer);
-    }, [deadline, onExpire]);
+    }, [deadline, secondsLeft, onExpire]);
 
     if (!deadline) return null;
     const mm = Math.floor(left / 60).toString().padStart(2, '0');

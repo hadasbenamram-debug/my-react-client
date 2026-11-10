@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import Checkbox from '@mui/material/Checkbox';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import { AddRoleNotice } from '../components/AddRoleNotice';
+import { AddRoleNotice, KnownIdNumberBox } from '../components/AddRoleNotice';
 import { useAddRoleMode } from '../hooks/useAddRoleMode';
 import { readErrorMessage } from '../utils/apiError';
 import { authHeaders } from '../utils/auth';
@@ -50,6 +52,12 @@ export function SupplierRegisterPage() {
   // תיקון 10: משתמש מחובר (למשל מתנדב שיש לו עסק) מוסיף לחשבון שלו גם תפקיד ספק
   const { loggedIn, account, existing, blocked } = useAddRoleMode('Supplier');
   const [roleRequested, setRoleRequested] = useState(false);
+
+  // תיקון 32: עוסק מורשה / פטור שכבר רשום כמתנדב - מספר העוסק שלו הוא תעודת הזהות שכבר שמורה בחשבון,
+  // ולכן לא מזינים אותו שוב (השרת ממלא אותו בעצמו)
+  const knownIdMasked = loggedIn ? account?.knownIdNumberMasked ?? null : null;
+  const [taxIdIsMyId, setTaxIdIsMyId] = useState(false);
+  const useAccountId = knownIdMasked !== null && taxIdIsMyId;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -100,7 +108,12 @@ export function SupplierRegisterPage() {
     }
     data.append('BusinessName', formData.businessName);
     data.append('Address', formData.address);
-    data.append('TaxId', formData.taxId);
+    if (useAccountId) {
+      // מספר העוסק = תעודת הזהות מהחשבון (השרת ממלא אותו). לא שולחים TaxId ריק - השרת היה דוחה אותו.
+      data.append('UseAccountIdNumber', 'true');
+    } else {
+      data.append('TaxId', formData.taxId);
+    }
     data.append('LicenseFile', licenseFile);
 
     try {
@@ -165,7 +178,18 @@ export function SupplierRegisterPage() {
             </>
           )}
           <FormSection title="פרטי העסק">
-            {businessFields.map(renderField)}
+            {businessFields.filter((f) => !(useAccountId && f.name === 'taxId')).map(renderField)}
+
+            {knownIdMasked && (
+              <FormControlLabel
+                sx={{ gridColumn: '1 / -1' }}
+                control={<Checkbox checked={taxIdIsMyId} onChange={(e) => setTaxIdIsMyId(e.target.checked)} />}
+                label="אני עוסק מורשה / עוסק פטור - מספר העוסק שלי הוא מספר תעודת הזהות שכבר שמורה בחשבון"
+              />
+            )}
+            {useAccountId && knownIdMasked && (
+              <KnownIdNumberBox masked={knownIdMasked}>מספר העוסק יילקח מתעודת הזהות שבחשבון:</KnownIdNumberBox>
+            )}
 
             {/* שדה בחירת קובץ רישיון עסק עם הגבלה לפורמטים מוכרים */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>

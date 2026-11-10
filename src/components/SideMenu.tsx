@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import type { StoredUser } from '../types';
 import { otherRoles, roleTitle, switchRole } from '../utils/auth';
 
@@ -7,7 +8,78 @@ interface SideMenuProps {
     onClose: () => void;
 }
 
+// תיקון 41: תפריט המנהל היה רשימה אחת של 19 קישורים. עכשיו: דשבורד, ומתחתיו 5 נושאים שנפתחים ונסגרים
+// (נושא אחד פתוח בכל פעם, והנושא של העמוד הנוכחי נפתח לבד)
+interface AdminMenuGroup {
+    id: string;
+    title: string;
+    items: { to: string; label: string }[];
+}
+
+const ADMIN_MENU: AdminMenuGroup[] = [
+    {
+        id: 'users',
+        title: 'משתמשים ואישורים',
+        items: [
+            { to: '/app/admin/approvals', label: 'אישור משתמשים' },
+            { to: '/app/admin/users', label: 'ניהול משתמשים' },
+            { to: '/app/admin/suppliers-directory', label: 'ספריית ספקים ותורמים' },
+            { to: '/app/admin/ngos-directory', label: 'ספריית עמותות' },
+        ],
+    },
+    {
+        id: 'volunteers',
+        title: 'מתנדבים',
+        items: [
+            { to: '/app/admin/volunteers', label: 'ניהול מתנדבים' },
+            { to: '/app/admin/volunteers-directory', label: 'ספריית מתנדבים' },
+            { to: '/app/admin/volunteers-availability', label: 'מעקב זמינות מתנדבים' },
+        ],
+    },
+    {
+        id: 'donations',
+        title: 'תרומות ושיבוץ',
+        items: [
+            { to: '/app/admin/donations', label: 'ניהול תרומות' },
+            { to: '/app/admin/matching', label: 'מנוע שיבוץ' },
+            { to: '/app/admin/routes', label: 'ניהול מסלולים' },
+        ],
+    },
+    {
+        id: 'field',
+        title: 'פעילות בשטח ומפות',
+        items: [
+            { to: '/app/admin/live-monitor', label: 'מוניטור פעילות בשטח' },
+            { to: '/app/admin/live-map', label: 'מפת מסלולים חיה' },
+            { to: '/app/admin/noshow', label: 'טיפול באי-הגעה' },
+            { to: '/app/map', label: 'מפה כללית' },
+            { to: '/app/vrp-route', label: 'ויזואליזציית מסלול' },
+        ],
+    },
+    {
+        id: 'system',
+        title: 'דוחות והגדרות',
+        items: [
+            { to: '/app/admin/reports', label: 'דוחות מערכת' },
+            { to: '/app/admin/comments', label: 'ניהול תגובות' },
+            { to: '/app/admin/settings', label: 'הגדרות מערכת' },
+        ],
+    },
+];
+
+const adminGroupOf = (path: string): string | null =>
+    ADMIN_MENU.find((group) => group.items.some((item) => path === item.to || path.startsWith(`${item.to}/`)))?.id ?? null;
+
 export default function SideMenu({ open, onClose }: SideMenuProps) {
+    const { pathname } = useLocation();
+    const [openAdminGroup, setOpenAdminGroup] = useState<string | null>(() => adminGroupOf(pathname));
+
+    // מעבר לעמוד מנושא אחר (גם לא דרך התפריט) - הנושא שלו נפתח
+    useEffect(() => {
+        const group = adminGroupOf(pathname);
+        if (group) setOpenAdminGroup(group);
+    }, [pathname]);
+
     let currentUser: StoredUser = { role: 'guest' };
     try {
         const storedUser = localStorage.getItem('currentUser');
@@ -142,26 +214,51 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                     <div className="menu-section">
                         <h3 className="side-group-title">ניהול מערכת</h3>
                         <div className="side-group-items">
-                            <Link to="/app/admin/dashboard" onClick={onClose} className="side-link">דשבורד ניהול</Link>
-                            <Link to="/app/admin/approvals" onClick={onClose} className="side-link">אישור משתמשים</Link>
-                            <Link to="/app/admin/users" onClick={onClose} className="side-link">ניהול משתמשים</Link>
-                            <Link to="/app/admin/volunteers" onClick={onClose} className="side-link">ניהול מתנדבים</Link>
-                            <Link to="/app/admin/donations" onClick={onClose} className="side-link">ניהול תרומות</Link>
-                            <Link to="/app/admin/matching" onClick={onClose} className="side-link">מנוע שיבוץ</Link>
-                            <Link to="/app/admin/routes" onClick={onClose} className="side-link">ניהול מסלולים</Link>
-                            <Link to="/app/admin/noshow" onClick={onClose} className="side-link">טיפול באי-הגעה</Link>
-                            <Link to="/app/admin/reports" onClick={onClose} className="side-link">דוחות מערכת</Link>
-                            <Link to="/app/admin/settings" onClick={onClose} className="side-link">הגדרות מערכת</Link>
-                            <Link to="/app/admin/comments" onClick={onClose} className="side-link">ניהול תגובות</Link>
-                            <Link to="/app/admin/volunteers-directory" onClick={onClose} className="side-link">ספריית מתנדבים</Link>
-<Link to="/app/admin/volunteers-availability" onClick={onClose} className="side-link">מעקב זמינות מתנדבים</Link>
-<Link to="/app/admin/live-monitor" onClick={onClose} className="side-link">מוניטור פעילות בשטח</Link>
-<Link to="/app/admin/live-map" onClick={onClose} className="side-link">מפת מסלולים חיה</Link>
-<Link to="/app/admin/suppliers-directory" onClick={onClose} className="side-link">ספריית ספקים ותורמים</Link>
-<Link to="/app/admin/ngos-directory" onClick={onClose} className="side-link">ספריית עמותות</Link>
-                            <Link to="/app/map" onClick={onClose} className="side-link">מפה כללית</Link>
-                            <Link to="/app/vrp-route" onClick={onClose} className="side-link">ויזואליזציית מסלול</Link>
+                            <Link
+                                to="/app/admin/dashboard"
+                                onClick={onClose}
+                                className={`side-link ${pathname === '/app/admin/dashboard' ? 'is-active' : ''}`}
+                                aria-current={pathname === '/app/admin/dashboard' ? 'page' : undefined}
+                            >
+                                דשבורד ניהול
+                            </Link>
                         </div>
+
+                        {ADMIN_MENU.map((group) => {
+                            const isOpen = openAdminGroup === group.id;
+                            const itemsId = `admin-menu-${group.id}`;
+                            return (
+                                <div key={group.id} className={`admin-group ${isOpen ? 'is-open' : ''}`}>
+                                    <button
+                                        type="button"
+                                        className="admin-group-toggle"
+                                        aria-expanded={isOpen}
+                                        aria-controls={itemsId}
+                                        onClick={() => setOpenAdminGroup(isOpen ? null : group.id)}
+                                    >
+                                        <span>{group.title}</span>
+                                    </button>
+                                    {isOpen && (
+                                        <div id={itemsId} className="side-group-items admin-group-items">
+                                            {group.items.map((item) => {
+                                                const active = pathname === item.to;
+                                                return (
+                                                    <Link
+                                                        key={item.to}
+                                                        to={item.to}
+                                                        onClick={onClose}
+                                                        className={`side-link ${active ? 'is-active' : ''}`}
+                                                        aria-current={active ? 'page' : undefined}
+                                                    >
+                                                        {item.label}
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 

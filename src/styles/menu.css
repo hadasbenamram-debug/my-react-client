@@ -99,6 +99,78 @@
     100% { transform: translateX(0); }
 }
 
+.side-link.is-active {
+    color: var(--teal);
+    font-weight: 700;
+}
+
+/* תיקון 41: תפריט המנהל - נושאים שנפתחים ונסגרים */
+.admin-group {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.side-group-items + .admin-group {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.admin-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 0.2rem;
+    border: 0;
+    background: none;
+    color: var(--panel-ink);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-align: right;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.admin-group-toggle::before {
+    content: '◂';
+    display: inline-block;
+    color: var(--teal);
+    transition: transform 0.2s ease;
+}
+
+.admin-group.is-open > .admin-group-toggle,
+.admin-group-toggle:hover {
+    color: var(--teal);
+}
+
+.admin-group.is-open > .admin-group-toggle::before {
+    transform: rotate(-90deg);
+}
+
+.admin-group-toggle:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+}
+
+.admin-group-items {
+    margin-inline-start: 0.55rem;
+    padding-inline-start: 0.5rem;
+    border-inline-start: 2px solid rgba(27, 191, 196, 0.35);
+    animation: admin-group-open 0.2s ease;
+}
+
+@keyframes admin-group-open {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-group-items,
+    .admin-group-toggle::before {
+        animation: none;
+        transition: none;
+    }
+}
+
 .side-socials {
     display: flex;
     justify-content: center;

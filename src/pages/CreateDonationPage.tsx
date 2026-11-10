@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -11,9 +12,10 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import type { DonationResponseDto, FoodCategoryResponseDto, ImageAnalysisResponseDto, RegionResponseDto, ValidationProblemBody } from '../types/api';
+import type { DonationResponseDto, FoodCategoryResponseDto, ImageAnalysisResponseDto, SupplierResponseDto, ValidationProblemBody } from '../types/api';
 import { getToken } from '../utils/auth';
 
 interface DonationCategoryLineDto {
@@ -45,11 +47,12 @@ export function CreateDonationPage() {
   // תוקן: אחרי פרסום מוצלח נשארו בטופס, ולחיצה נוספת על "פרסם" שלחה את אותה תרומה שוב
   // (עם תמונה שכבר נוצלה) - והשרת נכשל. עכשיו: שליחה אחת בלבד, ואחרי ההצלחה יוצאים מעמוד הפרסום.
   const submitting = useRef(false);
-  // אזור האיסוף נבחר מתוך האזורים שבמסד (GET api/region), ולא מזהה קבוע.
-  // מיקום האיסוף לא נשלח מכאן: השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps).
-  const [availableRegions, setAvailableRegions] = useState<RegionResponseDto[]>([]);
-  const [regionId, setRegionId] = useState<number | ''>('');
-  const selectedRegion = availableRegions.find((r) => r.id === regionId);
+  // תיקון 33: מקום האיסוף הוא הכתובת של העסק מההרשמה - לא בוחרים אזור ולא מזינים כתובת.
+  // השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps) וקובע לפיו את האזור.
+  // כאן רק מציגים לספק מאיזו כתובת ייאספו (GET api/suppliers/current).
+  const [supplier, setSupplier] = useState<SupplierResponseDto | null>(null);
+  const [supplierError, setSupplierError] = useState<string | null>(null);
+  const supplierHasLocation = !!supplier && (supplier.latitude !== 0 || supplier.longitude !== 0);
 
   const [latestPickupTime, setLatestPickupTime] = useState<string>('18:00');
   // חדש: שעת תפוגה (אופציונלי). בלי ערך - סוף היום (תרומה מיועדת לאותו יום בלבד)
@@ -109,19 +112,19 @@ export function CreateDonationPage() {
         setError('לא ניתן לטעון את הקטגוריות. נסו לרענן את הדף.');
       });
 
-    fetch('/api/region')
+    fetch('/api/suppliers/current', {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`שגיאה בטעינת אזורים: ${res.status}`);
+        if (!res.ok) throw new Error(`שגיאה בטעינת פרטי העסק: ${res.status}`);
         return res.json();
       })
-      .then((data: RegionResponseDto[]) => {
-        if (!Array.isArray(data)) throw new Error('השרת החזיר רשימת אזורים לא תקינה.');
-        setAvailableRegions(data);
-        if (data.length === 1) setRegionId(data[0].id);
-      })
+      .then((data: SupplierResponseDto) => setSupplier(data))
       .catch((err) => {
-        console.error('שגיאה בטעינת אזורים:', err);
-        setError('לא ניתן לטעון את רשימת האזורים. נסו לרענן את הדף.');
+        console.error('שגיאה בטעינת פרטי העסק:', err);
+        setSupplierError('לא הצלחנו להציג כרגע את כתובת העסק. התרומה תיאסף מהכתובת שנרשמה בהרשמה.');
       });
   }, []);
 
@@ -284,8 +287,9 @@ export function CreateDonationPage() {
       return;
     }
 
-    if (regionId === '' || !selectedRegion) {
-      stop('נא לבחור את אזור האיסוף.');
+    // השרת בודק את זה שוב - כאן רק כדי לא לשלוח טופס שבוודאות ייכשל
+    if (supplier && !supplierHasLocation) {
+      stop('לכתובת העסק אין עדיין מיקום על המפה, ולכן לא ניתן ליצור תרומה. יש לפנות למנהל המערכת.');
       return;
     }
 
@@ -319,8 +323,8 @@ export function CreateDonationPage() {
       expirationPayload = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${expirationTime}:00`;
     }
 
+    // בלי מקום / אזור: השרת לוקח אותם מהכתובת של העסק
     const donationPayload = {
-      regionId,
       latestPickupTime: formattedPickupTime,
       expirationTime: expirationPayload,
       image: imageFileName || null,
@@ -378,25 +382,20 @@ export function CreateDonationPage() {
       <Card sx={{ p: { xs: 3, md: 5 } }}>
         <form onSubmit={handleSubmit}>
           <FormSection title="מקום וזמן האיסוף" columns={1}>
-            <TextField
-              select
-              label="אזור האיסוף"
-              value={regionId}
-              onChange={(e) => setRegionId(e.target.value === '' ? '' : Number(e.target.value))}
-              helperText={
-                availableRegions.length === 0
-                  ? 'לא נמצאו אזורים במערכת. נא לפנות למנהל.'
-                  : 'האזור שבו נמצא העסק. משמש לשיבוץ מתנדבים מהאזור.'
-              }
-              error={availableRegions.length === 0}
-              required
+            {/* תיקון 33: הכתובת מההרשמה - רק לתצוגה, בלי הזנה ובלי בחירת אזור */}
+            <Alert
+              severity={supplier && !supplierHasLocation ? 'warning' : 'info'}
+              icon={<PlaceOutlinedIcon fontSize="inherit" />}
             >
-              {availableRegions.map((r) => (
-                <MenuItem key={r.id} value={r.id}>
-                  {r.regionName}
-                </MenuItem>
-              ))}
-            </TextField>
+              <Typography sx={{ fontWeight: 500 }}>
+                {supplier ? `האיסוף יתבצע מ${supplier.businessName}: ${supplier.address}` : supplierError ?? 'טוען את כתובת העסק...'}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {supplier && !supplierHasLocation
+                  ? 'לכתובת הזו אין עדיין מיקום על המפה, ולכן אי אפשר לשבץ אליה מתנדב. יש לפנות למנהל המערכת.'
+                  : 'הכתובת נלקחת אוטומטית מהכתובת שהזנתם בהרשמה, ולפיה נקבע גם אזור השיבוץ. לשינוי הכתובת יש לפנות למנהל המערכת.'}
+              </Typography>
+            </Alert>
 
             <TextField
               label="שעת איסוף אחרונה"

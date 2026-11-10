@@ -9,6 +9,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
+import LiveRouteMap from '../components/LiveRouteMap';
 import {authHeaders} from '../utils/auth';
 import {readApiError, readErrorMessage, RESPONSE_WINDOW_CODES} from '../utils/apiError';
 import type {MatchResponseDto, RouteDto} from '../types/api';
@@ -122,7 +123,9 @@ export function IncomingRequestPage() {
                 <Alert severity="info">זמן התגובה הסתיים, והבקשה עוברת עכשיו למתנדב הבא. תודה על הנכונות!</Alert>
             ) : (
                 <Stack spacing={2}>
-                    <Box><DeadlineCountdown deadline={route.responseDeadline} onExpire={handleExpire} /></Box>
+                    <Box><DeadlineCountdown deadline={route.responseDeadline} secondsLeft={route.responseSecondsLeft} onExpire={handleExpire} /></Box>
+                    {/* תיקון 35: המסלול על מפה דינאמית (הזזה וזום) כבר לפני האישור - תחנות האיסוף לפי הסדר והעמותה */}
+                    <LiveRouteMap route={route} height={340} fallbackSrc={`/api/map/routes/${route.id}/image`} />
                     <RouteSummary route={route} />
                     <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5}>
                         <Button variant="contained" size="large" startIcon={<CheckIcon />} disabled={busy} onClick={() => void respond(true)}>

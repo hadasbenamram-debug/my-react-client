@@ -37,7 +37,21 @@
     color: var(--muted);
 }
 
+/* תיקון 31: הודעה קטנה כשלא הצלחנו לטעון את הנתונים מהשרת */
+.impact-note {
+    margin: 1.4rem auto 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+/* שישה כרטיסים: 3 בשורה במסך רחב, 2 בטאבלט, 1 בטלפון */
 @media (max-width: 900px) {
+    .impact-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
     .impact-grid {
         grid-template-columns: 1fr;
     }

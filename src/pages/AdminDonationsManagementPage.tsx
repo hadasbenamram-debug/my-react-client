@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import DonationImage from '../components/DonationImage';
+import ManualAssignDialog from '../components/ManualAssignDialog';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS } from '../utils/format';
@@ -14,6 +17,9 @@ import { getToken } from '../utils/auth';
 export function AdminDonationsManagementPage() {
   const [donations, setDonations] = useState<AdminDonationView[]>([]);
   const [loading, setLoading] = useState(true);
+  // תיקון 36: שיבוץ ידני של תרומה ממתינה למתנדב שהמנהל בוחר (אותו דיאלוג כמו בעמוד "טיפול באי-הגעה")
+  const [assignDonationId, setAssignDonationId] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchDonations = () => {
     const token = getToken();
@@ -76,8 +82,10 @@ export function AdminDonationsManagementPage() {
       <PageTitle
         eyebrow="ניהול מערכת"
         title="ניהול תרומות"
-        subtitle="מעקב אחר כלל התרומות במערכת והתערבות ידנית בסטטוסים."
+        subtitle="מעקב אחר כלל התרומות במערכת והתערבות ידנית: שיבוץ ידני למתנדב או ביטול."
       />
+
+      {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
 
       {donations.length === 0 ? (
         <EmptyState text="אין תרומות פעילות במערכת כרגע." />
@@ -108,13 +116,30 @@ export function AdminDonationsManagementPage() {
               </Box>
             </Box>
             {(item.status === 'Pending' || item.status === 'Matched') && (
-              <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
-                בטל תרומה (התערבות)
-              </Button>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                {item.status === 'Pending' && (
+                  <Button variant="contained" onClick={() => setAssignDonationId(item.id)}>
+                    שיבוץ ידני
+                  </Button>
+                )}
+                <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
+                  בטל תרומה (התערבות)
+                </Button>
+              </Stack>
             )}
           </Card>
         ))
       )}
+
+      <ManualAssignDialog
+        donationId={assignDonationId}
+        onClose={() => setAssignDonationId(null)}
+        onAssigned={(text) => {
+          setAssignDonationId(null);
+          setNotice(text);
+          fetchDonations();
+        }}
+      />
     </Box>
   );
 }

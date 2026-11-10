@@ -19,6 +19,26 @@ import type {RouteDto, RouteStopDto} from '../types/api';
 // כל 10 שניות - כך העמותה רואה את המתנדב זז על המפה כמעט בזמן אמת (השרת שומר לכל היותר רישום אחד ל-8 שניות)
 const LOCATION_INTERVAL_MS = 10_000;
 
+/**
+ * תיקון 34: מצב שיתוף המיקום - מוצג למתנדב. בעבר כל תקלה (הדפדפן חוסם מיקום, אתר שלא ב-https, שגיאת שרת)
+ * נרשמה רק ב-console, המתנדב לא ידע שהעמותה לא רואה אותו, ויומן המשלוח (DeliveryLogs) נשאר ריק.
+ */
+type LocationShare =
+    | {state: 'off'}
+    | {state: 'waiting'}
+    | {state: 'sharing'; at: number}
+    | {state: 'error'; text: string};
+
+const geolocationErrorText = (err: GeolocationPositionError): string => {
+    if (err.code === err.PERMISSION_DENIED) {
+        return 'הדפדפן חוסם את הגישה למיקום, ולכן העמותה לא רואה אותך על המפה. אשר/י גישה למיקום לאתר (בהגדרות האתר בדפדפן) ורענן/י את הדף.';
+    }
+    if (err.code === err.POSITION_UNAVAILABLE) {
+        return 'לא ניתן לקבל מיקום כרגע (ה-GPS כבוי או שאין קליטה). ננסה שוב אוטומטית.';
+    }
+    return 'קבלת המיקום מהמכשיר לוקחת יותר מדי זמן. ננסה שוב אוטומטית.';
+};
+
 // המסלול הפעיל של המתנדב: יציאה לדרך -> איסוף בכל תחנה -> מסירה לעמותה.
 // בזמן המסלול המיקום נשלח לשרת ונרשם ביומן המשלוח, והעמותה / הספק / המנהל רואים אותו בזמן אמת.
 // לפני היציאה לדרך המיקום לא נשלח.
@@ -29,6 +49,7 @@ export function ActiveRoutePage() {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState<{text: string; ok: boolean} | null>(null);
     const [position, setPosition] = useState<{lat: number; lng: number} | null>(null);
+    const [share, setShare] = useState<LocationShare>({state: 'off'});
     const lastSent = useRef(0);
     const latest = useRef<{lat: number; lng: number} | null>(null);
 
@@ -44,17 +65,40 @@ export function ActiveRoutePage() {
 
     // מיקום חי - רק כשהמסלול בביצוע
     useEffect(() => {
-        if (!route || route.status !== 'InProgress' || !navigator.geolocation) return;
+        if (!route || route.status !== 'InProgress') {
+            setShare({state: 'off'});
+            return;
+        }
+        // הדפדפן נותן מיקום רק באתר מאובטח: https, או localhost בזמן פיתוח (לא http://192.168...)
+        if (!window.isSecureContext) {
+            setShare({
+                state: 'error',
+                text: 'הדפדפן מאפשר שיתוף מיקום רק באתר מאובטח (https) או בכתובת localhost, ולכן העמותה לא רואה אותך על המפה. יש לפתוח את האתר בכתובת מאובטחת.',
+            });
+            return;
+        }
+        if (!navigator.geolocation) {
+            setShare({state: 'error', text: 'הדפדפן הזה לא תומך בשיתוף מיקום, ולכן העמותה לא רואה אותך על המפה.'});
+            return;
+        }
+        // אחרי פעולה (למשל "אספתי") המסלול נטען מחדש - לא מציגים שוב "ממתינים" אם המיקום כבר משותף
+        setShare((prev) => (prev.state === 'sharing' ? prev : {state: 'waiting'}));
 
         const send = () => {
             const pos = latest.current;
             if (!pos || Date.now() - lastSent.current < LOCATION_INTERVAL_MS - 500) return;
             lastSent.current = Date.now();
-            void fetch('/api/volunteers/me/location', {
+            fetch('/api/volunteers/me/location', {
                 method: 'PUT',
                 headers: authHeaders(true),
                 body: JSON.stringify({latitude: pos.lat, longitude: pos.lng}),
-            });
+            })
+                .then((res) => {
+                    setShare(res.ok
+                        ? {state: 'sharing', at: Date.now()}
+                        : {state: 'error', text: `המיקום לא נשמר בשרת (שגיאה ${res.status}). ננסה שוב בעוד כמה שניות.`});
+                })
+                .catch(() => setShare({state: 'error', text: 'אין חיבור לשרת, ולכן המיקום לא נשלח. ננסה שוב בעוד כמה שניות.'}));
         };
 
         const watchId = navigator.geolocation.watchPosition(
@@ -64,7 +108,10 @@ export function ActiveRoutePage() {
                 setPosition(pos);
                 send();
             },
-            (err) => console.warn('geolocation', err.message),
+            (err) => {
+                console.warn('geolocation', err.message);
+                setShare({state: 'error', text: geolocationErrorText(err)});
+            },
             {enableHighAccuracy: true, maximumAge: 5000}
         );
 
@@ -163,6 +210,17 @@ export function ActiveRoutePage() {
                     </Button>
                 </Stack>
             </Card>
+
+            {/* תיקון 34: המתנדב רואה אם המיקום שלו באמת משותף (ומה לעשות כשלא) */}
+            {share.state === 'waiting' && (
+                <Alert severity="info" sx={{mb: 2}}>ממתינים למיקום מהמכשיר כדי לשתף אותו עם העמותה...</Alert>
+            )}
+            {share.state === 'sharing' && (
+                <Alert severity="success" sx={{mb: 2}}>המיקום שלך משותף בזמן אמת עם העמותה ועם מנהלי המערכת.</Alert>
+            )}
+            {share.state === 'error' && (
+                <Alert severity="warning" sx={{mb: 2}}>{share.text}</Alert>
+            )}
 
             {/* מפה אינטראקטיבית (מפתח דפדפן מוגבל מהשרת). בלי מפתח דפדפן - תמונת המפה מהשרת */}
             <LiveRouteMap

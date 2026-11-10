@@ -6,7 +6,7 @@ import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import { AddRoleNotice } from '../components/AddRoleNotice';
+import { AddRoleNotice, KnownIdNumberBox } from '../components/AddRoleNotice';
 import { useAddRoleMode } from '../hooks/useAddRoleMode';
 import { readErrorMessage } from '../utils/apiError';
 import { authHeaders } from '../utils/auth';
@@ -67,6 +67,12 @@ export function VolunteerRegisterPage() {
   const { loggedIn, account, existing, blocked } = useAddRoleMode('Volunteer');
   const [roleRequested, setRoleRequested] = useState(false);
 
+  // תיקון 32: תעודת הזהות כבר שמורה בחשבון (למשל ספק שהוא עוסק מורשה) - לא מבקשים אותה שוב.
+  // השרת ממלא אותה בעצמו כש-idNumber לא נשלח. אפשר בכל זאת להזין מספר אחר ("להזין מספר אחר").
+  const knownIdMasked = loggedIn ? account?.knownIdNumberMasked ?? null : null;
+  const [typeOtherId, setTypeOtherId] = useState(false);
+  const useAccountId = knownIdMasked !== null && !typeOtherId;
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -77,7 +83,7 @@ export function VolunteerRegisterPage() {
     setMessage('');
     setSuccess(false);
 
-    if (!isValidIsraeliId(formData.idNumber)) {
+    if (!useAccountId && !isValidIsraeliId(formData.idNumber)) {
       setMessage('מספר תעודת הזהות אינו תקין (ספרת ביקורת).');
       return;
     }
@@ -97,7 +103,8 @@ export function VolunteerRegisterPage() {
             vehicleType: formData.vehicleType,
             maxCapacityKg: Number(formData.maxCapacityKg),
             isAvailable: true,
-            idNumber: formData.idNumber,
+            // null = השרת לוקח את תעודת הזהות שכבר שמורה בחשבון
+            idNumber: useAccountId ? null : formData.idNumber,
             driverLicenseNumber: formData.driverLicenseNumber,
             driverLicenseExpiry: formData.driverLicenseExpiry,
             dateOfBirth: formData.dateOfBirth,
@@ -168,7 +175,14 @@ export function VolunteerRegisterPage() {
                 <Divider sx={{ my: 4 }} />
               </>
             )}
-            <FormSection title="פרטי התנדבות ורכב">{volunteerFields.map(renderField)}</FormSection>
+            <FormSection title="פרטי התנדבות ורכב">
+              {useAccountId && knownIdMasked && (
+                <KnownIdNumberBox masked={knownIdMasked} actionLabel="להזין מספר אחר" onAction={() => setTypeOtherId(true)}>
+                  תעודת הזהות שלך כבר שמורה בחשבון, ולכן אין צורך להזין אותה שוב:
+                </KnownIdNumberBox>
+              )}
+              {volunteerFields.filter((f) => !(useAccountId && f.name === 'idNumber')).map(renderField)}
+            </FormSection>
 
             <Button type="submit" variant="contained" size="large" fullWidth disabled={loading} sx={{ mt: 4 }}>
               {loading ? 'שולח...' : loggedIn ? 'שליחת הבקשה לאישור' : 'הירשם כמתנדב'}

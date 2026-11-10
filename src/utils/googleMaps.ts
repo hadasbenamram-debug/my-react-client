@@ -38,17 +38,68 @@ declare global {
 
 let authFailed = false;
 const listeners = new Set<() => void>();
+const notifyListeners = (): void => listeners.forEach((listener) => listener());
+
+// תיקון 40: gm_authFailure לא אומר למה המפתח נדחה. Google כותב את הסיבה רק לקונסול, למשל:
+//   "Google Maps JavaScript API error: RefererNotAllowedMapError ... Your site URL to be authorized: http://localhost:5174/"
+// קוראים את השורה הזו (בלי לשנות את מה שמוצג בקונסול), כדי שהמנהל יראה על המסך מה בדיוק לתקן.
+/** הסיבה ש-Google דחה את מפתח הדפדפן, כפי שכתב בקונסול */
+export interface GoogleMapsAuthProblem {
+    /** קוד השגיאה של Google, למשל RefererNotAllowedMapError. null = Google לא כתב קוד */
+    code: string | null;
+    /** הכתובת ש-Google ביקש להוסיף להגבלת ה-Websites (רק ב-RefererNotAllowedMapError) */
+    blockedUrl: string | null;
+}
+
+const GOOGLE_MESSAGE = /Google Maps (?:JavaScript )?API (error|warning):\s*([A-Za-z]+)/;
+const BLOCKED_URL = /Your site URL to be authorized:\s*(\S+)/;
+
+let problem: GoogleMapsAuthProblem = {code: null, blockedUrl: null};
+let problemIsError = false;
+let consoleWatched = false;
+
+const readGoogleMessage = (args: unknown[]): void => {
+    const text = args.map((a) => (typeof a === 'string' ? a : a instanceof Error ? a.message : '')).join(' ');
+    const match = GOOGLE_MESSAGE.exec(text);
+    if (!match) return;
+    const isError = match[1] === 'error';
+    // שגיאה גוברת על אזהרה (למשל האזהרה InvalidKey שמגיעה לפני השגיאה InvalidKeyMapError)
+    if (problemIsError && !isError) return;
+    problem = {code: match[2], blockedUrl: BLOCKED_URL.exec(text)?.[1] ?? problem.blockedUrl};
+    problemIsError = problemIsError || isError;
+    // הסיבה הגיעה אחרי ש-Google כבר דחה את המפתח - מעדכנים את ההודעה שעל המסך
+    if (authFailed) notifyListeners();
+};
+
+const watchGoogleConsoleMessages = (): void => {
+    if (consoleWatched) return;
+    consoleWatched = true;
+    (['error', 'warn'] as const).forEach((level) => {
+        const original = console[level].bind(console);
+        console[level] = (...args: unknown[]) => {
+            try {
+                readGoogleMessage(args);
+            } catch {
+                // רק אבחון - אף פעם לא מפריע להדפסה עצמה
+            }
+            original(...args);
+        };
+    });
+};
 
 const installAuthFailureHandler = (): void => {
+    watchGoogleConsoleMessages();
     if (window.gm_authFailure) return;
     window.gm_authFailure = () => {
         authFailed = true;
         console.warn('Google Maps rejected the browser key (check the key restrictions in Google Cloud). Showing map images instead.');
-        listeners.forEach((listener) => listener());
+        notifyListeners();
     };
 };
 
 export const googleMapsAuthFailed = (): boolean => authFailed;
+
+export const googleMapsAuthProblem = (): GoogleMapsAuthProblem => problem;
 
 /** הרשמה להודעה שהמפתח נדחה. מחזיר פונקציה לביטול ההרשמה */
 export const onGoogleMapsAuthFailure = (listener: () => void): (() => void) => {

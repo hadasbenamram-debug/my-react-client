@@ -1,4 +1,5 @@
 import type {Point} from './types';
+import type {PublicStatsDto} from './types/api';
 
 /** פריט בתפריט: `id` גולל לסקשן בעמוד הבית, `to` מנווט לנתיב (Route). */
 export interface NavItem {
@@ -57,10 +58,11 @@ export interface MapRoute {
     bow: number;
 }
 
+/** כרטיס בסקשן "ההשפעה שלנו". הערך עצמו מגיע מהשרת (GET api/stats/public), לפי `key`. */
 export interface StatItem {
-    value: number;
-    suffix: string;
+    key: Exclude<keyof PublicStatsDto, 'generatedAt'>;
     label: string;
+    suffix?: string;
 }
 
 // כל קבוצה מייצגת אזור בתפריט הצדדי.
@@ -205,8 +207,13 @@ export const EYES_SCENE: CaptionConfig = {
     title: 'פותחים את העיניים לערבות הדדית'
 };
 
+// תיקון 31: בעבר המספרים היו קבועים כאן (306 / 1,020 / 12,750) ולא שיקפו את המערכת.
+// עכשיו כאן רק התוויות - המספרים נספרים בשרת מהמסד ומגיעים מ-api/stats/public.
 export const STATS: StatItem[] = [
-    {value: 306, suffix: '+', label: 'עסקים שותפים לעשייה'},
-    {value: 1020, suffix: '+', label: 'מתנדבים פעילים עם לב ענק'},
-    {value: 12750, suffix: '+', label: 'ארוחות שהצלנו החודש'}
+    {key: 'donationsDelivered', label: 'תרומות מזון שהגיעו ליעדן'},
+    {key: 'kgRescued', label: 'ק״ג מזון שהצלנו מהפח'},
+    {key: 'kgRescuedThisMonth', label: 'ק״ג מזון שהצלנו החודש'},
+    {key: 'partnerBusinesses', label: 'עסקים שותפים לעשייה'},
+    {key: 'activeVolunteers', label: 'מתנדבים פעילים עם לב ענק'},
+    {key: 'partnerNgos', label: 'עמותות שמחלקות את המזון'}
 ];

@@ -15,6 +15,11 @@ import { readErrorMessage } from '../utils/apiError';
 import { formatDateTime, isDateBeforeToday } from '../utils/format';
 import type { PendingApprovalRequestDto, RequestedRoleName } from '../types/api';
 
+// תיקון 39: מתנדב בלי רישיון נהיגה בתוקף - השרת ממילא לא מאשר אותו, ולכן גם הכפתור "אשר" מושבת (במקום לחיצה
+// שנגמרת בהודעת alert של הדפדפן)
+const licenseInvalid = (role: RequestedRoleName, item: PendingApprovalRequestDto) =>
+  role === 'Volunteer' && (!item.driverLicenseExpiry || isDateBeforeToday(item.driverLicenseExpiry));
+
 // אישורי משתמשים - מנגנון האישור היחיד בשרת (api/approvalrequests):
 // בכל אישור/דחייה נשלח מייל, נשמר מי טיפל ומתי, בקשת האישור מתעדכנת והמשתמש מקבל את התפקיד המתאים.
 // תוקן: בעבר העמוד סינן רשימות לפי שדה שלא קיים במתנדבים, וכל סוג משתמש עבר במסלול אישור אחר.
@@ -31,6 +36,7 @@ export function AdminUserApprovalsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ id: number; text: string } | null>(null);
 
   const fetchPending = async () => {
     setLoading(true);
@@ -69,10 +75,13 @@ export function AdminUserApprovalsPage() {
     });
 
     if (res.ok) {
+      setActionError(null);
       setNotice(approve ? 'הבקשה אושרה ונשלח מייל למשתמש.' : 'הבקשה נדחתה ונשלח מייל למשתמש.');
       void fetchPending();
     } else {
-      alert(await readErrorMessage(res, 'הפעולה נכשלה.'));
+      // השגיאה מהשרת (למשל רישיון שפג בדיוק עכשיו) מוצגת בעמוד, ליד הבקשה
+      setNotice(null);
+      setActionError({ id: request.id, text: await readErrorMessage(res, 'הפעולה נכשלה.') });
     }
   };
 
@@ -86,7 +95,7 @@ export function AdminUserApprovalsPage() {
 
       <Tabs
         value={role}
-        onChange={(_e: React.SyntheticEvent, value: RequestedRoleName) => { setRole(value); setNotice(null); }}
+        onChange={(_e: React.SyntheticEvent, value: RequestedRoleName) => { setRole(value); setNotice(null); setActionError(null); }}
         variant="scrollable"
         scrollButtons="auto"
         sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
@@ -128,9 +137,10 @@ export function AdminUserApprovalsPage() {
                 רכב: {item.vehicleType} · עד {item.maxCapacityKg ?? '—'} ק"ג · רישיון בתוקף עד {item.driverLicenseExpiry ? formatDateTime(item.driverLicenseExpiry).split(' ')[0] : '—'}
               </Typography>
             )}
-            {role === 'Volunteer' && (!item.driverLicenseExpiry || isDateBeforeToday(item.driverLicenseExpiry)) && (
+            {licenseInvalid(role, item) && (
               <Alert severity="warning" sx={{ mt: 1.5 }}>
                 רישיון הנהיגה אינו בתוקף (או שלא הוזן תוקף), ולכן אי אפשר לאשר את המתנדב.
+                אפשר לדחות את הבקשה ולבקש ממנו להירשם עם רישיון בתוקף.
               </Alert>
             )}
             {item.address && <Typography color="text.secondary">כתובת: {item.address}</Typography>}
@@ -141,7 +151,7 @@ export function AdminUserApprovalsPage() {
             )}
 
             <Box sx={{ display: 'flex', gap: 1.5, mt: 2.5, flexWrap: 'wrap' }}>
-              <Button variant="contained" onClick={() => void decide(item, true)}>אשר</Button>
+              <Button variant="contained" disabled={licenseInvalid(role, item)} onClick={() => void decide(item, true)}>אשר</Button>
               <Button variant="outlined" color="error" onClick={() => void decide(item, false)}>דחה</Button>
               {role === 'Supplier' && item.profileId && item.hasLicenseFile && (
                 <Button variant="text" onClick={() => void openSupplierLicense(item.profileId!)}>
@@ -149,6 +159,9 @@ export function AdminUserApprovalsPage() {
                 </Button>
               )}
             </Box>
+            {actionError?.id === item.id && (
+              <Alert severity="error" sx={{ mt: 2 }} onClose={() => setActionError(null)}>{actionError.text}</Alert>
+            )}
           </Card>
         ))
       )}

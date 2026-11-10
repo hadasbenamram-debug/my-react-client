@@ -46,7 +46,7 @@ export function VolunteerDashboard() {
                 <Stack spacing={2}>
                     {route.awaitingResponse ? (
                         <Alert severity="warning" action={<Button color="inherit" onClick={() => navigate('/app/volunteer/incoming-request')}>לבקשה</Button>}>
-                            מחכה לך בקשת איסוף חדשה. <DeadlineCountdown deadline={route.responseDeadline} />
+                            מחכה לך בקשת איסוף חדשה. <DeadlineCountdown deadline={route.responseDeadline} secondsLeft={route.responseSecondsLeft} />
                         </Alert>
                     ) : (
                         <Alert severity="success" action={<Button color="inherit" onClick={() => navigate('/app/volunteer/active-route')}>למסלול</Button>}>

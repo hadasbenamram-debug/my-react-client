@@ -118,7 +118,7 @@ export function RespondByLinkPage() {
             {route && (
                 <Stack spacing={2}>
                     {!done && !expired && route.awaitingResponse && (
-                        <Box><DeadlineCountdown deadline={route.responseDeadline} onExpire={handleExpire} /></Box>
+                        <Box><DeadlineCountdown deadline={route.responseDeadline} secondsLeft={route.responseSecondsLeft} onExpire={handleExpire} /></Box>
                     )}
                     <RouteSummary route={route} />
                     {!done && !expired && route.awaitingResponse && (

@@ -169,6 +169,11 @@ export interface MyProfileDto {
     roles: AccountRoleDto[];
     /** אפשר להוסיף לחשבון תפקיד נוסף (לא למנהל) */
     canAddRoles: boolean;
+    /**
+     * תעודת זהות שכבר שמורה בחשבון, מוסתרת (למשל "•••••6789"): מפרופיל המתנדב, או ממספר העוסק של הספק
+     * כשהוא מספר זהות אישי (עוסק מורשה/פטור). null = אין. בהוספת תפקיד מתנדב השרת ממלא אותה בעצמו.
+     */
+    knownIdNumberMasked: string | null;
 }
 
 export interface AccountRoleDto {
@@ -187,6 +192,25 @@ export interface UserDto {
     isEmailVerified: boolean;
     isPhoneVerified: boolean;
     createdAt: IsoDateString;
+}
+
+// ───────────────────────── Public ─────────────────────────
+
+/** GET api/stats/public - נתוני "ההשפעה שלנו" בדף הבית (מהמסד, מטמון של 5 דקות בשרת) */
+export interface PublicStatsDto {
+    /** תרומות שהגיעו לעמותה */
+    donationsDelivered: number;
+    /** ק"ג מזון שהגיעו לעמותות - מצטבר */
+    kgRescued: number;
+    /** ק"ג מזון שהגיעו לעמותות מתחילת החודש (שעון ישראל) */
+    kgRescuedThisMonth: number;
+    /** ספקים מאושרים */
+    partnerBusinesses: number;
+    /** מתנדבים מאושרים */
+    activeVolunteers: number;
+    /** עמותות מאושרות */
+    partnerNgos: number;
+    generatedAt: IsoDateString;
 }
 
 // ───────────────────────── Admin ─────────────────────────
@@ -364,6 +388,11 @@ export interface BrowserMapConfigDto {
     mapId: string;
     language: string;
     region: string;
+    /**
+     * תיקון 35: למה המפה האינטראקטיבית כבויה (כש-enabled=false): לא הוגדר מפתח דפדפן בשרת,
+     * או שהוגדר בטעות מפתח השרת (שלא נשלח לדפדפן אף פעם). null = פעילה.
+     */
+    disabledReason: 'NotConfigured' | 'SameAsServerKey' | null;
 }
 
 // ───────────────────────── תרומות ─────────────────────────
@@ -377,7 +406,11 @@ export interface DonationCategoryLineDto {
 
 /** אין כאן מיקום: השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps) */
 export interface CreateDonationDto {
-    regionId: number;
+    /**
+     * תיקון 33: לא נשלח מהספק - מקום האיסוף הוא כתובת העסק מההרשמה, והאזור נקבע בשרת לפי המיקום שלה.
+     * (מנהל שיוצר תרומה בשם ספק יכול לקבוע אזור במפורש.)
+     */
+    regionId?: number | null;
     /** שם קובץ התמונה שהתקבל מ-analyze-image (רק שם, בלי נתיב) */
     image: string | null;
     latestPickupTime: TimeSpanString;
@@ -511,6 +544,8 @@ export interface RouteDto {
     volunteerName: string | null;
     scheduledAt: IsoDateString;
     responseDeadline: IsoDateString | null;
+    /** תיקון 38: שניות שנשארו לאישור לפי השעון של השרת (לא תלוי בשעון של המכשיר) */
+    responseSecondsLeft?: number | null;
     awaitingResponse: boolean;
     totalWeightKg: number;
     estimatedTotalDurationMinutes: number | null;
@@ -591,6 +626,98 @@ export interface AssignDonationResultDto {
     matchId?: number | null;
     routeId?: number | null;
     message: string;
+}
+
+// ───────────── תיקון 36: טיפול ידני באי-הגעה (No-Show) - מנהל ─────────────
+
+/** POST api/matches/{id}/no-show */
+export interface NoShowDto {
+    reason?: string | null;
+    /** true (ברירת מחדל) - שיבוץ אוטומטי מיידי; false - המנהל משבץ בעצמו */
+    autoReassign?: boolean;
+}
+
+export interface AwaitingPickupStopDto {
+    matchId: number;
+    donationId: number;
+    supplierName: string | null;
+    pickupAddress: string | null;
+    estimatedArrival: IsoDateString | null;
+    status: string;
+}
+
+export interface AwaitingPickupRouteDto {
+    routeId: number | null;
+    /** שידוך אחד מהמסלול - לסימון No-Show (השרת מסמן את כל התחנות שלא נאספו) */
+    matchId: number;
+    volunteerId: number;
+    volunteerName: string;
+    volunteerPhone: string | null;
+    /** המתנדב לחץ "יצאתי לדרך" */
+    started: boolean;
+    nextPickupEta: IsoDateString | null;
+    /** דקות מאז זמן ההגעה המשוער בלי איסוף (0 = הזמן עוד לא הגיע) */
+    minutesLate: number;
+    lastLocationAt: IsoDateString | null;
+    stops: AwaitingPickupStopDto[];
+}
+
+export interface NoShowEventDto {
+    matchId: number;
+    donationId: number;
+    routeId: number | null;
+    volunteerName: string;
+    volunteerPhone: string | null;
+    supplierName: string | null;
+    pickupAddress: string | null;
+    assignedAt: IsoDateString;
+    estimatedArrival: IsoDateString | null;
+    /** הסטטוס של התרומה עכשיו (Pending / Matched / ...) */
+    donationStatus: string;
+    reassignedToVolunteerName: string | null;
+    /** ממתינה, מהיום, ושעת האיסוף האחרונה עוד לא עברה */
+    canAssign: boolean;
+}
+
+/** GET api/matches/no-show/board */
+export interface NoShowBoardDto {
+    generatedAt: IsoDateString;
+    awaitingPickup: AwaitingPickupRouteDto[];
+    noShows: NoShowEventDto[];
+}
+
+export interface ManualVolunteerOptionDto {
+    volunteerId: number;
+    name: string;
+    phone: string | null;
+    maxCapacityKg: number;
+    reliabilityScore: number;
+    /** קו אווירי מהמיקום הידוע. null = לא ידוע */
+    distanceKm: number | null;
+    hasFreshLocation: boolean;
+    /** יש לו משמרת זמינות מתאימה, מעכשיו ועד שעת האיסוף */
+    availableBySchedule: boolean;
+    failedThisDonationBefore: boolean;
+    canAssign: boolean;
+    note: string | null;
+}
+
+/** GET api/matches/assign-donation/{donationId}/candidates */
+export interface ManualAssignmentOptionsDto {
+    donationId: number;
+    supplierName: string | null;
+    pickupAddress: string | null;
+    weightKg: number;
+    pickupDeadline: IsoDateString | null;
+    /** למה אי אפשר לשבץ עכשיו. null = אפשר */
+    problem: string | null;
+    volunteers: ManualVolunteerOptionDto[];
+}
+
+/** POST api/matches/assign-donation/{donationId}/volunteer/{volunteerId} */
+export interface ManualAssignDto {
+    /** המנהל תיאם עם המתנדב - לא בודקים את מערכת השעות שלו (שאר האילוצים נבדקים תמיד) */
+    ignoreSchedule: boolean;
 }
 
 export interface EngineStatusDto {

@@ -6,6 +6,7 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import {keyframes} from '@mui/material/styles';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -13,9 +14,10 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import {APIProvider, AdvancedMarker, InfoWindow, Map, Pin, Polyline, useMap} from '@vis.gl/react-google-maps';
 import type {BrowserMapConfigDto} from '../types/api';
 import type {LatLng} from '../types';
-import {authHeaders} from '../utils/auth';
+import {authHeaders, getCurrentUser} from '../utils/auth';
 import {readErrorMessage} from '../utils/apiError';
-import {googleMapsAuthFailed, loadBrowserMapConfig, onGoogleMapsAuthFailure} from '../utils/googleMaps';
+import {googleMapsAuthFailed, googleMapsAuthProblem, loadBrowserMapConfig, onGoogleMapsAuthFailure} from '../utils/googleMaps';
+import type {GoogleMapsAuthProblem} from '../utils/googleMaps';
 
 // שני סוגי מפות:
 //  - InteractiveMap: מפה של Google בדפדפן - אפשר להזיז, לעשות זום וללחוץ על סיכות. המפתח הוא מפתח דפדפן נפרד
@@ -147,6 +149,137 @@ export interface InteractiveMapProps {
 const DEFAULT_CENTER: LatLng = {lat: 31.5, lng: 34.9};
 const DEFAULT_ZOOM = 8;
 
+// ───────────────────────── למה מוצגת תמונה ולא מפה דינאמית ─────────────────────────
+
+/**
+ * תיקון 35: בעבר, כשלא היה מפתח דפדפן (או ש-Google דחה אותו), המפה עברה בשקט לתמונה -
+ * ולא היה ברור למה אי אפשר להזיז / להגדיל אותה. עכשיו מוצג הסבר: למנהל - מה בדיוק לתקן, לשאר - שורה קצרה.
+ *   NotConfigured   - בשרת לא הוגדר GoogleMaps:BrowserApiKey
+ *   SameAsServerKey - הוגדר בטעות מפתח השרת (שלא נשלח לדפדפן אף פעם)
+ *   AuthFailed      - Google דחה את המפתח (כתובת האתר לא ברשימה המותרת, ה-API לא הופעל, אין Billing)
+ *   LoadFailed      - הסקריפט של Google Maps לא נטען (רשת / חוסם פרסומות)
+ *   Unavailable     - לא ניתן לטעון את ההגדרות מהשרת
+ */
+export type MapFallbackReason = 'NotConfigured' | 'SameAsServerKey' | 'AuthFailed' | 'LoadFailed' | 'Unavailable';
+
+const isAdminUser = (): boolean => String(getCurrentUser().role ?? '').toLowerCase() === 'admin';
+
+const KEY_SETUP_STEPS = (origin: string) => (
+    <>
+        צרו ב-Google Cloud מפתח <strong>נפרד</strong> ממפתח השרת, והגבילו אותו: Application restrictions = Websites
+        {' '}(<Box component="span" dir="ltr">{origin}/*</Box> וכתובת האתר באוויר), ו-API restrictions = Maps JavaScript API בלבד.
+        {' '}את המפתח שומרים בשרת בלבד, בהגדרה <code>GoogleMaps:BrowserApiKey</code> (User Secrets), והשרת נותן אותו רק למשתמש מחובר.
+    </>
+);
+
+const Ltr = ({children}: {children: ReactNode}) => <Box component="span" dir="ltr">{children}</Box>;
+
+// תיקון 40: מה לתקן ב-Google Cloud לפי קוד השגיאה ש-Google כתב בקונסול. null = אין הסבר ייעודי לקוד
+function authFailureFix(code: string | null, origin: string, blockedUrl: string | null): ReactNode {
+    switch (code) {
+        case 'RefererNotAllowedMapError':
+            return (
+                <>
+                    הכתובת <Ltr>{blockedUrl ?? `${origin}/`}</Ltr> לא מותרת למפתח הזה. ב-Credentials לחצו Show key ומצאו את המפתח שמסתיים ב-4 התווים
+                    {' '}שלמעלה. בהגבלת Websites שלו הוסיפו <Ltr>{origin}/*</Ltr> ולחצו Save. אם הכתובת כבר שם - כנראה ב-BrowserApiKey שמור מפתח אחר.
+                </>
+            );
+        case 'ApiTargetBlockedMapError':
+            return (
+                <>
+                    המפתח מוגבל ל-API אחר. ב-Credentials פתחו את המפתח, ובחלק API restrictions בחרו את <strong>Maps JavaScript API</strong>
+                    {' '}(לא Maps Static API, Places או Geocoding) ולחצו Save.
+                </>
+            );
+        case 'ApiNotActivatedMapError':
+            return (
+                <>
+                    ה-Maps JavaScript API לא מופעל בפרויקט של המפתח. ב-Google Cloud, באותו פרויקט:
+                    {' '}<Ltr>APIs &amp; Services → Library → Maps JavaScript API → Enable</Ltr>.
+                </>
+            );
+        case 'BillingNotEnabledMapError':
+        case 'ClientBillingNotEnabledMapError':
+            return <>לפרויקט של המפתח אין חשבון חיוב (Billing) פעיל. ב-Google Cloud, בתפריט Billing, קשרו חשבון חיוב לפרויקט.</>;
+        case 'InvalidKeyMapError':
+        case 'InvalidKey':
+            return (
+                <>
+                    Google לא מכיר את המפתח - כנראה הוא הועתק חלקית או עם רווח או מירכאות. ב-Credentials לחצו Show key, העתיקו שוב,
+                    {' '}הגדירו מחדש את <code>GoogleMaps:BrowserApiKey</code> והפעילו מחדש את השרת.
+                </>
+            );
+        case 'ExpiredKeyMapError':
+            return <>Google עוד לא מכיר את המפתח (מפתח שנוצר עכשיו) או שהוא בוטל. המתינו כמה דקות; אם זה לא עובר - צרו מפתח חדש.</>;
+        case 'DeletedApiProjectMapError':
+        case 'ApiProjectMapError':
+        case 'ProjectDeniedMapError':
+            return <>יש בעיה בפרויקט של המפתח ב-Google Cloud (נמחק, מושעה או לא נמצא). צרו מפתח חדש בפרויקט פעיל.</>;
+        case 'OverQuotaMapError':
+            return <>הפרויקט עבר את מכסת השימוש של Maps JavaScript API. בדקו את ה-Quotas בפרויקט, או המתינו לאיפוס היומי.</>;
+        default:
+            return null;
+    }
+}
+
+export function MapFallbackNotice({reason, problem = null, keyHint = null}: {
+    reason: MapFallbackReason;
+    /** מה Google כתב בקונסול כשדחה את המפתח (רק ב-AuthFailed) */
+    problem?: GoogleMapsAuthProblem | null;
+    /** 4 התווים האחרונים של מפתח הדפדפן - כדי לזהות ב-Google Cloud איזה מפתח בשימוש */
+    keyHint?: string | null;
+}) {
+    if (!isAdminUser()) {
+        return (
+            <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
+                המפה הדינאמית אינה זמינה כרגע, ולכן מוצגת תמונת מפה.
+            </Typography>
+        );
+    }
+
+    const origin = window.location.origin;
+    const text: Record<MapFallbackReason, ReactNode> = {
+        NotConfigured: (
+            <>
+                מוצגת תמונת מפה (בלי הזזה וזום) כי בשרת לא הוגדר מפתח דפדפן של Google Maps.
+                {' '}כדי להפעיל מפה דינאמית ומעקב חי: {KEY_SETUP_STEPS(origin)}
+            </>
+        ),
+        SameAsServerKey: (
+            <>
+                כמפתח הדפדפן הוגדר אותו מפתח של השרת. מטעמי אבטחה מפתח השרת אף פעם לא נשלח לדפדפן, ולכן מוצגת תמונה.
+                {' '}{KEY_SETUP_STEPS(origin)}
+            </>
+        ),
+        AuthFailed: (() => {
+            const code = problem?.code ?? null;
+            const fix = authFailureFix(code, origin, problem?.blockedUrl ?? null);
+            return (
+                <>
+                    Google דחה את מפתח הדפדפן, ולכן מוצגת תמונת מפה.
+                    {code ? <> קוד השגיאה מ-Google: <strong><Ltr>{code}</Ltr></strong>.</> : null}
+                    {keyHint ? <> 4 התווים האחרונים של המפתח שבשימוש: <strong><Ltr>{keyHint}</Ltr></strong>.</> : null}
+                    <br />
+                    {fix ?? (
+                        <>
+                            בדקו ב-Google Cloud שהכתובת <Ltr>{origin}/*</Ltr> מופיעה בהגבלת ה-Websites של המפתח,
+                            {' '}שה-Maps JavaScript API מופעל בפרויקט ומותר למפתח, ושהחיוב (Billing) פעיל.
+                            {' '}הסיבה המדויקת מופיעה גם בקונסול של הדפדפן (<Ltr>F12 → Console</Ltr>), בשורה שמתחילה ב-
+                            <Ltr>Google Maps JavaScript API error</Ltr>.
+                        </>
+                    )}
+                    <br />
+                    אחרי Save ב-Google Cloud השינוי נקלט תוך עד 5 דקות, ואז צריך רענון מלא של הדף (Ctrl+F5).
+                </>
+            );
+        })(),
+        LoadFailed: <>לא ניתן לטעון את Google Maps בדפדפן (חיבור לאינטרנט / חוסם פרסומות / מדיניות רשת), ולכן מוצגת תמונת מפה.</>,
+        Unavailable: <>לא ניתן לטעון כרגע את הגדרות המפה מהשרת, ולכן מוצגת תמונת מפה.</>,
+    };
+
+    return <Alert severity="info" sx={{mb: 1.5}}>{text[reason]}</Alert>;
+}
+
 const pulse = keyframes`
     0% { transform: scale(0.9); opacity: 0.9; }
     100% { transform: scale(1.9); opacity: 0; }
@@ -165,7 +298,8 @@ export function InteractiveMap({
 }: InteractiveMapProps) {
     // undefined = עוד טוען את ההגדרות, null = אין מפה אינטראקטיבית
     const [config, setConfig] = useState<BrowserMapConfigDto | null | undefined>(undefined);
-    const [failed, setFailed] = useState<boolean>(googleMapsAuthFailed());
+    const [failure, setFailure] = useState<MapFallbackReason | null>(googleMapsAuthFailed() ? 'AuthFailed' : null);
+    const [authProblem, setAuthProblem] = useState<GoogleMapsAuthProblem>(googleMapsAuthProblem);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [fitRequest, setFitRequest] = useState<number>(0);
     const [following, setFollowing] = useState<boolean>(false);
@@ -175,7 +309,11 @@ export function InteractiveMap({
         void loadBrowserMapConfig().then((loaded) => {
             if (!cancelled) setConfig(loaded);
         });
-        const unsubscribe = onGoogleMapsAuthFailure(() => setFailed(true));
+        // נקרא כש-Google דוחה את המפתח, ושוב אם הסיבה (קוד השגיאה מהקונסול) מגיעה אחרי זה
+        const unsubscribe = onGoogleMapsAuthFailure(() => {
+            setFailure('AuthFailed');
+            setAuthProblem(googleMapsAuthProblem());
+        });
         return () => {
             cancelled = true;
             unsubscribe();
@@ -192,8 +330,15 @@ export function InteractiveMap({
         );
     }
 
-    if (!config || !config.enabled || !config.apiKey || failed) {
-        return <>{fallback}</>;
+    if (!config || !config.enabled || !config.apiKey || failure) {
+        const reason: MapFallbackReason = failure ?? (config ? config.disabledReason ?? 'NotConfigured' : 'Unavailable');
+        const keyHint = config?.apiKey && config.apiKey.length > 8 ? config.apiKey.slice(-4) : null;
+        return (
+            <>
+                <MapFallbackNotice reason={reason} problem={authProblem} keyHint={keyHint} />
+                {fallback}
+            </>
+        );
     }
 
     const selected = markers.find((m) => m.id === selectedId) ?? null;
@@ -201,7 +346,12 @@ export function InteractiveMap({
     const fitTargets = fitPositions && fitPositions.length > 0 ? fitPositions : positions;
 
     return (
-        <APIProvider apiKey={config.apiKey} language={config.language} region={config.region} onError={() => setFailed(true)}>
+        <APIProvider
+            apiKey={config.apiKey}
+            language={config.language}
+            region={config.region}
+            onError={() => setFailure((current) => current ?? 'LoadFailed')}
+        >
             <Card dir="ltr" sx={{position: 'relative', height: boxHeight, overflow: 'hidden', p: 0, mb: 3}}>
                 <Map
                     mapId={config.mapId}
