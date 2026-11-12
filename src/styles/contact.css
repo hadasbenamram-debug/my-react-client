@@ -1,0 +1,310 @@
+/* ───────── תיקון 57 / 58: עמוד צור קשר ─────────
+   רקע הפסים של האתר, בצד אחד עיגול טורקיז עם יד שמחזיקה מגפון ופרחים ו-"Contact" גדול,
+   ובצד השני טופס עם שדות מעוגלים לבנים בקו דק וכפתור טורקיז. */
+.contact-page {
+    /* שוליים בשני הצדדים - רחבים יותר במסך רחב */
+    --contact-gutter: clamp(32px, 7vw, 150px);
+    --contact-w: min(1480px, calc(100vw - 2 * var(--contact-gutter)));
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+    gap: clamp(2rem, 4vw, 5rem);
+    align-items: center;
+    width: var(--contact-w);
+    min-height: calc(100vh - 230px);
+    /* יוצא מהרוחב הקבוע של שאר דפי המערכת - העיצוב פרוש על כל המסך */
+    margin-inline: calc((100% - var(--contact-w)) / 2);
+    color: var(--ink);
+}
+
+/* ── הצד הוויזואלי ── */
+.contact-visual {
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    aspect-ratio: 1;
+    margin-inline: auto;
+    /* גודל המילה והמשפט נקבע לפי רוחב האיור (cqw) */
+    container-type: inline-size;
+}
+
+.contact-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+/* הזר "נושם" והיד זזה קצת */
+.contact-flowers {
+    transform-origin: 368px 185px;
+    animation: contact-sway 4.5s ease-in-out infinite;
+}
+
+.contact-hand {
+    transform-origin: 470px 330px;
+    animation: contact-hold 4.5s ease-in-out infinite;
+}
+
+@keyframes contact-sway {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(-2.5deg) scale(1.025); }
+}
+
+@keyframes contact-hold {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-1deg); }
+}
+
+.contact-word {
+    position: absolute;
+    top: 56.5%;
+    left: 50%;
+    z-index: 1;
+    transform: translate(-50%, -50%);
+    font-family: 'Playfair Display', var(--display), serif;
+    font-weight: 400;
+    font-size: 25cqw;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    color: #161616;
+}
+
+.contact-motto {
+    position: absolute;
+    top: 73.5%;
+    left: 50%;
+    z-index: 1;
+    width: 74%;
+    transform: translateX(-50%);
+    font-size: max(0.95rem, 3cqw);
+    line-height: 1.4;
+    text-align: center;
+    color: #161616;
+}
+
+/* ── הטופס ── */
+.contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+    max-width: 980px;
+}
+
+.contact-heading {
+    margin: 0;
+    font-family: var(--sans);
+    font-weight: 300;
+    font-size: clamp(1.3rem, 1.42vw, 1.7rem);
+    line-height: 1.4;
+    color: var(--ink);
+}
+
+/* במסך רחב - בשורה אחת */
+@media (min-width: 1300px) {
+    .contact-heading {
+        white-space: nowrap;
+    }
+}
+
+.contact-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.contact-input {
+    width: 100%;
+    min-height: 56px;
+    padding: 0 1.5rem;
+    border: 1.5px solid #1e1e1e;
+    border-radius: 999px;
+    background: #ffffff;
+    font: inherit;
+    font-size: 1.08rem;
+    color: var(--ink);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.contact-input::placeholder {
+    color: #2b2b2b;
+    opacity: 1;
+}
+
+.contact-input:focus {
+    outline: none;
+    border-color: var(--teal-deep);
+    box-shadow: 0 0 0 3px rgba(27, 191, 196, 0.25);
+}
+
+/* מספר טלפון / אימייל נשארים משמאל לימין גם בתוך שדה בעברית */
+.contact-input[type='tel'],
+.contact-input[type='email'] {
+    text-align: right;
+}
+
+.contact-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem 1.4rem;
+    margin: 0.4rem 0 0;
+    font-size: clamp(1.15rem, 1.5vw, 1.6rem);
+    font-weight: 300;
+}
+
+.contact-details a {
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 400;
+}
+
+.contact-details a:hover {
+    color: var(--teal-deep);
+}
+
+.contact-details span {
+    font-size: 0.7em;
+    color: var(--muted);
+}
+
+/* הקו - ממשיך עד קצה המסך, כמו בעיצוב */
+.contact-rule {
+    width: calc(100% + (100vw - var(--contact-w)) / 2);
+    margin: 0;
+    margin-inline-end: calc((100vw - var(--contact-w)) / -2);
+    border: 0;
+    border-top: 1px solid #1e1e1e;
+}
+
+.contact-subheading {
+    margin-top: 0.2rem;
+    font-size: clamp(1.2rem, 1.5vw, 1.55rem);
+    font-weight: 400;
+}
+
+.contact-message {
+    min-height: 170px;
+    padding: 1.1rem 1.5rem;
+    border-radius: 28px;
+    line-height: 1.7;
+    resize: vertical;
+}
+
+.contact-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: -0.4rem;
+}
+
+.contact-count {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.contact-submit {
+    min-width: min(100%, 240px);
+    min-height: 56px;
+    padding: 0 2.4rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--teal);
+    color: #ffffff;
+    font: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.contact-submit:hover:not(:disabled) {
+    background: var(--teal-deep);
+    transform: translateY(-2px);
+}
+
+.contact-submit:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+}
+
+.contact-submit:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.contact-status {
+    margin: 0;
+    padding: 0.9rem 1.3rem;
+    border-radius: 18px;
+    font-size: 1rem;
+}
+
+.contact-status.is-ok {
+    background: rgba(27, 191, 196, 0.16);
+    color: #0b5f63;
+}
+
+.contact-status.is-error {
+    background: rgba(211, 47, 47, 0.1);
+    color: #a32020;
+}
+
+/* טקסט לקוראי מסך בלבד (התוויות של השדות) */
+.contact-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* מסך צר: העיגול למעלה, הטופס מתחתיו */
+@media (max-width: 1000px) {
+    .contact-page {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        min-height: 0;
+    }
+
+    .contact-visual {
+        max-width: 520px;
+    }
+
+    .contact-form {
+        max-width: none;
+    }
+
+    .contact-rule {
+        width: 100%;
+        margin-inline-end: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .contact-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .contact-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .contact-submit {
+        width: 100%;
+    }
+
+    .contact-count {
+        align-self: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contact-flowers,
+    .contact-hand {
+        animation: none;
+    }
+}

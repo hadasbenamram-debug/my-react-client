@@ -10,6 +10,7 @@ import MapScene from './MapScene';
 import CarDrive from './CarDrive';
 import EyesScene from './EyesScene';
 import Impact from './Impact';
+import JoinSection from './JoinSection';
 import {SCENES} from '../data';
 
 /** state שעמודים אחרים מעבירים ב-navigate('/', {state: {scrollTo: 'impact'}}) */
@@ -47,6 +48,8 @@ export default function HomePage() {
             </GrowScene>
             <EyesScene />
             <Impact />
+            {/* תיקון 47: כפתורי הצטרפות בסוף הדף */}
+            <JoinSection />
         </>
     );
 }

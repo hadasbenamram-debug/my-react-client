@@ -4,8 +4,10 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -28,6 +30,19 @@ interface CategoryOption {
   id: number;
   name: string;
 }
+
+// "HH:mm" -> דקות מתחילת היום
+const minutesOf = (value: string) => {
+  const [h, m] = value.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+// ברירת מחדל ל"זמינה לאיסוף החל מ-": השעה העגולה שאחרי שעה מעכשיו (לפחות לא שעה שכבר עברה)
+const defaultReadyTime = () => {
+  const d = new Date(Date.now() + 60 * 60 * 1000);
+  if (d.getDate() !== new Date().getDate()) return '23:00';
+  return `${String(d.getHours()).padStart(2, '0')}:00`;
+};
 
 /** פריט שה-AI זיהה בתמונה (תוכן aiParsedData אחרי JSON.parse) */
 interface AiParsedItem {
@@ -55,6 +70,10 @@ export function CreateDonationPage() {
   const supplierHasLocation = !!supplier && (supplier.latitude !== 0 || supplier.longitude !== 0);
 
   const [latestPickupTime, setLatestPickupTime] = useState<string>('18:00');
+  // תיקון 43: אפשר לפרסם תרומה גם לאותו יום החל משעה מסוימת (למשל אוכל שיהיה מוכן רק אחרי סגירת המטבח).
+  // התרומה מתפרסמת עכשיו, והמנוע שולח מתנדב שיגיע רק מהשעה הזו.
+  const [laterPickup, setLaterPickup] = useState(false);
+  const [earliestPickupTime, setEarliestPickupTime] = useState<string>(defaultReadyTime);
   // חדש: שעת תפוגה (אופציונלי). בלי ערך - סוף היום (תרומה מיועדת לאותו יום בלבד)
   const [expirationTime, setExpirationTime] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -311,6 +330,20 @@ export function CreateDonationPage() {
     const formattedPickupTime =
       latestPickupTime.length === 5 ? `${latestPickupTime}:00` : latestPickupTime;
 
+    // תיקון 43: חלון איסוף של לפחות חצי שעה (השרת בודק את זה שוב)
+    let earliestPayload: string | null = null;
+    if (laterPickup) {
+      if (!earliestPickupTime) {
+        stop('יש לבחור מאיזו שעה התרומה זמינה לאיסוף.');
+        return;
+      }
+      if (minutesOf(earliestPickupTime) + 30 > minutesOf(latestPickupTime)) {
+        stop('השעה "זמינה לאיסוף החל מ-" צריכה להיות לפחות 30 דקות לפני שעת האיסוף האחרונה.');
+        return;
+      }
+      earliestPayload = earliestPickupTime.length === 5 ? `${earliestPickupTime}:00` : earliestPickupTime;
+    }
+
     // שעת התפוגה נשלחת כשעון מקומי של היום (בלי Z) - השרת מפרש אותה כשעון ישראל
     let expirationPayload: string | null = null;
     if (expirationTime) {
@@ -326,6 +359,7 @@ export function CreateDonationPage() {
     // בלי מקום / אזור: השרת לוקח אותם מהכתובת של העסק
     const donationPayload = {
       latestPickupTime: formattedPickupTime,
+      earliestPickupTime: earliestPayload,
       expirationTime: expirationPayload,
       image: imageFileName || null,
       categories: categories.map((c) => ({ categoryId: Number(c.categoryId), quantity: c.quantity, weightKg: c.weightKg }))
@@ -345,7 +379,8 @@ export function CreateDonationPage() {
         const created = (await response.json().catch(() => null)) as DonationResponseDto | null;
         published = true;
         // יוצאים מעמוד הפרסום (replace - כך שגם "חזרה" בדפדפן לא מחזירה לטופס המלא)
-        navigate(created?.id ? `/app/supplier/donation-details?id=${created.id}` : '/app/supplier/open-donations', {
+        // תיקון 63: מסך התרומה של הספק (פרטים / מעקב / שיחה) במקום "פרטי תרומה"
+        navigate(created?.id ? `/app/supplier/donation/${created.id}` : '/app/supplier/open-donations', {
           replace: true,
           state: { justPublished: true },
         });
@@ -396,6 +431,30 @@ export function CreateDonationPage() {
                   : 'הכתובת נלקחת אוטומטית מהכתובת שהזנתם בהרשמה, ולפיה נקבע גם אזור השיבוץ. לשינוי הכתובת יש לפנות למנהל המערכת.'}
               </Typography>
             </Alert>
+
+            {/* תיקון 43: תרומה לאותו יום שזמינה רק משעה מסוימת */}
+            <Box>
+              <FormControlLabel
+                control={<Switch checked={laterPickup} onChange={(e) => {
+                  setLaterPickup(e.target.checked);
+                  // השעה המוצעת - לפי השעה עכשיו (ולא לפי מתי שהדף נטען)
+                  if (e.target.checked) setEarliestPickupTime(defaultReadyTime());
+                }} />}
+                label="המזון יהיה מוכן לאיסוף רק משעה מסוימת היום"
+              />
+              {laterPickup && (
+                <TextField
+                  sx={{ mt: 1.5 }}
+                  label="זמינה לאיסוף החל מ-"
+                  type="time"
+                  value={earliestPickupTime}
+                  onChange={(e) => setEarliestPickupTime(e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  helperText="התרומה מתפרסמת עכשיו, והמתנדב יגיע רק מהשעה הזו. לפחות חצי שעה לפני שעת האיסוף האחרונה."
+                  required
+                />
+              )}
+            </Box>
 
             <TextField
               label="שעת איסוף אחרונה"

@@ -9,7 +9,8 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminNgoListItemView } from '../types/api';
 import { getToken } from '../utils/auth';
 
-export function AdminNgosDirectoryPage() {
+// תיקון 63: גם לשונית בעמוד "משתמשים" (AdminPeoplePage) - אז בלי כותרת משלו
+export function AdminNgosDirectoryPage({ embedded = false }: { embedded?: boolean }) {
   const [ngos, setNgos] = useState<AdminNgoListItemView[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,8 +46,8 @@ export function AdminNgosDirectoryPage() {
   if (loading) return <LoadingBlock text="טוען נתוני עמותות..." />;
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
-      <PageTitle eyebrow="ניהול מערכת" title="ספריית עמותות" subtitle="חיפוש וניהול של כלל העמותות והארגונים במערכת." />
+    <Box sx={{ maxWidth: 900, mx: 'auto', p: embedded ? 0 : 2 }}>
+      {!embedded && <PageTitle eyebrow="ניהול מערכת" title="ספריית עמותות" subtitle="חיפוש וניהול של כלל העמותות והארגונים במערכת." />}
 
       <Box sx={{ mb: 3 }}>
         <TextField

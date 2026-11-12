@@ -97,11 +97,9 @@ export const NAV_GROUPS: NavGroup[] = [
         items: [
             {label: 'דשבורד מתנדב', to: '/app/volunteer/dashboard'},
             {label: 'זמינות שבועית', to: '/app/volunteer/availability'},
-            {label: 'בקשה נכנסת', to: '/app/volunteer/incoming-request'},
             {label: 'מסלול פעיל', to: '/app/volunteer/active-route'},
             {label: 'היסטוריית שיבוצים', to: '/app/volunteer/history'},
-            {label: 'דירוגים', to: '/app/volunteer/ratings'},
-            {label: 'תגובות', to: '/app/volunteer/comments'}
+            {label: 'דירוגים', to: '/app/volunteer/ratings'}
         ]
     },
     {
@@ -110,21 +108,16 @@ export const NAV_GROUPS: NavGroup[] = [
             {label: 'דשבורד ספק', to: '/app/supplier/dashboard'},
             {label: 'יצירת תרומה', to: '/app/supplier/create-donation'},
             {label: 'תרומות פתוחות', to: '/app/supplier/open-donations'},
-            {label: 'היסטוריית ספק', to: '/app/supplier/history'},
-            {label: 'תגובות ספק', to: '/app/supplier/comments'}
+            {label: 'היסטוריית ספק', to: '/app/supplier/history'}
         ]
     },
     {
         title: 'אזור עמותה',
         items: [
             {label: 'דשבורד עמותה', to: '/app/ngo/dashboard'},
-            {label: 'הרשמת עמותה', to: '/app/ngo/register'},
             {label: 'שעות פעילות', to: '/app/ngo/hours'},
-            {label: 'תרומות נכנסות', to: '/app/ngo/incoming'},
-            {label: 'אישור קבלה', to: '/app/ngo/confirm'},
             {label: 'היסטוריית עמותה', to: '/app/ngo/history'},
-            {label: 'דירוגי עמותה', to: '/app/ngo/ratings'},
-            {label: 'תגובות עמותה', to: '/app/ngo/comments'}
+            {label: 'דירוגי עמותה', to: '/app/ngo/ratings'}
         ]
     },
     {
@@ -132,11 +125,9 @@ export const NAV_GROUPS: NavGroup[] = [
         items: [
             {label: 'דשבורד ניהול', to: '/app/admin/dashboard'},
             {label: 'אישור משתמשים', to: '/app/admin/approvals'},
-            {label: 'ניהול משתמשים', to: '/app/admin/users'},
-            {label: 'ניהול מתנדבים', to: '/app/admin/volunteers'},
+            {label: 'כל המשתמשים', to: '/app/admin/users'},
             {label: 'ניהול תרומות', to: '/app/admin/donations'},
             {label: 'ניטור שידוכים', to: '/app/admin/matching'},
-            {label: 'ניהול מסלולים', to: '/app/admin/routes'},
             {label: 'טיפול ב-No-Show', to: '/app/admin/noshow'},
             {label: 'דוחות', to: '/app/admin/reports'},
             {label: 'מודרציית תגובות', to: '/app/admin/comments'},
@@ -147,7 +138,7 @@ export const NAV_GROUPS: NavGroup[] = [
         title: 'מפה ומסלולים',
         items: [
             {label: 'מפה כללית', to: '/app/map'},
-            {label: 'תכנון מסלול VRP', to: '/app/vrp-route'}
+            {label: 'חדר בקרה חי', to: '/app/admin/live-map'}
         ]
     }
 ];

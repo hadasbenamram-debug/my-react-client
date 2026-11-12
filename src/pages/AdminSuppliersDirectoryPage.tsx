@@ -11,7 +11,8 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminSupplierListItemView } from '../types/api';
 import { getToken } from '../utils/auth';
 
-export function AdminSuppliersDirectoryPage() {
+// תיקון 63: גם לשונית בעמוד "משתמשים" (AdminPeoplePage) - אז בלי כותרת משלו
+export function AdminSuppliersDirectoryPage({ embedded = false }: { embedded?: boolean }) {
   const [suppliers, setSuppliers] = useState<AdminSupplierListItemView[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,8 +48,8 @@ export function AdminSuppliersDirectoryPage() {
   if (loading) return <LoadingBlock text="טוען נתוני ספקים ותורמים..." />;
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
-      <PageTitle eyebrow="ניהול מערכת" title="ספריית ספקים ותורמים" subtitle="חיפוש ואיתור מהיר של בתי עסק וגופי תרומה." />
+    <Box sx={{ maxWidth: 900, mx: 'auto', p: embedded ? 0 : 2 }}>
+      {!embedded && <PageTitle eyebrow="ניהול מערכת" title="ספריית ספקים ותורמים" subtitle="חיפוש ואיתור מהיר של בתי עסק וגופי תרומה." />}
 
       <Box sx={{ mb: 3 }}>
         <TextField

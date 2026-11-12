@@ -1,0 +1,521 @@
+/* ───────── תיקון 60: מסך תרומה (עמותה / מתנדב) ─────────
+   כרטיס צר וממורכז בסגנון מסך אפליקציה: לוגו, מספר תרומה, שלושה כפתורים מעוגלים ותוכן. */
+.dscreen-wrap {
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.dscreen-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.8rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+    text-decoration: none;
+}
+
+.dscreen-back:hover {
+    color: var(--teal-deep);
+}
+
+.dscreen {
+    padding: clamp(1.6rem, 4vw, 2.4rem) clamp(1.1rem, 3.5vw, 2rem) 2rem;
+    background: #ffffff;
+    border-radius: 36px;
+    box-shadow: 0 20px 50px rgba(0, 40, 42, 0.1);
+    color: var(--ink);
+}
+
+.dscreen-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.dscreen-logo-accent {
+    font-weight: 400;
+    color: var(--teal);
+}
+
+.dscreen-logo-heart {
+    width: 30px;
+    height: auto;
+}
+
+.dscreen-number {
+    margin: 1.1rem 0 1.3rem;
+    text-align: center;
+    font-size: 1.12rem;
+}
+
+/* ── שלושת הכפתורים ── */
+.dscreen-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 5px;
+    background: #eef4f4;
+    border: 1px solid #e1eaea;
+    border-radius: 999px;
+}
+
+.dscreen-tab {
+    position: relative;
+    min-height: 48px;
+    padding: 0 0.3rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    font: inherit;
+    font-size: clamp(0.86rem, 3.6vw, 1rem);
+    white-space: nowrap;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dscreen-tab:hover:not(.is-active) {
+    background: rgba(27, 191, 196, 0.12);
+}
+
+.dscreen-tab.is-active {
+    background: var(--teal);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(27, 191, 196, 0.35);
+}
+
+.dscreen-tab:focus-visible {
+    outline: 3px solid var(--teal-deep);
+    outline-offset: 2px;
+}
+
+.dscreen-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    margin-inline-start: 0.35rem;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--teal-deep);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+.dscreen-tab.is-active .dscreen-badge {
+    background: #ffffff;
+    color: var(--teal-deep);
+}
+
+.dscreen-panel {
+    padding-top: 1.6rem;
+}
+
+/* ── פרטי תרומה ── */
+.dscreen-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid #e3e8e8;
+}
+
+.dscreen-summary p {
+    margin: 0.15rem 0;
+    font-size: 1.02rem;
+}
+
+.dscreen-boxart {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+}
+
+.dscreen-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 1.1rem 0;
+    border-bottom: 1px solid #e3e8e8;
+}
+
+.dscreen-row-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.dscreen-row-sub {
+    margin: 0.25rem 0 0;
+    font-size: 0.92rem;
+    color: var(--muted);
+}
+
+.dscreen-status {
+    flex-shrink: 0;
+    padding: 0.35rem 0.8rem;
+    border-radius: 10px;
+    background: #e3f6f6;
+    color: #0b7279;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.dscreen-h3 {
+    margin: 1.2rem 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.dscreen-items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dscreen-items li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed #e3e8e8;
+    font-size: 0.98rem;
+}
+
+.dscreen-qty {
+    color: var(--muted);
+}
+
+.dscreen-items .dscreen-total {
+    border-bottom: 0;
+    font-weight: 700;
+}
+
+.dscreen-photo {
+    display: block;
+    width: 100%;
+    max-height: 280px;
+    margin-top: 1rem;
+    object-fit: cover;
+    border-radius: 22px;
+}
+
+.dscreen-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 1.2rem;
+    padding: 0.6rem 1.1rem;
+    border: 1px solid #d6e3e3;
+    border-radius: 999px;
+    background: #ffffff;
+    font: inherit;
+    font-size: 0.98rem;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.dscreen-pill:hover {
+    border-color: var(--teal);
+    background: #f2fbfb;
+}
+
+/* ── מעקב תרומה: ציר זמן אנכי - תאריך, עיגול עם ✓ וקו מנוקד, ומה קרה ── */
+.dscreen-timeline {
+    margin: 0;
+    padding: 1.8rem 0 0.4rem;
+    list-style: none;
+}
+
+.dscreen-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 68px 34px 1fr;
+    column-gap: 0.9rem;
+    align-items: center;
+    min-height: 84px;
+}
+
+/* הקו המנוקד בין העיגולים */
+.dscreen-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: calc(50% + 18px);
+    bottom: calc(-50% + 18px);
+    right: calc(68px + 0.9rem + 16px);
+    border-right: 2px dotted #9fb9bb;
+}
+
+.dscreen-step.is-done:not(:last-child)::after {
+    border-right-color: var(--teal);
+}
+
+.dscreen-step-when {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.25;
+    direction: ltr;
+}
+
+.dscreen-step-when strong {
+    font-size: 1rem;
+}
+
+.dscreen-step-when span {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.dscreen-step-dot {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 2px solid #c4d4d5;
+    border-radius: 50%;
+    background: #ffffff;
+    color: var(--teal-deep);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.dscreen-step.is-done .dscreen-step-dot {
+    border-color: var(--teal);
+}
+
+.dscreen-step.is-current .dscreen-step-dot {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: #ffffff;
+    box-shadow: 0 0 0 6px rgba(27, 191, 196, 0.18);
+}
+
+.dscreen-step.is-next .dscreen-step-dot {
+    border-style: dashed;
+    border-color: var(--teal);
+    animation: dscreen-pulse 1.8s ease-in-out infinite;
+}
+
+.dscreen-step.is-cancelled .dscreen-step-dot {
+    background: #fbeaea;
+    border-color: #d84a4a;
+    color: #c03333;
+}
+
+@keyframes dscreen-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(27, 191, 196, 0.35); }
+    50% { box-shadow: 0 0 0 7px rgba(27, 191, 196, 0); }
+}
+
+.dscreen-step-what {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.dscreen-step-label {
+    margin: 0;
+    font-size: 1.02rem;
+    color: #8a9a9b;
+}
+
+.dscreen-step.is-done .dscreen-step-label,
+.dscreen-step.is-next .dscreen-step-label,
+.dscreen-step.is-cancelled .dscreen-step-label {
+    color: var(--ink);
+}
+
+.dscreen-step.is-current .dscreen-step-label {
+    font-weight: 700;
+}
+
+.dscreen-step-finale {
+    margin: 0.2rem 0 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+/* ── שיחה ── */
+.dscreen-chat {
+    padding-top: 1.4rem;
+}
+
+.dscreen-chat-head {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e3e8e8;
+}
+
+.dscreen-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--teal);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+.dscreen-chat-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    max-height: 56vh;
+    overflow-y: auto;
+    padding: 1.2rem 0.2rem;
+}
+
+.dscreen-empty {
+    margin: 1rem 0;
+    text-align: center;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
+.dscreen-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    padding: 0.4rem 0.4rem 0.4rem 0.4rem;
+    border: 1px solid #d6e3e3;
+    border-radius: 28px;
+    background: #f7fafa;
+}
+
+.dscreen-composer textarea {
+    flex: 1;
+    min-height: 40px;
+    max-height: 140px;
+    padding: 0.55rem 0.9rem;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 1rem;
+    color: var(--ink);
+    resize: none;
+    field-sizing: content;
+}
+
+.dscreen-composer textarea:focus {
+    outline: none;
+}
+
+.dscreen-composer button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--teal);
+    color: #ffffff;
+    cursor: pointer;
+}
+
+/* החץ של "שליחה" פונה שמאלה בעברית */
+.dscreen-composer button svg {
+    transform: scaleX(-1);
+}
+
+.dscreen-composer button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* תיקון 63: הודעה מעל הכפתורים - "התרומה פורסמה" לספק, ו"אישור קבלה" לעמותה */
+.dscreen-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1rem;
+    margin: 0 0 1.2rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 18px;
+    background: #e9f7f7;
+    border: 1px solid #cfe9e9;
+}
+
+.dscreen-note p {
+    flex: 1 1 220px;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.dscreen-note.is-confirm {
+    background: #fff6e8;
+    border-color: #f3dcb4;
+}
+
+.dscreen-note .dscreen-error {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.dscreen-note-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--teal);
+    border-radius: 999px;
+    background: #ffffff;
+    font: inherit;
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--teal-deep);
+    cursor: pointer;
+}
+
+.dscreen-note-btn.is-primary {
+    background: var(--teal);
+    color: #ffffff;
+}
+
+.dscreen-note-btn:hover:not(:disabled) {
+    filter: brightness(0.95);
+}
+
+.dscreen-note-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.dscreen-error {
+    margin: 1rem 0 0;
+    padding: 0.8rem 1rem;
+    border-radius: 16px;
+    background: rgba(211, 47, 47, 0.08);
+    color: #a32020;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dscreen-step.is-next .dscreen-step-dot {
+        animation: none;
+    }
+}

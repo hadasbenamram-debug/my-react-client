@@ -297,7 +297,7 @@ export function AdminNoShowPage() {
           {markError && <Alert severity="error" sx={{ mt: 2 }}>{markError}</Alert>}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setNoShowRoute(null)} disabled={marking}>ביטול</Button>
+          <Button color="error" onClick={() => setNoShowRoute(null)} disabled={marking}>ביטול</Button>
           <Button variant="contained" color="error" onClick={() => void markNoShow()} disabled={marking}>
             {marking ? 'מסמן...' : 'סימון אי-הגעה'}
           </Button>

@@ -22,17 +22,9 @@ const ADMIN_MENU: AdminMenuGroup[] = [
         title: 'משתמשים ואישורים',
         items: [
             { to: '/app/admin/approvals', label: 'אישור משתמשים' },
-            { to: '/app/admin/users', label: 'ניהול משתמשים' },
-            { to: '/app/admin/suppliers-directory', label: 'ספריית ספקים ותורמים' },
-            { to: '/app/admin/ngos-directory', label: 'ספריית עמותות' },
-        ],
-    },
-    {
-        id: 'volunteers',
-        title: 'מתנדבים',
-        items: [
-            { to: '/app/admin/volunteers', label: 'ניהול מתנדבים' },
-            { to: '/app/admin/volunteers-directory', label: 'ספריית מתנדבים' },
+            // תיקון 63: כל הרשימות (משתמשים, מתנדבים, ספקים, עמותות) - עמוד אחד עם לשוניות,
+            // ולכן גם הנושא "מתנדבים" כבר לא נחוץ - מעקב הזמינות עבר לכאן
+            { to: '/app/admin/users', label: 'כל המשתמשים' },
             { to: '/app/admin/volunteers-availability', label: 'מעקב זמינות מתנדבים' },
         ],
     },
@@ -42,18 +34,15 @@ const ADMIN_MENU: AdminMenuGroup[] = [
         items: [
             { to: '/app/admin/donations', label: 'ניהול תרומות' },
             { to: '/app/admin/matching', label: 'מנוע שיבוץ' },
-            { to: '/app/admin/routes', label: 'ניהול מסלולים' },
         ],
     },
     {
         id: 'field',
         title: 'פעילות בשטח ומפות',
         items: [
-            { to: '/app/admin/live-monitor', label: 'מוניטור פעילות בשטח' },
-            { to: '/app/admin/live-map', label: 'מפת מסלולים חיה' },
+            { to: '/app/admin/live-map', label: 'חדר בקרה חי' },
             { to: '/app/admin/noshow', label: 'טיפול באי-הגעה' },
             { to: '/app/map', label: 'מפה כללית' },
-            { to: '/app/vrp-route', label: 'ויזואליזציית מסלול' },
         ],
     },
     {
@@ -109,6 +98,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                 {/* קישורים כלליים */}
                 <div className="menu-section">
                     <Link to="/" onClick={onClose} className="side-link">עמוד הבית</Link>
+                    <Link to="/about" onClick={onClose} className="side-link">אודות</Link>
                     {/* מנהל המערכת הוא זה שמקבל את הפניות - אין לו צורך בקישור */}
                     {role !== 'admin' && (
                         <Link to="/contact" onClick={onClose} className="side-link">צור קשר</Link>
@@ -170,11 +160,10 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                         <div className="side-group-items">
                             <Link to="/app/volunteer/dashboard" onClick={onClose} className="side-link">דשבורד מתנדב</Link>
                             <Link to="/app/volunteer/availability" onClick={onClose} className="side-link">זמינות שבועית</Link>
-                            <Link to="/app/volunteer/incoming-request" onClick={onClose} className="side-link">בקשה נכנסת</Link>
+                            {/* תיקון 62: "בקשה נכנסת" יצאה מהתפריט - בקשה חדשה קופצת לבד ומופיעה בדשבורד */}
                             <Link to="/app/volunteer/active-route" onClick={onClose} className="side-link">מסלול פעיל</Link>
                             <Link to="/app/volunteer/history" onClick={onClose} className="side-link">היסטוריית שיבוצים</Link>
                             <Link to="/app/volunteer/ratings" onClick={onClose} className="side-link">דירוגים</Link>
-                            <Link to="/app/volunteer/comments" onClick={onClose} className="side-link">תגובות</Link>
                         </div>
                     </div>
                 )}
@@ -188,7 +177,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                             <Link to="/app/supplier/create-donation" onClick={onClose} className="side-link">יצירת תרומה</Link>
                             <Link to="/app/supplier/open-donations" onClick={onClose} className="side-link">תרומות פתוחות</Link>
                             <Link to="/app/supplier/history" onClick={onClose} className="side-link">היסטוריית ספק</Link>
-                            <Link to="/app/supplier/comments" onClick={onClose} className="side-link">תגובות ספק</Link>
+                            {/* תיקון 63: "תגובות ספק" אוחד למסך התרומה (לשונית "שיחה") */}
                         </div>
                     </div>
                 )}
@@ -199,12 +188,11 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                         <h3 className="side-group-title">אזור עמותה</h3>
                         <div className="side-group-items">
                             <Link to="/app/ngo/dashboard" onClick={onClose} className="side-link">דשבורד עמותה</Link>
-                            <Link to="/app/ngo/register" onClick={onClose} className="side-link">רישום עמותה</Link>
+                            {/* תיקון 52: הוסר "רישום עמותה" - מי שבאזור העמותה כבר רשום ומאושר כעמותה */}
                             <Link to="/app/ngo/hours" onClick={onClose} className="side-link">שעות פעילות</Link>
-                            <Link to="/app/ngo/incoming" onClick={onClose} className="side-link">תרומות נכנסות</Link>
-                            <Link to="/app/ngo/confirm" onClick={onClose} className="side-link">אישור קבלה</Link>
                             <Link to="/app/ngo/history" onClick={onClose} className="side-link">היסטוריית עמותה</Link>
-                            <Link to="/app/ngo/comments" onClick={onClose} className="side-link">תגובות</Link>
+                            {/* תיקון 62: "תרומות נכנסות" ו"תגובות" אוחדו לדשבורד ולמסך התרומה (לשונית "שיחה") */}
+                            {/* תיקון 63: גם "אישור קבלה" - כפתור בדשבורד ובמסך התרומה */}
                         </div>
                     </div>
                 )}

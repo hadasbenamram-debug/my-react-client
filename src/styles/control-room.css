@@ -1,0 +1,589 @@
+/* ───────── תיקון 61: חדר בקרה חי ───────── */
+
+/* שורת המצב: שידור חי + שעון, ומדדים */
+.cr-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1.4rem;
+}
+
+.cr-status-live {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 150px;
+}
+
+.cr-clock {
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+.cr-kpis {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.cr-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.9rem 1.1rem;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 6px 18px rgba(0, 40, 42, 0.06);
+}
+
+.cr-kpi-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--teal-deep);
+}
+
+.cr-kpi-value small {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.cr-kpi-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.cr-kpi-bar {
+    height: 6px;
+    margin-top: 0.3rem;
+    background: #e6efef;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.cr-kpi-bar span {
+    display: block;
+    height: 100%;
+    background: var(--teal);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+.cr-kpi.is-warning .cr-kpi-value {
+    color: #c77700;
+}
+
+/* מפה + רשימה בצד, ויומן האירועים מתחת */
+.cr-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-areas:
+        'map panel'
+        'feed panel';
+    gap: 1.2rem;
+    align-items: start;
+}
+
+.cr-map {
+    grid-area: map;
+    position: relative;
+}
+
+.cr-map-chip {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+}
+
+.cr-schematic-wrap {
+    margin-bottom: 1rem;
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0, 40, 42, 0.08);
+    overflow: hidden;
+}
+
+.cr-schematic {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.cr-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cr-ring 1.8s ease-out infinite;
+}
+
+@keyframes cr-ring {
+    0% { transform: scale(0.9); opacity: 0.9; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
+.cr-stop.is-done > circle:not(.cr-ring) {
+    animation: cr-pop 0.6s ease-out;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes cr-pop {
+    0% { transform: scale(0.6); }
+    60% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+}
+
+.cr-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+    margin: -0.4rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.cr-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.cr-legend-stop {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 3px solid #3b6fd8;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+.cr-legend-stop.is-done {
+    background: #3b6fd8;
+}
+
+.cr-legend-line {
+    display: inline-block;
+    width: 26px;
+    height: 0;
+    border-top: 5px solid #3b6fd8;
+    border-radius: 3px;
+}
+
+.cr-legend-line.is-planned {
+    border-top: 3px dashed rgba(59, 111, 216, 0.45);
+}
+
+.cr-legend-ngo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: #159aa0;
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-style: normal;
+    font-weight: 700;
+}
+
+/* ── רשימת המסלולים ── */
+.cr-panel {
+    grid-area: panel;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    position: sticky;
+    top: 100px;
+    padding: 2px 2px 8px;
+}
+
+.cr-route {
+    padding: 1rem 1.1rem 0.8rem;
+    background: #ffffff;
+    border-radius: 20px;
+    border-inline-start: 6px solid var(--route);
+    box-shadow: 0 6px 18px rgba(0, 40, 42, 0.07);
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.cr-route:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(0, 40, 42, 0.11);
+}
+
+.cr-route.is-selected {
+    box-shadow: 0 0 0 2px var(--route), 0 10px 24px rgba(0, 40, 42, 0.12);
+}
+
+.cr-route-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cr-route-head strong {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cr-route-dot {
+    flex-shrink: 0;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--route);
+}
+
+.cr-route-phase {
+    flex-shrink: 0;
+    padding: 0.15rem 0.55rem;
+    border-radius: 8px;
+    background: #eef4f4;
+    font-size: 0.78rem;
+    color: #0b7279;
+}
+
+/* התחנות: עיגולים מחוברים בקו, נצבעים כשנאספים */
+.cr-stops {
+    display: flex;
+    align-items: center;
+    margin: 0.85rem 0 0.75rem;
+    padding: 0;
+    list-style: none;
+}
+
+.cr-stops li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.cr-stops li:last-child {
+    flex: 0 0 auto;
+}
+
+.cr-stops li:not(:last-child)::after {
+    content: '';
+    flex: 1;
+    height: 3px;
+    margin: 0 3px;
+    background: #dde6e6;
+    border-radius: 2px;
+}
+
+.cr-stops li.is-done:not(:last-child)::after {
+    background: var(--route);
+}
+
+.cr-stops li > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border: 3px solid var(--route);
+    border-radius: 50%;
+    background: #ffffff;
+    color: var(--route);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.cr-stops li.is-done > span {
+    background: var(--route);
+    color: #ffffff;
+    animation: cr-pop 0.6s ease-out;
+}
+
+.cr-stops li.is-next > span {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--route) 22%, transparent);
+}
+
+.cr-stops .cr-stops-ngo > span {
+    border-color: #159aa0;
+    border-radius: 7px;
+    background: #159aa0;
+    color: #ffffff;
+}
+
+.cr-eta {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.cr-eta > div:first-child {
+    display: flex;
+    flex-direction: column;
+}
+
+.cr-eta-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.cr-eta-time {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+.cr-eta-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.cr-eta-in {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--teal-deep);
+}
+
+.cr-delay {
+    padding: 0.1rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.cr-delay.is-late {
+    background: #fff1e0;
+    color: #a85d00;
+}
+
+.cr-delay.is-early {
+    background: #e5f6ec;
+    color: #1f7a45;
+}
+
+.cr-next,
+.cr-ago {
+    margin: 0.45rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.cr-next strong {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.cr-ago.is-stale {
+    color: #b36b00;
+}
+
+.cr-route-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+
+/* ── יומן האירועים ── */
+.cr-below {
+    grid-area: feed;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    min-width: 0;
+}
+
+.cr-feed {
+    padding: 1.1rem 1.3rem;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 6px 18px rgba(0, 40, 42, 0.06);
+}
+
+.cr-feed h2 {
+    margin: 0 0 0.6rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.cr-feed ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cr-feed li {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px dashed #e3eaea;
+    font-size: 0.93rem;
+    animation: cr-feed-in 0.5s ease-out;
+}
+
+.cr-feed li:last-child {
+    border-bottom: 0;
+}
+
+@keyframes cr-feed-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.cr-feed-time {
+    flex-shrink: 0;
+    width: 3.2rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+
+.cr-feed-dot {
+    flex-shrink: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--route);
+}
+
+.cr-feed-empty {
+    margin: 0;
+    color: var(--muted);
+}
+
+/* מסך צר: הכול אחד מתחת לשני */
+@media (max-width: 1100px) {
+    .cr-layout {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            'map'
+            'panel'
+            'feed';
+    }
+
+    .cr-panel {
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .cr-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .cr-status {
+        flex-direction: column;
+    }
+
+    .cr-status-live {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .cr-kpis {
+        width: 100%;
+    }
+
+    .cr-kpi-value {
+        font-size: 1.45rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cr-ring,
+    .cr-stop.is-done > circle,
+    .cr-stops li.is-done > span,
+    .cr-feed li {
+        animation: none;
+    }
+}
+
+/* ── תיקון 63: ממתינים ליציאה (שיבוצים שעוד לא יצאו לדרך) ── */
+.cr-kpi-note {
+    font-size: 0.78rem;
+    color: #a85d00;
+}
+
+.cr-waiting {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.cr-waiting.is-standalone {
+    margin-top: 1.4rem;
+}
+
+.cr-waiting h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.cr-waiting-count {
+    min-width: 1.6rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: #eef4f4;
+    font-size: 0.85rem;
+    text-align: center;
+    color: #0b7279;
+}
+
+.cr-waiting-sub {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.cr-waiting-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 0.9rem;
+}
+
+.cr-wait {
+    padding: 0.85rem 1.1rem 0.7rem;
+    background: #ffffff;
+    border-radius: 20px;
+    border-inline-start: 6px solid #b7c9c9;
+    box-shadow: 0 4px 14px rgba(0, 40, 42, 0.05);
+}
+
+.cr-wait.is-awaiting {
+    border-inline-start-color: #e3a33b;
+}
+
+.cr-wait.is-awaiting .cr-route-phase {
+    background: #fff1e0;
+    color: #a85d00;
+}
+
+.cr-wait-way {
+    margin: 0.5rem 0 0;
+    font-size: 0.93rem;
+}

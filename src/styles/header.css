@@ -42,6 +42,17 @@
     color: var(--muted);
 }
 
+/* תיקון 50: הפעמון לצד כפתור התפריט */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.header-bell {
+    margin-top: -0.35rem;
+}
+
 .menu-toggle {
     display: flex;
     align-items: center;

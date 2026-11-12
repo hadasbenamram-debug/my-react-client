@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import type {ReactNode} from 'react';
 import type {RouteDto, RouteStopDto} from '../types/api';
-import {formatTime, formatTimeSpan, MATCH_STATUS_LABELS, secondsUntil} from '../utils/format';
+import {formatPickupWindow, formatTime, MATCH_STATUS_LABELS, secondsUntil} from '../utils/format';
 
 // ספירה לאחור עד מועד התגובה שהשרת קבע (ResponseDeadline) - לא 5 דקות קבועות בצד הלקוח
 // תיקון 38: secondsLeft (מהשרת) - הספירה מתחילה ממה שהשרת מדד, כך ששעון לא מדויק במכשיר לא מקצר / מאריך
@@ -47,12 +47,14 @@ export function DeadlineCountdown({deadline, secondsLeft, onExpire}: {deadline: 
 
 export interface RouteSummaryProps {
     route: RouteDto;
-    /** פעולות לכל תחנה (למשל "נאסף" / "נמסר") */
+    /** פעולות לכל תחנה (למשל "אספתי") */
     stopActions?: (stop: RouteStopDto) => ReactNode;
+    /** תיקון 46: פעולה ביעד - כפתור אחד "מסרתי הכול" (ולא כפתור מסירה לכל תחנה) */
+    destinationActions?: ReactNode;
 }
 
 // כל פרטי המסלול: תחנות האיסוף לפי הסדר, מה לאסוף, זמני הגעה, והעמותה ביעד
-export default function RouteSummary({route, stopActions}: RouteSummaryProps) {
+export default function RouteSummary({route, stopActions, destinationActions}: RouteSummaryProps) {
     return (
         <Card sx={{p: {xs: 2.5, md: 3.5}}}>
             <Stack direction="row" spacing={1} sx={{flexWrap: 'wrap', gap: 1, mb: 2}}>
@@ -72,7 +74,8 @@ export default function RouteSummary({route, stopActions}: RouteSummaryProps) {
                             </Typography>
                             <Typography color="text.secondary">{stop.address || '—'}</Typography>
                             <Typography variant="body2">
-                                הגעה משוערת: {formatTime(stop.estimatedArrival)} · איסוף עד {formatTimeSpan(stop.latestPickupTime)} · {stop.weightKg.toFixed(1)} ק"ג
+                                {/* תיקון 43: "זמינה לאיסוף החל מ-" - חלון האיסוף המלא */}
+                                הגעה משוערת: {formatTime(stop.estimatedArrival)} · איסוף {formatPickupWindow(stop.earliestPickupTime, stop.latestPickupTime)} · {stop.weightKg.toFixed(1)} ק"ג
                             </Typography>
                             {stop.items.length > 0 && (
                                 <Typography variant="body2" color="text.secondary">
@@ -89,11 +92,14 @@ export default function RouteSummary({route, stopActions}: RouteSummaryProps) {
                 </Box>
             ))}
 
-            <Box sx={{pt: 1.5}}>
-                <Typography sx={{fontWeight: 700}}>יעד: {route.ngoName || 'עמותה'}</Typography>
-                <Typography color="text.secondary">{route.ngoAddress || '—'}</Typography>
-                <Typography variant="body2">הגעה משוערת לעמותה: {formatTime(route.estimatedNgoArrival)}</Typography>
-            </Box>
+            <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5} sx={{pt: 1.5, justifyContent: 'space-between', alignItems: {sm: 'center'}}}>
+                <Box>
+                    <Typography sx={{fontWeight: 700}}>יעד: {route.ngoName || 'עמותה'}</Typography>
+                    <Typography color="text.secondary">{route.ngoAddress || '—'}</Typography>
+                    <Typography variant="body2">הגעה משוערת לעמותה: {formatTime(route.estimatedNgoArrival)}</Typography>
+                </Box>
+                {destinationActions ? <Box sx={{flexShrink: 0}}>{destinationActions}</Box> : null}
+            </Stack>
         </Card>
     );
 }

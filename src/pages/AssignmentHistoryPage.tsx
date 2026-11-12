@@ -12,6 +12,7 @@ import type { MatchResponseDto, MatchStatusName } from '../types/api';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
 import { MATCH_STATUS_LABELS, formatDateTime } from '../utils/format';
+import DonationLink from '../components/DonationLink';
 
 // היסטוריית השיבוצים של המתנדב.
 // תיקון 16: הדף קרא ל-api/matches/active, שמחזיר רק שיבוצים פעילים, ולכן משלוח שהושלם נעלם מהדף
@@ -44,7 +45,7 @@ function HistoryCard({ item }: { item: MatchResponseDto }) {
           <Typography variant="h6" component="h2" sx={{ fontWeight: 500 }}>
             {item.supplierName ?? 'ספק'} ← {item.ngoName ?? 'עמותה'}
           </Typography>
-          <Typography variant="body2" color="text.secondary">תרומה #{item.donationId}</Typography>
+          <Typography variant="body2" color="text.secondary"><DonationLink role="volunteer" id={item.donationId}>תרומה #{item.donationId}</DonationLink></Typography>
         </Box>
         <Chip
           size="small"

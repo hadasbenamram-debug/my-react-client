@@ -33,7 +33,12 @@ export function useContactForm(defaults: Partial<ContactFormData> = {}) {
             const res = await fetch(CONTACT_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({...form, phone: form.phone || null}),
+                // תיקון 57: בעמוד החדש אין שדה "נושא" (השרת דורש אותו) - נושא אוטומטי לפי השם
+                body: JSON.stringify({
+                    ...form,
+                    phone: form.phone || null,
+                    subject: form.subject.trim() || `פנייה מהאתר - ${form.name.trim()}`,
+                }),
             });
 
             if (res.ok) {

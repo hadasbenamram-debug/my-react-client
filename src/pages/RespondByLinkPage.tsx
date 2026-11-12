@@ -7,10 +7,15 @@ import PageTitle from '../components/PageTitle';
 import {LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import {readApiError, RESPONSE_WINDOW_CODES} from '../utils/apiError';
-import {clearSession, saveSession} from '../utils/auth';
+import {authHeaders, clearSession, getCurrentUser, getToken, saveSession} from '../utils/auth';
 import type {RespondByLinkResultDto, RouteDto} from '../types/api';
 
 const ACTIVE_ROUTE = '/app/volunteer/active-route';
+
+// הקישור כבר לא פעיל כי הבקשה כבר נענתה (באתר / מהמייל) - לא כי הזמן עבר
+const ALREADY_ANSWERED_CODES = ['LinkInvalid', 'NotAwaiting'];
+
+type AfterAnswer = {text: string; path: string; button: string};
 
 // הקישור מהמייל (/app/respond?token=...). עובד בלי התחברות.
 // הטוקן חד-פעמי ומוגבל למסלול הזה בלבד - הוא לא טוקן התחברות ולא נשמר בדפדפן.
@@ -32,6 +37,30 @@ export function RespondByLinkPage() {
     // אחרי אישור: לאן ממשיכים (המסלול הפעיל), ואם צריך קודם להתחבר
     const [next, setNext] = useState<{path: string; needsLogin: boolean} | null>(null);
 
+    // תיקון 45: הבקשה מוצגת גם באתר. מי שכבר ענה שם ולוחץ אחר כך על הקישור במייל - מקבל הסבר ברור
+    // (ולא רק "הקישור לא בתוקף"), ואם הוא מחובר במכשיר הזה - כפתור ישר למצב העדכני שלו.
+    const [after, setAfter] = useState<AfterAnswer | null>(null);
+    const explainAlreadyAnswered = useCallback(async () => {
+        const volunteerHere = !!getToken() && String(getCurrentUser().role || '').toLowerCase().includes('volunt');
+        if (!volunteerHere) {
+            setAfter({
+                text: 'אם כבר ענית לבקשה באתר - אין צורך לעשות דבר נוסף. את המצב העדכני אפשר לראות באזור האישי.',
+                path: `/app/login?returnTo=${encodeURIComponent('/app/volunteer/dashboard')}`,
+                button: 'כניסה לאזור האישי',
+            });
+            return;
+        }
+        const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()}).catch(() => null);
+        const active = res && res.status === 200 ? ((await res.json()) as RouteDto) : null;
+        if (active && !active.awaitingResponse) {
+            setAfter({text: 'הבקשה כבר אושרה באתר - המסלול שלך פעיל.', path: ACTIVE_ROUTE, button: 'למסלול שלי'});
+        } else if (active) {
+            setAfter({text: 'מחכה לך באתר בקשת איסוף אחרת.', path: '/app/volunteer/incoming-request', button: 'לבקשה הממתינה'});
+        } else {
+            setAfter({text: 'אם כבר ענית לבקשה באתר - אין צורך לעשות דבר נוסף.', path: '/app/volunteer/dashboard', button: 'לאזור האישי'});
+        }
+    }, []);
+
     useEffect(() => {
         // הטוקן לא נשאר בשורת הכתובת (היסטוריה / שיתוף מסך)
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -52,6 +81,7 @@ export function RespondByLinkPage() {
                     const {message, code} = await readApiError(res, 'הקישור אינו בתוקף.');
                     if (code && RESPONSE_WINDOW_CODES.includes(code)) {
                         setInfo(message);
+                        if (ALREADY_ANSWERED_CODES.includes(code)) void explainAlreadyAnswered();
                         return;
                     }
                     throw new Error(message);
@@ -60,7 +90,7 @@ export function RespondByLinkPage() {
             })
             .catch((err: unknown) => setError(err instanceof Error ? err.message : 'הקישור אינו בתוקף.'))
             .finally(() => setLoading(false));
-    }, [token]);
+    }, [token, explainAlreadyAnswered]);
 
     const respond = async (accept: boolean) => {
         setBusy(true);
@@ -78,6 +108,7 @@ export function RespondByLinkPage() {
                 // למשל אחרי שזמן התגובה עבר: הבקשה הועברה למתנדב אחר - כבר אין מה לאשר
                 setInfo(message);
                 setRoute((r) => (r ? {...r, awaitingResponse: false} : r));
+                if (ALREADY_ANSWERED_CODES.includes(code)) void explainAlreadyAnswered();
             } else {
                 setError(message);
             }
@@ -113,6 +144,12 @@ export function RespondByLinkPage() {
             <PageTitle eyebrow="מתנדב" title="בקשת התנדבות" />
             {error && <Alert severity="error" sx={{mb: 2}}>{error}</Alert>}
             {info && <Alert severity="info" sx={{mb: 2}}>{info}</Alert>}
+            {after && (
+                <Alert severity="success" variant="outlined" sx={{mb: 2, alignItems: 'center'}}
+                    action={<Button color="inherit" size="small" sx={{px: 2}} href={after.path}>{after.button}</Button>}>
+                    {after.text}
+                </Alert>
+            )}
             {done && <Alert severity="success" sx={{mb: 2}}>{done}</Alert>}
 
             {route && (

@@ -21,6 +21,10 @@ export const formatDateTime = (iso: string | null | undefined): string => {
 /** "13:30:00" -> "13:30" */
 export const formatTimeSpan = (value: string | null | undefined): string => (value ? value.substring(0, 5) : '—');
 
+/** תיקון 43: חלון האיסוף - "מ-16:00 עד 18:00", ובלי "זמינה החל מ-": "עד 18:00" */
+export const formatPickupWindow = (from: string | null | undefined, until: string | null | undefined): string =>
+    from ? `מ-${formatTimeSpan(from)} עד ${formatTimeSpan(until)}` : `עד ${formatTimeSpan(until)}`;
+
 /**
  * תאריך בלבד (למשל תוקף רישיון נהיגה, "2027-01-31T00:00:00"): האם הוא לפני היום המקומי.
  * משווים תאריך מול תאריך - רישיון שתוקפו היום עדיין בתוקף עד סוף היום (כמו בשרת).

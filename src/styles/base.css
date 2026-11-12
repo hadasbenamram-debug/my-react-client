@@ -37,13 +37,15 @@ body {
     font-family: var(--sans);
     line-height: 1.7;
     background-color: var(--bg);
-    background-image: repeating-linear-gradient(
+    /* תיקון 55: הפסים כ"אריח" שחוזר (background-size) במקום repeating-linear-gradient.
+       ב-Chrome, כשתוכן כלשהו בולט מתחת לסוף ה-body, הרקע של כל הדף מצויר מחדש ופס של 1px
+       ב-repeating-linear-gradient "נבלע" - נשארים רק חלק מהפסים. אריח של פס אחד מצויר תמיד אותו דבר. */
+    background-image: linear-gradient(
         to right,
-        transparent 0,
         transparent calc(var(--stripe-gap) - 1px),
-        var(--stripe) calc(var(--stripe-gap) - 1px),
-        var(--stripe) var(--stripe-gap)
+        var(--stripe) calc(var(--stripe-gap) - 1px)
     );
+    background-size: var(--stripe-gap) 100%;
 }
 
 a {

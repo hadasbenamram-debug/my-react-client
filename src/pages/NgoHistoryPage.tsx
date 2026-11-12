@@ -8,6 +8,7 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { NgoDonationView } from '../types/api';
 import { formatDateTime } from '../utils/format';
 import { getToken } from '../utils/auth';
+import DonationLink from '../components/DonationLink';
 
 export function NgoHistoryPage() {
   const [completedDonations, setCompletedDonations] = useState<NgoDonationView[]>([]);
@@ -54,7 +55,7 @@ export function NgoHistoryPage() {
         completedDonations.map((item) => (
           <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 500 }}>תרומה #{item.id}</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 500 }}><DonationLink role="ngo" id={item.id}>תרומה #{item.id}</DonationLink></Typography>
               <Chip size="small" color="primary" label="הושלם" />
             </Box>
             <Typography color="text.secondary"><strong>ספק (תורם):</strong> {item.supplierName ?? item.supplierId}</Typography>

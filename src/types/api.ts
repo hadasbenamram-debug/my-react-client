@@ -194,6 +194,12 @@ export interface UserDto {
     createdAt: IsoDateString;
 }
 
+/** תיקון 51: PUT api/users/{id}/verification (מנהל בלבד) - שדה שלא נשלח לא משתנה */
+export interface UpdateVerificationDto {
+    isEmailVerified?: boolean | null;
+    isPhoneVerified?: boolean | null;
+}
+
 // ───────────────────────── Public ─────────────────────────
 
 /** GET api/stats/public - נתוני "ההשפעה שלנו" בדף הבית (מהמסד, מטמון של 5 דקות בשרת) */
@@ -414,6 +420,8 @@ export interface CreateDonationDto {
     /** שם קובץ התמונה שהתקבל מ-analyze-image (רק שם, בלי נתיב) */
     image: string | null;
     latestPickupTime: TimeSpanString;
+    /** תיקון 43: "זמינה לאיסוף החל מ-" (לא חובה). בלי ערך - אפשר לאסוף מיד. לפחות 30 דקות לפני שעת האיסוף האחרונה */
+    earliestPickupTime?: TimeSpanString | null;
     /** אופציונלי. בלי ערך - סוף היום (שעון ישראל) */
     expirationTime?: IsoDateString | null;
     categories: DonationCategoryLineDto[];
@@ -422,6 +430,8 @@ export interface CreateDonationDto {
 /** PUT api/donations/{id} - עריכה כל עוד התרומה ממתינה לשיבוץ */
 export interface UpdateDonationDto {
     latestPickupTime: TimeSpanString;
+    /** תיקון 43: "זמינה לאיסוף החל מ-" (null = אפשר לאסוף מיד) */
+    earliestPickupTime?: TimeSpanString | null;
     expirationTime?: IsoDateString | null;
     categories: DonationCategoryLineDto[];
 }
@@ -440,6 +450,8 @@ export interface DonationResponseDto {
     /** שם קובץ התמונה בלבד. כתובת התמונה: imageUrl(image) */
     image: string | null;
     latestPickupTime: TimeSpanString;
+    /** תיקון 43: "זמינה לאיסוף החל מ-" (null = אפשר לאסוף מיד) */
+    earliestPickupTime?: TimeSpanString | null;
     expirationTime: IsoDateString;
     createdAt: IsoDateString;
     receivedAt: IsoDateString | null;
@@ -455,6 +467,11 @@ export interface DonationResponseDto {
     estimatedArrival: IsoDateString | null;
     /** המסלול של השידוך - למעקב החי (/app/track/:routeId). null = עוד אין מסלול */
     volunteerRouteId: number | null;
+    /** תיקון 60: מועדי השלבים לציר "מעקב תרומה" (null = עוד לא קרה) */
+    matchAssignedAt?: IsoDateString | null;
+    volunteerConfirmedAt?: IsoDateString | null;
+    pickedUpAt?: IsoDateString | null;
+    deliveredAt?: IsoDateString | null;
 }
 
 export interface SupplierDonationSummaryDto {
@@ -466,7 +483,18 @@ export interface SupplierDonationSummaryDto {
     createdAt: IsoDateString;
     expirationTime: IsoDateString;
     latestPickupTime: TimeSpanString;
+    /** תיקון 43: "זמינה לאיסוף החל מ-" (null = אפשר לאסוף מיד) */
+    earliestPickupTime?: TimeSpanString | null;
     image: string | null;
+    // תיקון 48: לדשבורד של הספק - מה נתרם, ומי מטפל בתרומה (השידוך האחרון שלה)
+    totalWeightKg?: number;
+    categories?: DonationCategoryLineDto[];
+    receivedAt?: IsoDateString | null;
+    matchStatus?: MatchStatusName | null;
+    ngoName?: string | null;
+    volunteerName?: string | null;
+    estimatedArrival?: IsoDateString | null;
+    volunteerRouteId?: number | null;
 }
 
 export interface AdminDonationSummaryDto {
@@ -530,6 +558,8 @@ export interface RouteStopDto {
     longitude: number;
     estimatedArrival: IsoDateString | null;
     latestPickupTime: TimeSpanString;
+    /** תיקון 43: "זמינה לאיסוף החל מ-" (null = אפשר לאסוף מיד) */
+    earliestPickupTime?: TimeSpanString | null;
     weightKg: number;
     items: DonationCategoryLineDto[];
     pickedUpAt: IsoDateString | null;

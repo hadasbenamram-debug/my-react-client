@@ -106,8 +106,14 @@ export interface MapMarker {
     color?: string;
     /** טקסט קצר בתוך הסיכה (מספר התחנה, ע = עמותה) */
     glyph?: string;
-    /** vehicle = עיגול עם משאית (המתנדב). ברירת מחדל: סיכה */
-    variant?: 'pin' | 'vehicle';
+    /** vehicle = עיגול עם משאית (המתנדב). stop = תחנת איסוף עגולה (תיקון 61). ברירת מחדל: סיכה */
+    variant?: 'pin' | 'vehicle' | 'stop';
+    /** תיקון 61 (stop): התחנה נאספה - העיגול נצבע בצבע המסלול עם ✓ */
+    done?: boolean;
+    /** תיקון 61 (stop): התחנה הבאה במסלול - מהבהבת */
+    next?: boolean;
+    /** תיקון 61 (vehicle): כיוון הנסיעה במעלות (0 = צפון) - חץ קטן על העיגול */
+    heading?: number | null;
     /** סיכה אפורה - למשל תחנה שכבר נאספה */
     muted?: boolean;
     /** הבהוב סביב הסמן - המתנדב בשידור חי */
@@ -283,6 +289,13 @@ export function MapFallbackNotice({reason, problem = null, keyHint = null}: {
 const pulse = keyframes`
     0% { transform: scale(0.9); opacity: 0.9; }
     100% { transform: scale(1.9); opacity: 0; }
+`;
+
+// תיקון 61: תחנה שנאספה "קופצת" כשהיא נצבעת
+const popIn = keyframes`
+    0% { transform: scale(0.6); }
+    60% { transform: scale(1.25); }
+    100% { transform: scale(1); }
 `;
 
 export function InteractiveMap({
@@ -468,7 +481,61 @@ function FollowPosition({position}: {position: LatLng | null}) {
     return null;
 }
 
+/** תיקון 61: תחנת איסוף עגולה - לבנה עם מסגרת בצבע המסלול, ונצבעת (עם ✓) כשאוספים אותה */
+export function StopBadge({color, glyph, done, next, muted}: {color: string; glyph?: string; done?: boolean; next?: boolean; muted?: boolean}) {
+    return (
+        <Box
+            key={done ? 'done' : 'open'}
+            sx={{
+                position: 'relative',
+                width: 30,
+                height: 30,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: done ? color : '#fff',
+                color: done ? '#fff' : color,
+                border: `3px solid ${color}`,
+                opacity: muted ? 0.35 : 1,
+                fontWeight: 700,
+                fontSize: 14,
+                lineHeight: 1,
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+                animation: done ? `${popIn} 0.6s ease-out` : undefined,
+                '&::after': next && !muted
+                    ? {
+                        content: '""',
+                        position: 'absolute',
+                        inset: -6,
+                        borderRadius: '50%',
+                        border: `2px solid ${color}`,
+                        animation: `${pulse} 1.8s ease-out infinite`,
+                    }
+                    : undefined,
+            }}
+        >
+            {done ? '✓' : glyph}
+        </Box>
+    );
+}
+
 function MarkerView({marker, onSelect}: {marker: MapMarker; onSelect: () => void}) {
+    if (marker.variant === 'stop') {
+        return (
+            <AdvancedMarker
+                position={marker.position}
+                title={marker.title}
+                zIndex={marker.zIndex ?? (marker.done ? 600 : 800)}
+                onClick={onSelect}
+                anchorLeft="-50%"
+                anchorTop="-50%"
+            >
+                <StopBadge color={marker.color ?? MAP_COLORS.other} glyph={marker.glyph} done={marker.done} next={marker.next} muted={marker.muted} />
+            </AdvancedMarker>
+        );
+    }
+
     if (marker.variant === 'vehicle') {
         const color = marker.color ?? MAP_COLORS.volunteer;
         return (
@@ -506,6 +573,15 @@ function MarkerView({marker, onSelect}: {marker: MapMarker; onSelect: () => void
                     }}
                 >
                     <LocalShippingIcon sx={{fontSize: 20}} />
+                    {/* תיקון 61: חץ קטן לכיוון הנסיעה */}
+                    {marker.heading != null && (
+                        <Box sx={{position: 'absolute', inset: -11, transform: `rotate(${marker.heading}deg)`, pointerEvents: 'none'}}>
+                            <Box sx={{
+                                position: 'absolute', top: 0, left: '50%', ml: '-6px', width: 0, height: 0,
+                                borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: `9px solid ${color}`,
+                            }} />
+                        </Box>
+                    )}
                 </Box>
             </AdvancedMarker>
         );

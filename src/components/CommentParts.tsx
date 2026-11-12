@@ -165,7 +165,7 @@ export function CommentItem({comment, onReply, inline = false, defaultAuthor = '
                             <Button type="submit" variant="contained" size="small" disabled={!replyText.trim()} sx={{px: 2.5, py: 0.6}}>
                                 שליחה
                             </Button>
-                            <Button variant="text" size="small" sx={{px: 1.5, py: 0.6}}
+                            <Button variant="text" color="error" size="small" sx={{px: 1.5, py: 0.6}}
                                 onClick={() => { setShowReplyInput(false); setReplyText(''); }}>
                                 ביטול
                             </Button>

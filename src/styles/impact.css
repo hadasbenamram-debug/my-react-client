@@ -1,58 +1,155 @@
-.impact {
+/* ───────── תיקון 56: "ההשפעה שלנו בשטח" ─────────
+   רקע טורקיז בהיר, "כיפה" לבנה גדולה שיורדת מלמעלה, הנתונים ככפתורים מעוגלים (pills),
+   ועיגול טורקיז בתחתית הכיפה. מתחת לכיפה מתחילות הקשתות של העיגול הגדול
+   באזור "מצטרפים לקהילה" (home-actions.css) - כך שני האזורים נראים כמעבר אחד רציף. */
+:root {
+    --sky: #94c9cc;
+    --sky-pill: #d1e6e6;
+    --sky-ink: #1b1b1b;
+    --sky-accent: #0e6d72;
+    --sky-title: 'Frank Ruhl Libre', var(--display);
+    /* הכיפה הלבנה */
+    --dome-w: 84vw;
+    --dome-below: clamp(150px, 15vw, 290px);   /* האזור שמתחת לכיפה, שבו רואים את הקשתות */
+    --dome-ball: clamp(96px, 10.6vw, 200px);
+    /* העיגול הגדול של "מצטרפים לקהילה" */
+    --ring-r: 45vw;
+    --ring-tuck: clamp(70px, 9vw, 170px);      /* כמה מהעיגול "מתחבא" מאחורי הכיפה */
+}
+
+main > section.impact {
+    position: relative;
+    overflow: hidden;
+    padding: 7rem 5vw calc(var(--dome-below) + var(--dome-ball) + 2.5rem);
+    background: var(--sky);
+    border-top: none;
     text-align: center;
+    color: var(--sky-ink);
 }
 
-.impact > h2 {
-    margin-bottom: 2.5rem;
+.impact-dome {
+    position: absolute;
+    left: 50%;
+    bottom: var(--dome-below);
+    z-index: 1;
+    width: var(--dome-w);
+    /* עיגול; ואם התוכן גבוה ממנו (טלפון) - אליפסה גבוהה יותר. החלק העליון יוצא מעל האזור ונחתך */
+    height: max(var(--dome-w), calc(100% - var(--dome-below) + 30vw));
+    background: #ffffff;
+    border-radius: 50%;
+    transform: translateX(-50%);
 }
 
+.impact-ball {
+    position: absolute;
+    left: 50%;
+    bottom: var(--dome-below);
+    z-index: 2;
+    width: var(--dome-ball);
+    height: var(--dome-ball);
+    margin-left: calc(var(--dome-ball) / -2);
+    background: var(--teal);
+    border-radius: 50%;
+}
+
+.impact-content {
+    position: relative;
+    z-index: 2;
+    max-width: 1340px;
+    margin: 0 auto;
+}
+
+.impact-content > h2 {
+    margin: 0 0 1.2rem;
+    font-family: var(--sky-title);
+    font-weight: 400;
+    font-size: clamp(2.5rem, 5.2vw, 4.8rem);
+    line-height: 1.1;
+    color: var(--sky-ink);
+}
+
+.impact-intro {
+    margin: 0 auto clamp(2.2rem, 3.4vw, 3.4rem);
+    max-width: 46rem;
+    font-size: clamp(1.02rem, 1.25vw, 1.22rem);
+    line-height: 1.9;
+}
+
+.impact-intro strong {
+    font-weight: 700;
+}
+
+/* הנתונים: שש "גלולות" - 3 בשורה, כמו בכפתורים של העיצוב */
 .impact-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.4rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.6rem 1.8rem;
 }
 
 .stat-card {
-    padding: 2.8rem 1.5rem;
-    background: #fff;
-    border: 1px solid var(--mint-soft);
-    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    min-height: clamp(76px, 5.6vw, 104px);
+    padding: 0.9rem 2rem;
+    background: var(--sky-pill);
+    border-radius: 999px;
 }
 
 .stat-value {
     margin: 0;
     direction: ltr;
-    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-size: clamp(1.7rem, 2.4vw, 2.5rem);
     font-weight: 700;
     line-height: 1;
     letter-spacing: -0.02em;
-    color: var(--cyan);
+    color: var(--sky-accent);
     font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
-    margin: 0.9rem auto 0;
-    max-width: 16em;
-    font-size: 0.95rem;
-    color: var(--muted);
+    margin: 0;
+    font-size: clamp(1rem, 1.2vw, 1.2rem);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--sky-ink);
 }
 
 /* תיקון 31: הודעה קטנה כשלא הצלחנו לטעון את הנתונים מהשרת */
 .impact-note {
-    margin: 1.4rem auto 0;
+    margin: 1.6rem auto 0;
     font-size: 0.9rem;
     color: var(--muted);
 }
 
-/* שישה כרטיסים: 3 בשורה במסך רחב, 2 בטאבלט, 1 בטלפון */
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
     .impact-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@media (max-width: 560px) {
+/* טלפון: כיפה רחבה מהמסך, נתון אחד בשורה */
+@media (max-width: 760px) {
+    :root {
+        --dome-w: 170vw;
+        --dome-below: 120px;
+        --dome-ball: 92px;
+        --ring-r: 88vw;
+        --ring-tuck: 50px;
+    }
+
+    main > section.impact {
+        padding: 5rem 1.4rem calc(var(--dome-below) + var(--dome-ball) + 2rem);
+    }
+
     .impact-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .stat-card {
+        min-height: 72px;
+        padding: 0.8rem 1.4rem;
     }
 }

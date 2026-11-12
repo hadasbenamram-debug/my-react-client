@@ -1,0 +1,191 @@
+/* ───────── תיקון 56: "אנו מזמינים אתכם להצטרף לקהילה שלנו" (JoinSection) ─────────
+   אותו רקע טורקיז בהיר כמו "ההשפעה שלנו בשטח", עיגול גדול בקו דק שמתחיל מאחורי הכיפה הלבנה
+   של האזור הקודם, כותרת בין שני קווים, טקסט ממורכז וכפתורים מעוגלים. המשתנים - ב-impact.css. */
+main > section.join {
+    position: relative;
+    overflow-x: clip;   /* העיגול רחב מהמסך בטלפון - בלי גלילה הצידה. למעלה הוא כן יוצא (אל מתחת לכיפה) */
+    min-height: calc(2 * var(--ring-r) - var(--dome-below) - var(--ring-tuck) + 4px);
+    padding: max(4.5rem, calc(var(--ring-r) - var(--dome-below) - var(--ring-tuck) - 6rem)) 5vw 8rem;
+    background-color: var(--sky);
+    border-top: none;
+    text-align: center;
+    color: var(--sky-ink);
+}
+
+/* העיגול: החלק העליון שלו נמצא מאחורי הכיפה הלבנה (z-index נמוך ממנה), והקשתות יורדות ממנה אל האזור הזה */
+.join-ring {
+    position: absolute;
+    left: 50%;
+    top: calc(-1 * (var(--dome-below) + var(--ring-tuck)));
+    z-index: 0;
+    width: calc(2 * var(--ring-r));
+    /* עיגול; ואם התוכן גבוה ממנו (מסך צר) - אליפסה שנסגרת בתחתית האזור, מתחת לכפתורים, ולא חוצה את הטקסט */
+    height: max(calc(2 * var(--ring-r)), calc(100% + var(--dome-below) + var(--ring-tuck)));
+    margin-left: calc(-1 * var(--ring-r));
+    border: 1.5px solid rgba(20, 20, 20, 0.85);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.join-content {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* הכותרת בין שני קווים */
+.join-heading {
+    width: min(75vw, 1420px);
+    margin: 0 auto;
+    padding: clamp(1.2rem, 2.4vw, 2.6rem) 0;
+    border-top: 1px solid rgba(20, 20, 20, 0.85);
+    border-bottom: 1px solid rgba(20, 20, 20, 0.85);
+}
+
+.join-title {
+    margin: 0;
+    font-family: var(--sky-title);
+    font-weight: 400;
+    font-size: clamp(2.3rem, 5vw, 5.4rem);
+    line-height: 1.12;
+    color: var(--sky-ink);
+}
+
+.join-lead {
+    margin: clamp(2rem, 3.4vw, 3.6rem) 0 0.4rem;
+    font-size: clamp(1.15rem, 1.6vw, 1.5rem);
+    font-weight: 500;
+}
+
+.join-text {
+    margin: 0 auto;
+    max-width: 52rem;
+    font-size: clamp(1rem, 1.25vw, 1.22rem);
+    line-height: 1.95;
+}
+
+.join-text strong {
+    font-weight: 700;
+}
+
+/* הכפתורים המעוגלים: 3 תפקידים בשורה הראשונה, כניסה ויצירת קשר בשנייה */
+.join-pills {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.4rem;
+    margin-top: clamp(2.2rem, 3.6vw, 3.8rem);
+}
+
+.join-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.4rem 1.8rem;
+}
+
+.join-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(230px, 22.5vw, 440px);
+    min-height: clamp(70px, 5.5vw, 104px);
+    padding: 0.8rem 1.6rem;
+    background: var(--sky-pill);
+    border-radius: 999px;
+    color: var(--sky-ink);
+    font-size: clamp(1.05rem, 1.35vw, 1.35rem);
+    font-weight: 700;
+    text-decoration: none;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.join-pill:hover,
+.join-pill.is-active {
+    background: #ffffff;
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 60, 64, 0.15);
+}
+
+.join-pill:focus-visible {
+    outline: none;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px var(--sky-accent);
+}
+
+/* ההסבר הקצר על התפקיד שהעכבר עליו */
+.join-detail {
+    min-height: 3.6em;
+    max-width: 44rem;
+    margin: 2rem auto 0;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: rgba(27, 27, 27, 0.72);
+    transition: color 0.2s ease;
+}
+
+.join-detail.is-active {
+    color: var(--sky-ink);
+}
+
+/* במסך מגע אין "מעבר עם העכבר" - הכפתורים מובילים ישר להרשמה */
+@media (hover: none) {
+    .join-detail {
+        display: none;
+    }
+}
+
+/* הכותרת העליונה (הלוגו ופסי התפריט) מעל הרקע הטורקיז הבהיר: טורקיז כהה, כדי שיישארו קריאים */
+body.on-sky-impact .logo-text .accent,
+body.on-sky-join .logo-text .accent {
+    color: var(--sky-accent);
+}
+
+body.on-sky-impact .logo-heart path,
+body.on-sky-join .logo-heart path {
+    fill: var(--sky-accent);
+}
+
+body.on-sky-impact .menu-bars span,
+body.on-sky-join .menu-bars span {
+    background: var(--sky-accent);
+}
+
+@media (max-width: 760px) {
+    main > section.join {
+        padding-inline: 1.4rem;
+        padding-bottom: 6rem;
+    }
+
+    .join-heading {
+        width: 100%;
+    }
+
+    .join-pills-row {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 1rem;
+    }
+
+    .join-pills {
+        gap: 1rem;
+    }
+
+    .join-pill {
+        width: 100%;
+        min-height: 64px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .join-pill {
+        transition: none;
+    }
+
+    .join-pill:hover,
+    .join-pill.is-active {
+        transform: none;
+    }
+}

@@ -8,6 +8,10 @@ const MINT_SOFT = '#dcebe9';
 const CHARCOAL = '#33383a';
 const INK = '#101010';
 const MUTED = '#5f5f5f';
+// תיקון 49: אדום לכפתורי ביטול ודחייה
+const RED = '#d32f2f';
+const RED_DEEP = '#b71c1c';
+const RED_SOFT = 'rgba(211, 47, 47, 0.08)';
 
 export const theme = createTheme({
     direction: 'rtl',
@@ -18,6 +22,7 @@ export const theme = createTheme({
         divider: 'rgba(0, 0, 0, 0.12)',
         background: {default: '#e8e8e8', paper: '#ffffff'},
         success: {main: TEAL_DEEP},
+        error: {main: RED, dark: RED_DEEP},
     },
     shape: {borderRadius: 20},
     typography: {
@@ -55,14 +60,32 @@ export const theme = createTheme({
             defaultProps: {disableElevation: true},
             styleOverrides: {
                 root: {borderRadius: 999, padding: '0.6rem 2rem'},
-                outlined: {
-                    borderColor: TEAL,
-                    color: INK,
-                    '&:hover': {backgroundColor: TEAL, borderColor: TEAL, color: '#fff'},
-                },
-                contained: {'&:hover': {backgroundColor: TEAL_DEEP}},
-                text: {'&:hover': {backgroundColor: 'transparent', color: TEAL_DEEP}},
             },
+            // תיקון 49: העיצוב הטורקיז חל רק על כפתורים רגילים (color="primary"). בעבר הוא חל על כל הכפתורים,
+            // ולכן גם כפתורי ביטול ודחייה (color="error") יצאו טורקיז-שחור - ולא אדומים.
+            variants: [
+                {
+                    props: {variant: 'outlined', color: 'primary'},
+                    style: {
+                        borderColor: TEAL,
+                        color: INK,
+                        '&:hover': {backgroundColor: TEAL, borderColor: TEAL, color: '#fff'},
+                    },
+                },
+                {props: {variant: 'contained', color: 'primary'}, style: {'&:hover': {backgroundColor: TEAL_DEEP}}},
+                {props: {variant: 'text', color: 'primary'}, style: {'&:hover': {backgroundColor: 'transparent', color: TEAL_DEEP}}},
+                // ביטול / דחייה: אדום ברור
+                {
+                    props: {variant: 'outlined', color: 'error'},
+                    style: {
+                        borderColor: RED,
+                        color: RED,
+                        '&:hover': {backgroundColor: RED, borderColor: RED, color: '#fff'},
+                    },
+                },
+                {props: {variant: 'contained', color: 'error'}, style: {'&:hover': {backgroundColor: RED_DEEP}}},
+                {props: {variant: 'text', color: 'error'}, style: {color: RED, '&:hover': {backgroundColor: RED_SOFT, color: RED_DEEP}}},
+            ],
         },
         MuiCard: {
             defaultProps: {elevation: 0},

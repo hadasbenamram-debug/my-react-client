@@ -8,6 +8,8 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
+import PhoneInTalkOutlinedIcon from '@mui/icons-material/PhoneInTalkOutlined';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
 import { authHeaders, getCurrentUser, homePathForRole, roleTitle, saveSession, switchRole, syncRoles } from '../utils/auth';
@@ -29,6 +31,8 @@ const statusChip = (status: AccountRoleDto['status']) =>
 
 type Status = { ok: boolean; text: string } | null;
 type Channel = 'email' | 'phone';
+// תיקון 64: קוד לטלפון - במסרון או בשיחה קולית שמקריאה אותו
+type PhoneMethod = 'sms' | 'call';
 
 export function ProfilePage() {
   const mustChangeFromUrl = new URLSearchParams(window.location.search).get('mustChange') === '1';
@@ -45,6 +49,7 @@ export function ProfilePage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordStatus, setPasswordStatus] = useState<Status>(null);
   const [verifyStatus, setVerifyStatus] = useState<Status>(null);
+  const [sending, setSending] = useState<'email' | PhoneMethod | null>(null);
   const [roles, setRoles] = useState<AccountRoleDto[]>([]);
   const [canAddRoles, setCanAddRoles] = useState(false);
   const activeRole = getCurrentUser().role;
@@ -169,16 +174,27 @@ export function ProfilePage() {
   };
 
   // חדש: אימות מייל וטלפון (SMS) בקוד חד-פעמי
-  const sendCode = async (channel: Channel) => {
+  // תיקון 64: לטלפון אפשר לבחור גם שיחה קולית - השרת מתקשר ומקריא את הקוד
+  const sendCode = async (channel: Channel, method: PhoneMethod = 'sms') => {
     setVerifyStatus(null);
-    const response = await fetch(`/api/auth/send-${channel}-verification`, { method: 'POST', headers: authHeaders() });
-    if (response.ok) {
-      // ההודעה מהשרת: "נשלח במסרון", או בסביבת פיתוח בלי ספק SMS - שהקוד נכתב ביומן השרת ולא נשלח בפועל
-      const body = (await response.json().catch(() => null)) as { message?: string } | null;
-      setCodeSent({ ...codeSent, [channel]: true });
-      setVerifyStatus({ ok: true, text: body?.message || (channel === 'email' ? 'קוד נשלח למייל.' : 'קוד נשלח במסרון.') });
-    } else {
-      setVerifyStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לשלוח קוד כרגע.') });
+    setSending(channel === 'email' ? 'email' : method);
+    try {
+      const response = await fetch(`/api/auth/send-${channel}-verification`, channel === 'phone'
+        ? { method: 'POST', headers: authHeaders(true), body: JSON.stringify({ method }) }
+        : { method: 'POST', headers: authHeaders() });
+      if (response.ok) {
+        // ההודעה מהשרת: "נשלח במסרון" / "תכף נתקשר", או בסביבת פיתוח בלי ספק - שהקוד נכתב ביומן השרת ולא נשלח בפועל
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+        const fallback = channel === 'email' ? 'קוד נשלח למייל.' : method === 'call' ? 'תכף נתקשר אליך ונקריא את הקוד.' : 'קוד נשלח במסרון.';
+        setCodeSent({ ...codeSent, [channel]: true });
+        setVerifyStatus({ ok: true, text: body?.message || fallback });
+      } else {
+        setVerifyStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לשלוח קוד כרגע.') });
+      }
+    } catch {
+      setVerifyStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+    } finally {
+      setSending(null);
     }
   };
 
@@ -199,30 +215,54 @@ export function ProfilePage() {
     }
   };
 
+  // תיקון 64: שורה ראשונה - הסטטוס ואיך לקבל את הקוד; שורה שנייה (אחרי השליחה) - הזנת הקוד
   const verificationRow = (channel: Channel, label: string) => (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, py: 1 }}>
-      <Typography sx={{ minWidth: 80, fontWeight: 500 }}>{label}</Typography>
-      {verified[channel] ? (
-        <Chip color="success" label="מאומת" />
-      ) : (
-        <>
-          <Chip variant="outlined" label="לא מאומת" />
-          <Button size="small" variant="outlined" onClick={() => void sendCode(channel)}>
-            {codeSent[channel] ? 'שלח שוב' : 'שלח קוד'}
-          </Button>
-          {codeSent[channel] && (
-            <>
-              <TextField size="small" label="קוד" value={codes[channel]}
-                onChange={(e) => setCodes({ ...codes, [channel]: e.target.value })}
-                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 6 } }} />
-              <Button size="small" variant="contained" disabled={codes[channel].length !== 6} onClick={() => void verifyCode(channel)}>
-                אמת
+    <Box sx={{ py: 1.25 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}>
+        <Typography sx={{ minWidth: 80, fontWeight: 500 }}>{label}</Typography>
+        {verified[channel] ? (
+          <Chip color="success" label="מאומת" />
+        ) : (
+          <>
+            <Chip variant="outlined" label="לא מאומת" />
+            {channel === 'email' ? (
+              <Button size="small" variant="outlined" sx={{ whiteSpace: 'nowrap' }} disabled={sending !== null}
+                onClick={() => void sendCode('email')}>
+                {sending === 'email' ? 'שולח...' : codeSent.email ? 'שלח שוב' : 'שלח קוד'}
               </Button>
-            </>
-          )}
-        </>
+            ) : (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Button size="small" variant="outlined" startIcon={<SmsOutlinedIcon />} sx={{ whiteSpace: 'nowrap' }}
+                  disabled={sending !== null} onClick={() => void sendCode('phone', 'sms')}>
+                  {sending === 'sms' ? 'שולח...' : codeSent.phone ? 'שוב במסרון' : 'קוד במסרון'}
+                </Button>
+                <Button size="small" variant="outlined" startIcon={<PhoneInTalkOutlinedIcon />} sx={{ whiteSpace: 'nowrap' }}
+                  disabled={sending !== null} onClick={() => void sendCode('phone', 'call')}>
+                  {sending === 'call' ? 'מתקשר...' : codeSent.phone ? 'שוב בשיחה קולית' : 'קוד בשיחה קולית'}
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </Stack>
+
+      {!verified[channel] && codeSent[channel] && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5, marginInlineStart: { sm: '92px' } }}>
+          <TextField size="small" label="קוד בן 6 ספרות" value={codes[channel]} autoFocus sx={{ width: 180 }}
+            onChange={(e) => setCodes({ ...codes, [channel]: e.target.value.replace(/\D/g, '') })}
+            slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 6, dir: 'ltr' } }} />
+          <Button size="small" variant="contained" disabled={codes[channel].length !== 6} onClick={() => void verifyCode(channel)}>
+            אמת
+          </Button>
+        </Box>
       )}
-    </Stack>
+
+      {channel === 'phone' && !verified.phone && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, marginInlineStart: { sm: '92px' } }}>
+          בשיחה קולית נתקשר אליך ונקריא את הקוד - מתאים גם לטלפון כשר או לקו שלא מקבל מסרונים.
+        </Typography>
+      )}
+    </Box>
   );
 
   return (
@@ -275,6 +315,7 @@ export function ProfilePage() {
           <Card sx={{ p: { xs: 3, md: 5 } }}>
             <Typography variant="h6" sx={{ mb: 1 }}>אימות פרטי קשר</Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
+              מקבלים קוד בן 6 ספרות - במייל, במסרון או בשיחה קולית - ומזינים אותו כאן.
               טלפון מאומת מאפשר לקבל בקשות התנדבות גם במסרון.
             </Typography>
             {verificationRow('email', 'אימייל')}

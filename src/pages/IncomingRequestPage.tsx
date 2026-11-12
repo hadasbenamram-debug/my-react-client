@@ -10,6 +10,7 @@ import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import LiveRouteMap from '../components/LiveRouteMap';
+import {useAutoRefresh, useLiveUpdates} from '../components/LiveUpdates';
 import {authHeaders} from '../utils/auth';
 import {readApiError, readErrorMessage, RESPONSE_WINDOW_CODES} from '../utils/apiError';
 import type {MatchResponseDto, RouteDto} from '../types/api';
@@ -25,6 +26,7 @@ const isAccepted = (route: RouteDto) => route.stops.some((s) => ACCEPTED_STATUSE
 export function IncomingRequestPage() {
     const {id} = useParams<{id?: string}>();
     const navigate = useNavigate();
+    const {refresh} = useLiveUpdates();
     const [route, setRoute] = useState<RouteDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -33,8 +35,9 @@ export function IncomingRequestPage() {
     // והכפתורים נשארו עד שהשרת סימן את הבקשה, כך שנראה שאפשר לאשר גם אחרי 5 הדקות.
     const [expiredRouteId, setExpiredRouteId] = useState<number | null>(null);
 
-    const load = useCallback(async () => {
-        setLoading(true);
+    // silent: רענון ברקע (תיקון 45 - למשל אחרי שהמתנדב ענה מהקישור במייל) - בלי להחליף את הדף בסמל טעינה
+    const load = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             let next: RouteDto | null = null;
             if (id) {
@@ -51,7 +54,7 @@ export function IncomingRequestPage() {
             }
             setRoute(next);
         } catch (err) {
-            setMessage({text: err instanceof Error ? err.message : 'שגיאה בטעינת הבקשה.', severity: 'error'});
+            if (!silent) setMessage({text: err instanceof Error ? err.message : 'שגיאה בטעינת הבקשה.', severity: 'error'});
         } finally {
             setLoading(false);
         }
@@ -60,6 +63,9 @@ export function IncomingRequestPage() {
     useEffect(() => {
         void load();
     }, [load]);
+
+    // תיקון 45: אם הבקשה נענתה במקום אחר (הקישור במייל, מכשיר אחר) - הדף מתעדכן לבד
+    useAutoRefresh(() => void load(true), 20_000);
 
     const handleExpire = useCallback(() => {
         setExpiredRouteId(route?.id ?? null);
@@ -79,6 +85,8 @@ export function IncomingRequestPage() {
             headers: authHeaders(),
         });
         setBusy(false);
+        // הפס "מחכה לך בקשה" בשאר הדפים מתעדכן מיד
+        refresh();
 
         if (!res.ok) {
             // תיקון 12: למשל אחרי שזמן התגובה עבר - הודעה ברורה מהשרת (ולא "נפילה" או שגיאה אדומה)
@@ -124,6 +132,10 @@ export function IncomingRequestPage() {
             ) : (
                 <Stack spacing={2}>
                     <Box><DeadlineCountdown deadline={route.responseDeadline} secondsLeft={route.responseSecondsLeft} onExpire={handleExpire} /></Box>
+                    {/* תיקון 45: אותה בקשה נשלחה גם במייל - התשובה הראשונה (כאן או מהמייל) היא שנקבעת */}
+                    <Alert severity="info" variant="outlined">
+                        אפשר לאשר כאן או מהקישור שנשלח אליך במייל - התשובה הראשונה היא שנקבעת, והקישור השני כבר לא יהיה פעיל.
+                    </Alert>
                     {/* תיקון 35: המסלול על מפה דינאמית (הזזה וזום) כבר לפני האישור - תחנות האיסוף לפי הסדר והעמותה */}
                     <LiveRouteMap route={route} height={340} fallbackSrc={`/api/map/routes/${route.id}/image`} />
                     <RouteSummary route={route} />
