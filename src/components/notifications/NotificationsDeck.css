@@ -1,0 +1,151 @@
+/* ==============================================================
+   תיקון 72: דף ההתראות — "חפיסה"
+   כל הסגנונות של הקומפוננטה NotificationsDeck.
+   ============================================================== */
+
+/* הגופן (אם כבר טענת אותו ב־index.html — אפשר למחוק את השורה) */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@300;400;500;600;700&display=swap");
+
+/* ---- משתני צבע — מוגדרים על הדף עצמו כדי לא להתנגש בסגנונות הגלובליים שלך ---- */
+.dk-page {
+  --paper: #E8E8E8;
+  --sheet: #FCFCFC;
+  --ink: #26292B;
+  --ink-2: #5B6266;
+  --ink-3: #868C90;
+  --line: #E5E7E8;
+  --edge: #DADDDE;
+  --teal: #1BBFC4;
+  --teal-ink: #0A7A7F;
+  --teal-wash: #E1F5F6;
+  --amber: #E39A2D;
+  --amber-ink: #8C5205;
+  --amber-wash: #FBEFDB;
+  --font: "IBM Plex Sans Hebrew", "Segoe UI", system-ui, sans-serif;
+
+  font-family: var(--font);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.dk-page *, .dk-page *::before, .dk-page *::after { box-sizing: border-box; }
+.dk-page :focus-visible { outline: 2px solid var(--teal-ink); outline-offset: 3px; border-radius: 6px; }
+/* הכותרות באתר מקבלות גופן תצוגה (sections.css: h2) - כאן נשארים בגופן של החפיסה */
+.dk-page h1, .dk-page h2 { font-family: var(--font); letter-spacing: normal; }
+
+.dk-page { max-width: 720px; margin: 0 auto; padding: 44px 24px 150px; }
+
+.dk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 30px; }
+.dk-head h1 { margin: 0; font-size: 56px; font-weight: 300; line-height: 1; letter-spacing: -.01em; }
+.dk-head p { margin: 0; font-size: 16px; color: var(--ink-2); }
+
+/* ---- מד התקדמות: מקטע לכל התראה חדשה ---- */
+.dk-progress { display: flex; gap: 6px; margin-bottom: 18px; }
+.dk-progress i { flex: 1; height: 4px; border-radius: 4px; background: rgba(38,41,43,.10); transition: background .25s; }
+.dk-progress i.is-done { background: var(--teal); }
+
+/* ---- החפיסה ---- */
+.dk-deck {
+  display: grid; padding-bottom: 30px; position: relative; touch-action: pan-y;
+  overflow: clip; overflow-clip-margin: 40px; /* קלף שיוצא לא יוצר גלילה הצידה */
+}
+.dk-card {
+  grid-area: 1 / 1;
+  --k: 0;
+  background: var(--sheet); border: 1px solid var(--edge); border-radius: 26px;
+  padding: 34px 40px 32px; min-height: 330px;
+  display: flex; flex-direction: column;
+  transform: translateY(calc(var(--k) * 15px)) scale(calc(1 - var(--k) * .045));
+  transform-origin: 50% 100%;
+  z-index: calc(10 - var(--k));
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .32s, box-shadow .32s;
+  box-shadow: 0 1px 0 rgba(38,41,43,.04);
+}
+.dk-card:not(.is-front) { pointer-events: none; }
+.dk-card:not(.is-front):not(.is-leaving) > * { visibility: hidden; }
+.dk-card.is-k1 { background: #F5F6F6; }
+.dk-card.is-k2 { background: #EEF0F0; }
+.dk-card.is-hidden { opacity: 0; }
+.dk-card.is-front { box-shadow: 0 18px 40px -22px rgba(38,41,43,.35); cursor: grab; }
+.dk-card.is-dragging { transition: none; cursor: grabbing; }
+.dk-card.is-leaving { transform: translateX(-45%) rotate(-5deg); opacity: 0; pointer-events: none; }
+.dk-card.is-leaving.to-right { transform: translateX(45%) rotate(5deg); }
+.dk-card.is-returning { transition: none; }
+
+.dk-card-top { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--ink-2); }
+.dk-card-top time { margin-inline-start: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dk-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #EEF0F1; color: var(--ink-2); }
+.dk-icon.tone-teal { background: var(--teal-wash); color: var(--teal-ink); }
+.dk-icon.tone-amber { background: var(--amber-wash); color: var(--amber-ink); }
+.dk-label.tone-amber { color: var(--amber-ink); font-weight: 500; }
+
+.dk-card h2 { margin: 26px 0 10px; font-size: 30px; font-weight: 400; line-height: 1.25; }
+.dk-text { margin: 0; font-size: 17px; line-height: 1.6; color: var(--ink-2); max-width: 48ch; }
+.dk-quote { align-self: flex-start; margin: 2px 0 0; padding: 12px 18px; font-size: 19px; border-radius: 16px; border-start-start-radius: 4px; background: var(--teal-wash); }
+.dk-quote b { display: block; font-size: 13px; font-weight: 500; color: var(--teal-ink); }
+.dk-foot { margin-top: auto; padding-top: 26px; }
+.dk-don { display: flex; align-items: baseline; gap: 10px; font-size: 15px; color: var(--ink-2); }
+.dk-don b { direction: ltr; font-weight: 400; font-size: 22px; color: var(--ink); }
+.dk-card-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+.dk-btn { display: inline-flex; align-items: center; gap: 8px; font: 500 15px var(--font); padding: 11px 18px; border-radius: 11px;
+  border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+.dk-btn-primary { background: var(--teal); color: #0D2B2D; }
+.dk-btn-primary:hover { background: #18adb2; }
+.dk-btn-quiet { background: transparent; color: var(--teal-ink); border-color: #BEE5E7; }
+.dk-btn-quiet:hover { background: var(--teal-wash); }
+
+/* ---- ניווט מתחת לחפיסה ---- */
+.dk-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dk-pos { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.dk-nav-btn { display: inline-flex; align-items: center; gap: 8px; font: 500 15px var(--font); cursor: pointer;
+  padding: 10px 16px; border-radius: 11px; border: 1px solid var(--edge); background: var(--sheet); color: var(--ink); }
+.dk-nav-btn:hover { border-color: #C6CBCD; }
+.dk-nav-btn:disabled { opacity: .45; cursor: default; }
+.dk-nav-btn.is-main { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.dk-nav-btn.is-main:hover { background: #3A3F42; }
+.dk-keys { font-size: 13px; color: var(--ink-3); text-align: center; margin: 14px 0 0; }
+
+/* ---- מצב סיום ---- */
+.dk-done { grid-area: 1 / 1; min-height: 330px; border: 1.5px dashed #C9CED0; border-radius: 26px;
+  display: grid; place-content: center; text-align: center; padding: 32px; }
+.dk-done h2 { margin: 0 0 6px; font-size: 26px; font-weight: 400; }
+.dk-done p { margin: 0; color: var(--ink-2); }
+
+/* ---- היסטוריה ---- */
+.dk-history { margin-top: 56px; }
+.dk-history h2 { margin: 0 0 12px; font-size: 18px; font-weight: 500; }
+.dk-hlist { list-style: none; margin: 0; padding: 6px 0; background: var(--sheet); border: 1px solid var(--edge); border-radius: 18px; }
+.dk-hrow { display: grid; grid-template-columns: 28px 1fr auto; gap: 14px; align-items: center; padding: 12px 22px; }
+.dk-hrow + .dk-hrow { border-top: 1px solid var(--line); }
+.dk-hrow svg { color: var(--ink-3); }
+.dk-hrow p { margin: 0; font-size: 15px; }
+.dk-hrow time { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dk-hrow.is-new { animation: dk-flash 1.6s ease-out; }
+/* שורה עם קישור (למסך התרומה / הבקשה / המעקב) - כל השורה לחיצה */
+.dk-hrow.is-link { padding: 0; }
+.dk-hrow.is-link > a { grid-column: 1 / -1; display: grid; grid-template-columns: 28px 1fr auto; gap: 14px; align-items: center;
+  padding: 12px 22px; color: inherit; text-decoration: none; transition: background .15s; }
+.dk-hrow.is-link > a:hover { background: var(--teal-wash); }
+.dk-empty { margin: 0; padding: 18px 22px; color: var(--ink-3); background: var(--sheet); border: 1px solid var(--edge); border-radius: 18px; }
+@keyframes dk-flash { from { background: var(--teal-wash); } }
+
+/* ---- מובייל ---- */
+@media (max-width: 640px) {
+  .dk-page { padding: 28px 12px 110px; }
+  .dk-deck { overflow-clip-margin: 10px; }
+  .dk-head h1 { font-size: 42px; }
+  .dk-card { padding: 24px 22px 22px; border-radius: 22px; min-height: 360px; }
+  .dk-card h2 { font-size: 24px; margin-top: 20px; }
+  .dk-keys { display: none; }
+  /* שהכפתורים והמונה לא יישברו לשתי שורות במסך צר */
+  .dk-nav { gap: 8px; }
+  .dk-nav-btn { padding: 10px 12px; white-space: nowrap; }
+  .dk-pos { white-space: nowrap; font-size: 13px; }
+  .dk-hrow { padding: 12px 16px; }
+  .dk-hrow.is-link { padding: 0; }
+  .dk-hrow.is-link > a { padding: 12px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dk-card, .dk-progress i { transition: none; }
+  .dk-hrow.is-new { animation: none; }
+}

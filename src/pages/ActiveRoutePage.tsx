@@ -310,7 +310,8 @@ export function ActiveRoutePage() {
                 fallbackSrc={`/api/map/routes/${route.id}/image`}
             />
 
-            <RouteSummary route={route} stopActions={stopActions} destinationActions={destinationActions} />
+            {/* תיקון 74: כפתור לפרטי כל תרומה במסלול */}
+            <RouteSummary route={route} stopActions={stopActions} destinationActions={destinationActions} donationRole="volunteer" />
 
             {/* תיקון 46: אישור לפני "מסרתי הכול" */}
             <Dialog open={confirmDeliverAll} onClose={() => setConfirmDeliverAll(false)} fullWidth maxWidth="xs">

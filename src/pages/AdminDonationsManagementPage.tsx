@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -13,6 +14,9 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import type { AdminDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS } from '../utils/format';
 import { getToken } from '../utils/auth';
+
+// תיקון 75: תרומות שהמנוע כבר שיבץ (יש להן מסלול - ואולי הסבר להחלטה)
+const WAS_MATCHED = ['Matched', 'PickedUp', 'Delivered', 'Completed'];
 
 export function AdminDonationsManagementPage() {
   const [donations, setDonations] = useState<AdminDonationView[]>([]);
@@ -115,6 +119,12 @@ export function AdminDonationsManagementPage() {
                 </Typography>
               </Box>
             </Box>
+            {/* תיקון 75: "למה המנוע בחר את המתנדב?" - לכל תרומה ששובצה */}
+            {WAS_MATCHED.includes(item.status) && (
+              <Button component={RouterLink} to={`/app/admin/decisions/donation/${item.id}`} variant="text" sx={{ flexShrink: 0 }}>
+                למה המתנדב הזה?
+              </Button>
+            )}
             {(item.status === 'Pending' || item.status === 'Matched') && (
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                 {item.status === 'Pending' && (

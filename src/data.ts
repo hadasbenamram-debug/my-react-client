@@ -83,7 +83,6 @@ export const NAV_GROUPS: NavGroup[] = [
         title: 'כללי',
         items: [
             {label: 'התחברות', to: '/app/login'},
-            {label: 'שכחתי סיסמה', to: '/app/forgot-password'},
             {label: 'הרשמת מתנדב', to: '/app/register-volunteer'},
             {label: 'הרשמת ספק', to: '/app/register-supplier'},
             {label: 'הרשמת עמותה', to: '/app/register-ngo'},
@@ -95,7 +94,8 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         title: 'אזור מתנדב',
         items: [
-            {label: 'דשבורד מתנדב', to: '/app/volunteer/dashboard'},
+            // תיקון 71: "דשבורד" -> "לוח בקרה"
+            {label: 'לוח בקרה למתנדב', to: '/app/volunteer/dashboard'},
             {label: 'זמינות שבועית', to: '/app/volunteer/availability'},
             {label: 'מסלול פעיל', to: '/app/volunteer/active-route'},
             {label: 'היסטוריית שיבוצים', to: '/app/volunteer/history'},
@@ -105,7 +105,7 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         title: 'אזור ספק / עסק',
         items: [
-            {label: 'דשבורד ספק', to: '/app/supplier/dashboard'},
+            {label: 'לוח בקרה לספק', to: '/app/supplier/dashboard'},
             {label: 'יצירת תרומה', to: '/app/supplier/create-donation'},
             {label: 'תרומות פתוחות', to: '/app/supplier/open-donations'},
             {label: 'היסטוריית ספק', to: '/app/supplier/history'}
@@ -114,7 +114,7 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         title: 'אזור עמותה',
         items: [
-            {label: 'דשבורד עמותה', to: '/app/ngo/dashboard'},
+            {label: 'לוח בקרה לעמותה', to: '/app/ngo/dashboard'},
             {label: 'שעות פעילות', to: '/app/ngo/hours'},
             {label: 'היסטוריית עמותה', to: '/app/ngo/history'},
             {label: 'דירוגי עמותה', to: '/app/ngo/ratings'}
@@ -123,7 +123,7 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         title: 'ניהול מערכת',
         items: [
-            {label: 'דשבורד ניהול', to: '/app/admin/dashboard'},
+            {label: 'לוח בקרה ניהולי', to: '/app/admin/dashboard'},
             {label: 'אישור משתמשים', to: '/app/admin/approvals'},
             {label: 'כל המשתמשים', to: '/app/admin/users'},
             {label: 'ניהול תרומות', to: '/app/admin/donations'},

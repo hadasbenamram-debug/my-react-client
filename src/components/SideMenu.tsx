@@ -111,7 +111,6 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                         <h3 className="side-group-title">אזור אישי</h3>
                         <div className="side-group-items">
                             <Link to="/app/login" onClick={onClose} className="side-link">התחברות</Link>
-                            <Link to="/app/forgot-password" onClick={onClose} className="side-link">איפוס סיסמה</Link>
                             <Link to="/app/register-volunteer" onClick={onClose} className="side-link">הרשמת מתנדב</Link>
                             <Link to="/app/register-supplier" onClick={onClose} className="side-link">הרשמת ספק / עסק</Link>
                             <Link to="/app/register-ngo" onClick={onClose} className="side-link">הרשמת עמותה</Link>
@@ -158,7 +157,8 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                     <div className="menu-section">
                         <h3 className="side-group-title">אזור מתנדב</h3>
                         <div className="side-group-items">
-                            <Link to="/app/volunteer/dashboard" onClick={onClose} className="side-link">דשבורד מתנדב</Link>
+                            {/* תיקון 71: "דשבורד" -> "לוח בקרה" בכל התפריט */}
+                            <Link to="/app/volunteer/dashboard" onClick={onClose} className="side-link">לוח בקרה למתנדב</Link>
                             <Link to="/app/volunteer/availability" onClick={onClose} className="side-link">זמינות שבועית</Link>
                             {/* תיקון 62: "בקשה נכנסת" יצאה מהתפריט - בקשה חדשה קופצת לבד ומופיעה בדשבורד */}
                             <Link to="/app/volunteer/active-route" onClick={onClose} className="side-link">מסלול פעיל</Link>
@@ -173,7 +173,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                     <div className="menu-section">
                         <h3 className="side-group-title">אזור ספק / עסק</h3>
                         <div className="side-group-items">
-                            <Link to="/app/supplier/dashboard" onClick={onClose} className="side-link">דשבורד ספק</Link>
+                            <Link to="/app/supplier/dashboard" onClick={onClose} className="side-link">לוח בקרה לספק</Link>
                             <Link to="/app/supplier/create-donation" onClick={onClose} className="side-link">יצירת תרומה</Link>
                             <Link to="/app/supplier/open-donations" onClick={onClose} className="side-link">תרומות פתוחות</Link>
                             <Link to="/app/supplier/history" onClick={onClose} className="side-link">היסטוריית ספק</Link>
@@ -187,7 +187,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                     <div className="menu-section">
                         <h3 className="side-group-title">אזור עמותה</h3>
                         <div className="side-group-items">
-                            <Link to="/app/ngo/dashboard" onClick={onClose} className="side-link">דשבורד עמותה</Link>
+                            <Link to="/app/ngo/dashboard" onClick={onClose} className="side-link">לוח בקרה לעמותה</Link>
                             {/* תיקון 52: הוסר "רישום עמותה" - מי שבאזור העמותה כבר רשום ומאושר כעמותה */}
                             <Link to="/app/ngo/hours" onClick={onClose} className="side-link">שעות פעילות</Link>
                             <Link to="/app/ngo/history" onClick={onClose} className="side-link">היסטוריית עמותה</Link>
@@ -208,7 +208,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                                 className={`side-link ${pathname === '/app/admin/dashboard' ? 'is-active' : ''}`}
                                 aria-current={pathname === '/app/admin/dashboard' ? 'page' : undefined}
                             >
-                                דשבורד ניהול
+                                לוח בקרה ניהולי
                             </Link>
                         </div>
 

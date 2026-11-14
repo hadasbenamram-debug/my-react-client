@@ -144,11 +144,7 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
         />
       )}
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        משתמש מאמת את המייל והטלפון בעצמו בעמוד "הפרופיל שלי" ← "אימות פרטי קשר" (קוד בן 6 ספרות במייל, במסרון או בשיחה קולית).
-        המייל מסומן כמאומת גם כשהמשתמש נכנס דרך קישור שנשלח למייל או מאפס סיסמה.
-        אפשר גם לסמן ידנית - בלחיצה על התגית (למשל אחרי שיחה עם המשתמש).
-      </Alert>
+
 
       {status && (
         <Alert severity={status.ok ? 'success' : 'error'} sx={{ mb: 3 }} onClose={() => setStatus(null)}>

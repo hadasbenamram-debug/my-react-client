@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -8,13 +8,13 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import ScaleIcon from '@mui/icons-material/Scale';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle';
+import DashboardGreeting from '../components/DashboardGreeting';
 import StatGrid from '../components/StatGrid';
 import DonationImage from '../components/DonationImage';
 import { LoadingBlock } from '../components/PageParts';
@@ -129,11 +129,8 @@ export function NgoDashboard() {
 
   return (
     <Box sx={{ maxWidth: 960, mx: 'auto' }}>
-      <PageTitle
-        eyebrow="עמותה"
-        title="הדשבורד שלי"
-        subtitle="מה בדרך אליכם, מה מחכה לאישור קבלה, וכמה מזון כבר הגיע."
-      />
+      {/* תיקון 70: ברכה אישית במקום "הדשבורד שלי" */}
+      <DashboardGreeting eyebrow="עמותה" />
       {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
       {confirmError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setConfirmError(null)}>{confirmError}</Alert>}
 
@@ -151,8 +148,7 @@ export function NgoDashboard() {
         {toConfirm.length > 0 && (
           <Button variant="outlined" startIcon={<FactCheckIcon />} onClick={() => scrollTo('ngo-to-confirm')}>אישור קבלה</Button>
         )}
-        <Button variant="outlined" startIcon={<AccessTimeIcon />} onClick={() => navigate('/app/ngo/hours')}>שעות קבלה</Button>
-        <Button variant="text" onClick={() => navigate('/app/ngo/history')}>היסטוריה</Button>
+        {/* תיקון 70: הוסרו "שעות קבלה" ו"היסטוריה" - הם בתפריט */}
       </Stack>
 
       <StatGrid
@@ -229,10 +225,14 @@ export function NgoDashboard() {
               <Stack spacing={1} sx={{ flexShrink: 0, alignItems: { sm: 'flex-end' } }}>
                 {d.volunteerRouteId != null && d.matchStatus !== 'AwaitingVolunteerConfirmation' && (
                   <Button variant={d.matchStatus === 'InPickup' || d.matchStatus === 'InTransit' ? 'contained' : 'outlined'}
-                    startIcon={<MyLocationIcon />} onClick={() => navigate(`/app/track/${d.volunteerRouteId}`)}>
+                    startIcon={<MyLocationIcon />} sx={{ minWidth: 150 }} onClick={() => navigate(`/app/track/${d.volunteerRouteId}`)}>
                     מעקב חי
                   </Button>
                 )}
+                {/* תיקון 74: לפרטי התרומה (מסך התרומה: פרטים / מעקב / שיחה) */}
+                <Button component={RouterLink} to={`/app/ngo/donation/${d.id}`} variant="outlined" startIcon={<InfoOutlinedIcon />} sx={{ minWidth: 150 }}>
+                  לפרטים
+                </Button>
                 {/* תיקון 63: המזון כבר נאסף - אם הגיע והמתנדב עוד לא סימן מסירה, אפשר לאשר מכאן */}
                 {canConfirmReceipt(d.status) && (
                   <Button variant="text" size="small" disabled={confirmingId !== null} onClick={() => void confirm(d.id)}>

@@ -12,12 +12,13 @@ import type { MatchResponseDto, MatchStatusName } from '../types/api';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
 import { MATCH_STATUS_LABELS, formatDateTime } from '../utils/format';
-import DonationLink from '../components/DonationLink';
 
 // היסטוריית השיבוצים של המתנדב.
 // תיקון 16: הדף קרא ל-api/matches/active, שמחזיר רק שיבוצים פעילים, ולכן משלוח שהושלם נעלם מהדף
 // במקום להופיע בו. עכשיו הדף קורא ל-api/matches/my-history: כל השיבוצים של המתנדב, גם אלה שהסתיימו,
 // מהחדש לישן. הצעה שעדיין ממתינה לתשובה לא מופיעה כאן (היא ב"בקשה נכנסת").
+// תיקון 73: לחיצה בכל מקום בכרטיס פותחת את מסך התרומה (פרטים / מעקב / שיחה).
+//   הקישור "תרומה #N" נמתח על כל הכרטיס (::after) - קישור אמיתי: עובד גם במקלדת ובלחיצה עם Ctrl.
 
 type ChipColor = 'success' | 'primary' | 'error' | 'default';
 
@@ -39,13 +40,38 @@ const completedText = (count: number) => {
 function HistoryCard({ item }: { item: MatchResponseDto }) {
   const inProgress = IN_PROGRESS.includes(item.statusName);
   return (
-    <Card component="article" sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+    <Card
+      component="article"
+      sx={{
+        p: { xs: 2.5, md: 3 },
+        mb: 2,
+        position: 'relative',
+        transition: 'box-shadow .2s, transform .2s',
+        '&:hover': { boxShadow: 4, transform: 'translateY(-1px)' },
+        '&:focus-within': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+      }}
+    >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 500 }}>
             {item.supplierName ?? 'ספק'} ← {item.ngoName ?? 'עמותה'}
           </Typography>
-          <Typography variant="body2" color="text.secondary"><DonationLink role="volunteer" id={item.donationId}>תרומה #{item.donationId}</DonationLink></Typography>
+          <Typography variant="body2" color="text.secondary">
+            <Box
+              component={RouterLink}
+              to={`/app/volunteer/donation/${item.donationId}`}
+              aria-label={`לפרטי תרומה #${item.donationId}`}
+              sx={{
+                color: 'inherit',
+                textDecorationColor: 'var(--teal)',
+                textUnderlineOffset: '0.2em',
+                outline: 'none',
+                '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 'inherit', zIndex: 0 },
+              }}
+            >
+              תרומה #{item.donationId}
+            </Box>
+          </Typography>
         </Box>
         <Chip
           size="small"
@@ -62,7 +88,8 @@ function HistoryCard({ item }: { item: MatchResponseDto }) {
       </Box>
 
       {inProgress && (
-        <Button component={RouterLink} to="/app/volunteer/active-route" variant="text" size="small" sx={{ mt: 1, px: 0.5 }}>
+        <Button component={RouterLink} to="/app/volunteer/active-route" variant="text" size="small"
+          sx={{ mt: 1, px: 0.5, position: 'relative', zIndex: 1 }}>
           למסלול הפעיל
         </Button>
       )}

@@ -1,11 +1,14 @@
 import {useEffect, useState} from 'react';
+import {Link as RouterLink} from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type {ReactNode} from 'react';
 import type {RouteDto, RouteStopDto} from '../types/api';
 import {formatPickupWindow, formatTime, MATCH_STATUS_LABELS, secondsUntil} from '../utils/format';
@@ -51,10 +54,12 @@ export interface RouteSummaryProps {
     stopActions?: (stop: RouteStopDto) => ReactNode;
     /** תיקון 46: פעולה ביעד - כפתור אחד "מסרתי הכול" (ולא כפתור מסירה לכל תחנה) */
     destinationActions?: ReactNode;
+    /** תיקון 74: כפתור "לפרטי התרומה" בכל תחנה - למסך התרומה של התפקיד הזה (פרטים / מעקב / שיחה) */
+    donationRole?: 'volunteer' | 'ngo' | 'supplier';
 }
 
 // כל פרטי המסלול: תחנות האיסוף לפי הסדר, מה לאסוף, זמני הגעה, והעמותה ביעד
-export default function RouteSummary({route, stopActions, destinationActions}: RouteSummaryProps) {
+export default function RouteSummary({route, stopActions, destinationActions, donationRole}: RouteSummaryProps) {
     return (
         <Card sx={{p: {xs: 2.5, md: 3.5}}}>
             <Stack direction="row" spacing={1} sx={{flexWrap: 'wrap', gap: 1, mb: 2}}>
@@ -86,6 +91,12 @@ export default function RouteSummary({route, stopActions, destinationActions}: R
                         <Stack spacing={1} sx={{alignItems: {sm: 'flex-end'}}}>
                             <Chip size="small" label={MATCH_STATUS_LABELS[stop.status] ?? stop.status} />
                             {stopActions?.(stop)}
+                            {donationRole && (
+                                <Button component={RouterLink} to={`/app/${donationRole}/donation/${stop.donationId}`}
+                                    size="small" variant="text" startIcon={<InfoOutlinedIcon />} sx={{px: 1}}>
+                                    לפרטי התרומה
+                                </Button>
+                            )}
                         </Stack>
                     </Stack>
                     <Divider sx={{mt: 1.5}} />

@@ -6,7 +6,7 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import PageTitle from '../components/PageTitle';
+import DashboardGreeting from '../components/DashboardGreeting';
 import {LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import {useAutoRefresh} from '../components/LiveUpdates';
@@ -45,7 +45,8 @@ export function VolunteerDashboard() {
 
     return (
         <Box sx={{maxWidth: 800, mx: 'auto'}}>
-            <PageTitle eyebrow="מתנדב" title="הדשבורד שלי" subtitle="הבקשה או המסלול הפעיל שלך." />
+            {/* תיקון 70: ברכה אישית במקום "הדשבורד שלי" */}
+            <DashboardGreeting eyebrow="מתנדב" />
             {error && <Alert severity="error" sx={{mb: 2}}>{error}</Alert>}
 
             {!route ? (
@@ -57,7 +58,7 @@ export function VolunteerDashboard() {
                     </Typography>
                     <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5} sx={{justifyContent: 'center'}}>
                         <Button variant="outlined" onClick={() => navigate('/app/volunteer/availability')}>עדכון זמינות שבועית</Button>
-                        <Button variant="text" onClick={() => navigate('/app/volunteer/history')}>היסטוריית השיבוצים שלי</Button>
+                        {/* תיקון 70: הוסר "היסטוריית השיבוצים שלי" - הוא בתפריט */}
                     </Stack>
                 </Card>
             ) : (
@@ -71,7 +72,8 @@ export function VolunteerDashboard() {
                             יש לך מסלול פעיל.
                         </Alert>
                     )}
-                    <RouteSummary route={route} />
+                    {/* תיקון 74: כפתור לפרטי כל תרומה במסלול */}
+                    <RouteSummary route={route} donationRole="volunteer" />
                 </Stack>
             )}
         </Box>

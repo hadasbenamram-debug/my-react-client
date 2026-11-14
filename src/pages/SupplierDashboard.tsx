@@ -14,7 +14,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import ScaleIcon from '@mui/icons-material/Scale';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import PageTitle from '../components/PageTitle';
+import DashboardGreeting from '../components/DashboardGreeting';
 import StatGrid from '../components/StatGrid';
 import DonationImage from '../components/DonationImage';
 import { LoadingBlock } from '../components/PageParts';
@@ -34,12 +34,6 @@ const kg = (value: number) => `${value.toLocaleString('he-IL', { maximumFraction
 const weightOf = (d: SupplierDonationSummaryDto) => d.totalWeightKg ?? 0;
 const itemsOf = (d: SupplierDonationSummaryDto) =>
   (d.categories ?? []).map((c) => `${c.categoryName ?? 'פריט'} ×${c.quantity}`).join(' · ');
-
-const isThisMonth = (iso: string) => {
-  const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-};
 
 // תיקון 48: הדשבורד של הספק - לא רק שני מספרים: מה בטיפול עכשיו (מי המתנדב, לאיזו עמותה, מתי מגיעים, מעקב חי),
 // מה עוד מחכה למתנדב, כמה מזון הצלתם, ופעולות מהירות.
@@ -82,18 +76,12 @@ export function SupplierDashboard() {
   const inHands = donations.filter((d) => IN_HANDS.includes(d.status));
   const completed = donations.filter((d) => d.status === 'Completed');
   const rescuedKg = donations.filter((d) => RESCUED.includes(d.status)).reduce((sum, d) => sum + weightOf(d), 0);
-  const thisMonth = donations.filter((d) => isThisMonth(d.createdAt) && d.status !== 'Cancelled');
   const recent = donations.filter((d) => FINISHED.includes(d.status)).slice(0, 5);
 
   return (
     <Box sx={{ maxWidth: 960, mx: 'auto' }}>
-      <PageTitle
-        eyebrow="ארגון תורם"
-        title="הדשבורד שלי"
-        subtitle={thisMonth.length > 0
-          ? `החודש פרסמתם ${thisMonth.length} תרומות (${kg(thisMonth.reduce((s, d) => s + weightOf(d), 0))}). תודה!`
-          : 'כאן רואים את כל התרומות שלכם: מה בטיפול עכשיו, מי בדרך, ומה כבר הגיע לעמותות.'}
-      />
+      {/* תיקון 70: ברכה אישית במקום "הדשבורד שלי" */}
+      <DashboardGreeting eyebrow="ארגון תורם" />
       {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 3 }}>
@@ -101,7 +89,7 @@ export function SupplierDashboard() {
           פרסום תרומה חדשה
         </Button>
         <Button variant="outlined" onClick={() => navigate('/app/supplier/open-donations')}>התרומות הפתוחות</Button>
-        <Button variant="text" onClick={() => navigate('/app/supplier/history')}>היסטוריה</Button>
+        {/* תיקון 70: הוסר "היסטוריה" - הוא בתפריט */}
       </Stack>
 
       <StatGrid

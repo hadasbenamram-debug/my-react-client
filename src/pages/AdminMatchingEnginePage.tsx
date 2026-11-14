@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -17,7 +18,10 @@ import { LoadingBlock } from '../components/PageParts';
 
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
+import { formatDateTime } from '../utils/format';
 import type { EngineRunResultDto, EngineStatusDto } from '../types/api';
+import { MODE_LABELS, type RouteDecisionSummaryDto } from '../types/decisions';
+import '../styles/decision.css';
 
 // תוקן: engine-status החזיר ערכים קבועים, ו"הפעל מנוע" לא שמר כלום.
 // עכשיו: הנתונים של הריצה האחרונה בפועל + מספרים מהמסד, וההפעלה הידנית היא אותה ריצה של המנוע המתוזמן.
@@ -28,6 +32,17 @@ export function AdminMatchingEnginePage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  // תיקון 75: ההחלטות האחרונות של המנוע - כל אחת עם הסבר "למה"
+  const [decisions, setDecisions] = useState<RouteDecisionSummaryDto[] | null>(null);
+
+  const fetchDecisions = async () => {
+    try {
+      const res = await fetch('/api/matches/decisions?take=12', { headers: authHeaders() });
+      setDecisions(res.ok ? ((await res.json()) as RouteDecisionSummaryDto[]) : []);
+    } catch {
+      setDecisions([]);
+    }
+  };
 
   const fetchEngineStatus = async () => {
     try {
@@ -45,6 +60,7 @@ export function AdminMatchingEnginePage() {
 
   useEffect(() => {
     fetchEngineStatus();
+    fetchDecisions();
   }, []);
 
   const handleManualRun = async () => {
@@ -56,6 +72,7 @@ export function AdminMatchingEnginePage() {
       if (res.ok || res.status === 409) {
         setLastRun((await res.json()) as EngineRunResultDto);
         await fetchEngineStatus();
+        await fetchDecisions();
       } else {
         throw new Error(await readErrorMessage(res, 'שגיאה בהפעלת מנוע השידוכים בשרת.'));
       }
@@ -108,6 +125,43 @@ export function AdminMatchingEnginePage() {
         >
           {running ? 'מריץ אלגוריתם...' : 'הפעל מנוע שידוכים ידנית'}
         </Button>
+      </Card>
+
+      {/* תיקון 75: "למה המנוע החליט כך" */}
+      <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 0.5 }}>החלטות אחרונות של המנוע</Typography>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          לכל מסלול: מי נשקל, איך נבנה הציון, ולמה דווקא המתנדב הזה.
+        </Typography>
+        {decisions === null ? (
+          <Typography color="text.secondary">טוען...</Typography>
+        ) : decisions.length === 0 ? (
+          <Typography color="text.secondary">עוד אין החלטות עם הסבר. הן יופיעו כאן אחרי הריצה הבאה של המנוע.</Typography>
+        ) : (
+          <ul className="dc-list" dir="rtl">
+            {decisions.map((d) => (
+              <li key={d.routeId}>
+                <RouterLink to={`/app/admin/decisions/${d.routeId}`}>
+                  <span className="dc-mini-ring" style={{ '--v': Math.round(d.matchScore) } as React.CSSProperties}>
+                    <span>{Math.round(d.matchScore)}</span>
+                  </span>
+                  <span>
+                    <span className="dc-list-title">
+                      {d.volunteerName ?? 'מתנדב'} ← {d.donationIds.map((id) => `#${id}`).join(', ')}
+                    </span>
+                    <span className="dc-list-sub" style={{ display: 'block' }}>
+                      {d.ngoName ? `אל ${d.ngoName} · ` : ''}{d.weightKg} ק"ג · {d.volunteersConsidered} מתנדבים נשקלו · {MODE_LABELS[d.mode] ?? d.mode}
+                    </span>
+                  </span>
+                  <span className="dc-list-side">
+                    {formatDateTime(d.decidedAt)}
+                    <span className="dc-why">למה? ←</span>
+                  </span>
+                </RouterLink>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card sx={{ p: { xs: 3, md: 4 } }}>

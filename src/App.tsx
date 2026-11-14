@@ -5,8 +5,6 @@ import AppPageLayout from './components/AppPageLayout';
 
 // --- דפים כלליים ---
 import {LoginPage} from './pages/LoginPage';
-import {ForgotPasswordPage} from './pages/ForgotPasswordPage';
-import {ResetPasswordPage} from './pages/ResetPasswordPage';
 import {RespondByLinkPage} from './pages/RespondByLinkPage';
 import {WelcomeLinkPage} from './pages/WelcomeLinkPage';
 import {ProfilePage} from './pages/ProfilePage';
@@ -43,6 +41,7 @@ import {AdminUserApprovalsPage} from './pages/AdminUserApprovalsPage';
 import {AdminPeoplePage} from './pages/AdminPeoplePage';
 import {AdminDonationsManagementPage} from './pages/AdminDonationsManagementPage';
 import {AdminMatchingEnginePage} from './pages/AdminMatchingEnginePage';
+import {AdminDecisionPage} from './pages/AdminDecisionPage';
 import {AdminNoShowPage} from './pages/AdminNoShowPage';
 import {AdminReportsPage} from './pages/AdminReportsPage';
 import {AdminCommentsManagementPage} from './pages/AdminCommentsManagementPage';
@@ -72,6 +71,13 @@ function LegacySupplierDonationRedirect() {
     return <Navigate to={id > 0 ? `/app/supplier/donation/${id}` : '/app/supplier/open-donations'} replace />;
 }
 
+// תיקון 69: איפוס הסיסמה עבר לחלון במסך ההתחברות. הקישור שבמייל (/app/reset-password?token=...) ממשיך לעבוד
+function LegacyResetPasswordRedirect() {
+    const [params] = useSearchParams();
+    const token = params.get('token');
+    return <Navigate to={token ? `/app/login?reset=${encodeURIComponent(token)}` : '/app/login?forgot=1'} replace />;
+}
+
 export default function App() {
     const currentUser: StoredUser = getCurrentUser();
 
@@ -91,8 +97,9 @@ export default function App() {
                         <Route path="/app/support" element={<Navigate to="/contact" replace />} />
 
                         <Route path="/app/login" element={<LoginPage />} />
-                        <Route path="/app/forgot-password" element={<ForgotPasswordPage />} />
-                        <Route path="/app/reset-password" element={<ResetPasswordPage />} />
+                        {/* תיקון 69: הדפים נמחקו - כתובות ישנות (גם מהמיילים) פותחות את חלון האיפוס במסך ההתחברות */}
+                        <Route path="/app/forgot-password" element={<Navigate to="/app/login?forgot=1" replace />} />
+                        <Route path="/app/reset-password" element={<LegacyResetPasswordRedirect />} />
                         {/* קישור מהמייל לבקשת התנדבות - עובד גם בלי התחברות (טוקן חד-פעמי למסלול) */}
                         <Route path="/app/respond" element={<RespondByLinkPage />} />
                         {/* קישור מהמייל "הבקשה שלך אושרה" - נכנסים ישר למערכת בלי מסך התחברות (טוקן חד-פעמי) */}
@@ -112,6 +119,9 @@ export default function App() {
                                 <Route path="/app/admin/users" element={<AdminPeoplePage />} />
                                 <Route path="/app/admin/donations" element={<AdminDonationsManagementPage />} />
                                 <Route path="/app/admin/matching" element={<AdminMatchingEnginePage />} />
+                                {/* תיקון 75: "למה המנוע החליט כך" - לפי מסלול, או לפי תרומה (המסלול האחרון שלה) */}
+                                <Route path="/app/admin/decisions/:routeId" element={<AdminDecisionPage />} />
+                                <Route path="/app/admin/decisions/donation/:donationId" element={<AdminDecisionPage />} />
                                 <Route path="/app/admin/noshow" element={<AdminNoShowPage />} />
                                 <Route path="/app/admin/reports" element={<AdminReportsPage />} />
                                 <Route path="/app/admin/comments" element={<AdminCommentsManagementPage />} />

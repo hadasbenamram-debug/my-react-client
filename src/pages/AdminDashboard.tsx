@@ -67,7 +67,7 @@ export function AdminDashboard() {
     <Box>
       <PageTitle
         eyebrow="ניהול מערכת"
-        title="דשבורד ניהולי"
+        title="לוח בקרה ניהולי" // תיקון 71: במקום "דשבורד ניהולי"
         subtitle="מבט על מערכתי לתפעול ובקרה שוטפת של מערך הצלת המזון."
       />
 
