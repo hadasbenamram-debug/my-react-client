@@ -5,6 +5,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import type { NgoDonationView } from '../types/api';
 import { formatDateTime } from '../utils/format';
 import { getToken } from '../utils/auth';
@@ -50,7 +51,14 @@ export function NgoHistoryPage() {
       <PageTitle eyebrow="עמותה" title="היסטוריית תרומות שהתקבלו" />
 
       {completedDonations.length === 0 ? (
-        <EmptyState text="אין עדיין היסטוריית תרומות שהושלמו במסד הנתונים." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<Inventory2OutlinedIcon />}
+          title="עוד לא התקבלו תרומות"
+          text="תרומות שהגיעו אליכם ואושרה קבלתן יופיעו כאן. כדי לקבל תרומות, כדאי לוודא ששעות הקבלה והקיבולת היומית מעודכנות."
+          action={{ label: 'שעות הקבלה שלנו', to: '/app/ngo/hours' }}
+          secondaryAction={{ label: 'ללוח הבקרה', to: '/app/ngo/dashboard' }}
+        />
       ) : (
         completedDonations.map((item) => (
           <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>

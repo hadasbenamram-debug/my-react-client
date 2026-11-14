@@ -6,6 +6,7 @@ import Rating from '@mui/material/Rating';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import StarOutlineRoundedIcon from '@mui/icons-material/StarOutlineRounded';
 import type { FeedbackView } from '../types/api';
 import { getToken } from '../utils/auth';
 
@@ -56,7 +57,13 @@ export function VolunteerRatingsPage() {
       />
 
       {feedbacks.length === 0 ? (
-        <EmptyState text="אין משובים זמינים כרגע במסד הנתונים." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<StarOutlineRoundedIcon />}
+          title="עוד אין משובים"
+          text="אחרי כל מסירה העמותה יכולה לדרג את האיסוף. הדירוגים יופיעו כאן."
+          action={{ label: 'להיסטוריית השיבוצים', to: '/app/volunteer/history' }}
+        />
       ) : (
         feedbacks.map((fb, idx) => (
           <Card key={idx} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>

@@ -6,6 +6,8 @@ import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
+import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import type { AdminNgoListItemView } from '../types/api';
 import { getToken } from '../utils/auth';
 
@@ -60,7 +62,22 @@ export function AdminNgosDirectoryPage({ embedded = false }: { embedded?: boolea
       </Box>
 
       {filteredNgos.length === 0 ? (
-        <EmptyState text="לא נמצאו עמותות התואמות את החיפוש." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        searchTerm.trim() !== '' ? (
+          <EmptyState
+            icon={<SearchOffIcon />}
+            title="לא נמצאו עמותות"
+            text="אין עמותה שתואמת את החיפוש. כדאי לבדוק את האיות או לחפש לפי חלק מהשם."
+            action={{ label: 'ניקוי החיפוש', onClick: () => setSearchTerm('') }}
+          />
+        ) : (
+          <EmptyState
+            icon={<GroupAddOutlinedIcon />}
+            title="עוד אין עמותות רשומות"
+            text="עמותות שנרשמות לאתר יופיעו כאן. בקשות הרשמה חדשות מחכות במסך אישור המשתמשים."
+            action={{ label: 'לאישור משתמשים', to: '/app/admin/approvals' }}
+          />
+        )
       ) : (
         filteredNgos.map((ngo) => (
           <Card key={ngo.id} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>

@@ -8,6 +8,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import LiveRouteMap from '../components/LiveRouteMap';
 import {useAutoRefresh, useLiveUpdates} from '../components/LiveUpdates';
@@ -112,7 +113,14 @@ export function IncomingRequestPage() {
             {message && <Alert severity={message.severity} sx={{mb: 2}}>{message.text}</Alert>}
 
             {!route ? (
-                <EmptyState text="אין כרגע בקשות איסוף שממתינות לך." />
+                // תיקון 76: מסך ריק עם הצעד הבא
+                <EmptyState
+                    icon={<NotificationsActiveOutlinedIcon />}
+                    title="אין כרגע בקשות שממתינות לך"
+                    text="כשהמנוע ימצא לך מסלול, הבקשה תופיע כאן מיד וגם במייל. בקשות נשלחות רק בשעות שסומנו בזמינות השבועית, ולכן כדאי לוודא שהיא מעודכנת."
+                    action={{label: 'עדכון הזמינות השבועית', to: '/app/volunteer/availability'}}
+                    secondaryAction={{label: 'ללוח הבקרה', to: '/app/volunteer/dashboard'}}
+                />
             ) : !route.awaitingResponse ? (
                 // תוקן: בקשה שזמן התגובה שלה עבר הוצגה בעבר כ"המסלול כבר אושר"
                 isAccepted(route) ? (

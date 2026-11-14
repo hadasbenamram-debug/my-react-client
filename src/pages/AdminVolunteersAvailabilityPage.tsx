@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import type { VolunteerAvailabilityView } from '../types/api';
 import { getToken } from '../utils/auth';
 
@@ -57,7 +58,22 @@ export function AdminVolunteersAvailabilityPage() {
       </Box>
 
       {filteredList.length === 0 ? (
-        <EmptyState text="אין נתוני זמינות להצגה." />
+        // תיקון 76: מסך ריק עם הצעד הבא - בסינון: ניקוי הסינון; בלי סינון: הסבר למה אין זמינות
+        dayFilter !== '' ? (
+          <EmptyState
+            icon={<EventAvailableOutlinedIcon />}
+            title="אין זמינות ביום הזה"
+            text="אף מתנדב לא סימן זמינות שתואמת את הסינון."
+            action={{ label: 'ניקוי הסינון', onClick: () => setDayFilter('') }}
+          />
+        ) : (
+          <EmptyState
+            icon={<EventAvailableOutlinedIcon />}
+            title="עוד אין מתנדבים עם זמינות"
+            text="מתנדבים מוסיפים משבצות בדף הזמינות השבועית. בלי זמינות, מנוע השידוכים לא יכול להציע להם מסלולים."
+            action={{ label: 'לרשימת המתנדבים', to: '/app/admin/users?tab=volunteers' }}
+          />
+        )
       ) : (
         filteredList.map((item, index) => (
           <Card key={index} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>

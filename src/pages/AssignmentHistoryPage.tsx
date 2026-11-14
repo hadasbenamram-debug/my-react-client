@@ -8,6 +8,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import type { MatchResponseDto, MatchStatusName } from '../types/api';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
@@ -126,7 +127,13 @@ export function AssignmentHistoryPage() {
       {error ? (
         <Alert severity="error">{error}</Alert>
       ) : history.length === 0 ? (
-        <EmptyState text="עוד אין שיבוצים בהיסטוריה. אחרי שתאשרו בקשת איסוף היא תופיע כאן." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<HistoryOutlinedIcon />}
+          title="עוד אין שיבוצים בהיסטוריה"
+          text="אחרי שתאשרו בקשת איסוף היא תופיע כאן. כדי לקבל בקשות, הזמינות השבועית צריכה להיות מעודכנת."
+          action={{ label: 'עדכון הזמינות השבועית', to: '/app/volunteer/availability' }}
+        />
       ) : (
         history.map((item) => <HistoryCard key={item.id} item={item} />)
       )}

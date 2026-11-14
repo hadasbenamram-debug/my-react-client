@@ -8,6 +8,8 @@ import Button from '@mui/material/Button';
 import PageTitle from '../components/PageTitle';
 import { openSupplierLicense } from '../utils/openSupplierLicense';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
+import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import type { AdminSupplierListItemView } from '../types/api';
 import { getToken } from '../utils/auth';
 
@@ -62,7 +64,22 @@ export function AdminSuppliersDirectoryPage({ embedded = false }: { embedded?: b
       </Box>
 
       {filteredSuppliers.length === 0 ? (
-        <EmptyState text="לא נמצאו ספקים התואמים את החיפוש." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        searchTerm.trim() !== '' ? (
+          <EmptyState
+            icon={<SearchOffIcon />}
+            title="לא נמצאו ספקים"
+            text="אין ספק שתואם את החיפוש. כדאי לבדוק את האיות או לחפש לפי חלק מהשם."
+            action={{ label: 'ניקוי החיפוש', onClick: () => setSearchTerm('') }}
+          />
+        ) : (
+          <EmptyState
+            icon={<GroupAddOutlinedIcon />}
+            title="עוד אין ספקים רשומים"
+            text="עסקים שנרשמים כספקים יופיעו כאן. בקשות הרשמה חדשות, עם רישיון העסק, מחכות במסך אישור המשתמשים."
+            action={{ label: 'לאישור משתמשים', to: '/app/admin/approvals' }}
+          />
+        )
       ) : (
         filteredSuppliers.map((sup) => (
           <Card key={sup.id} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>

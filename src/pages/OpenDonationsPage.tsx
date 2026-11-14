@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import VolunteerActivismOutlinedIcon from '@mui/icons-material/VolunteerActivismOutlined';
 import { useAutoRefresh } from '../components/LiveUpdates';
 import { authHeaders } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
@@ -124,7 +125,14 @@ export function OpenDonationsPage() {
       {message && <Alert severity={message.ok ? 'success' : 'error'} sx={{ mb: 2 }}>{message.text}</Alert>}
 
       {donations.length === 0 ? (
-        <EmptyState text="אין תרומות פתוחות כרגע." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<VolunteerActivismOutlinedIcon />}
+          title="אין תרומות פתוחות כרגע"
+          text="יש עודפי מזון היום? פרסום תרומה לוקח דקה, ומנוע השידוכים ימצא לה מתנדב ועמותה."
+          action={{ label: 'יצירת תרומה חדשה', to: '/app/supplier/create-donation' }}
+          secondaryAction={{ label: 'להיסטוריית התרומות', to: '/app/supplier/history' }}
+        />
       ) : (
         donations.map((item) => (
           <Card key={item.id} sx={{ p: { xs: 2.5, md: 3 }, mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' },

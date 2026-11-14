@@ -5,6 +5,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import type { SupplierDonationSummaryDto } from '../types/api';
 import { authHeaders } from '../utils/auth';
 import { DONATION_STATUS_LABELS, formatDateTime } from '../utils/format';
@@ -30,7 +31,13 @@ export function SupplierHistoryPage() {
       <PageTitle eyebrow="ארגון תורם" title="היסטוריית תרומות" subtitle="תרומות שהושלמו, פגו או בוטלו. לחיצה על תרומה פותחת את הפרטים, המעקב והשיחה." />
 
       {history.length === 0 ? (
-        <EmptyState text="אין עדיין תרומות בהיסטוריה." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<HistoryOutlinedIcon />}
+          title="עוד אין תרומות בהיסטוריה"
+          text="תרומות שהושלמו, פגו או בוטלו יופיעו כאן. אפשר להתחיל עכשיו בתרומה הראשונה."
+          action={{ label: 'יצירת תרומה חדשה', to: '/app/supplier/create-donation' }}
+        />
       ) : (
         history.map((item) => (
           <Card

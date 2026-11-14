@@ -17,6 +17,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import PageTitle from '../components/PageTitle';
 import {EmptyState, LoadingBlock} from '../components/PageParts';
+import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
 import RouteSummary from '../components/RouteSummary';
 import LiveRouteMap from '../components/LiveRouteMap';
 import {useAutoRefresh} from '../components/LiveUpdates';
@@ -202,7 +203,14 @@ export function ActiveRoutePage() {
             <Box sx={{maxWidth: 800, mx: 'auto'}}>
                 <PageTitle eyebrow="מתנדב" title="מסלול פעיל" />
                 {message && <Alert severity={message.ok ? 'success' : 'error'} sx={{mb: 2}}>{message.text}</Alert>}
-                <EmptyState text="אין מסלול פעיל כרגע." />
+                {/* תיקון 76: מסך ריק עם הצעד הבא */}
+                <EmptyState
+                    icon={<DirectionsCarOutlinedIcon />}
+                    title="אין מסלול פעיל כרגע"
+                    text="מסלול מתחיל אחרי שמאשרים בקשת איסוף. אם הגיעה בקשה, אפשר לענות עליה עכשיו."
+                    action={{label: 'לבקשות שממתינות לי', to: '/app/volunteer/incoming-request'}}
+                    secondaryAction={{label: 'עדכון הזמינות השבועית', to: '/app/volunteer/availability'}}
+                />
             </Box>
         );
     }

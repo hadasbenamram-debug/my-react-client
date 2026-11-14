@@ -15,6 +15,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import SearchIcon from '@mui/icons-material/Search';
 import PageTitle from '../components/PageTitle';
+import { EmptyState } from '../components/PageParts';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
 import type { UpdateVerificationDto, UserDto, UserListItemView } from '../types/api';
 import { authHeaders, getToken, roleTitle } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
@@ -144,7 +146,11 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
         />
       )}
 
-
+      <Alert severity="info" sx={{ mb: 3 }}>
+        משתמש מאמת את המייל והטלפון בעצמו בעמוד "הפרופיל שלי" ← "אימות פרטי קשר" (קוד בן 6 ספרות במייל, במסרון או בשיחה קולית).
+        המייל מסומן כמאומת גם כשהמשתמש נכנס דרך קישור שנשלח למייל או מאפס סיסמה.
+        אפשר גם לסמן ידנית - בלחיצה על התגית (למשל אחרי שיחה עם המשתמש).
+      </Alert>
 
       {status && (
         <Alert severity={status.ok ? 'success' : 'error'} sx={{ mb: 3 }} onClose={() => setStatus(null)}>
@@ -169,9 +175,15 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
       />
 
       {filteredUsers.length === 0 ? (
-        <Card sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">לא נמצאו משתמשים התואמים את החיפוש.</Typography>
-        </Card>
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<SearchOffIcon />}
+          title="לא נמצאו משתמשים"
+          text={searchTerm.trim() !== ''
+            ? 'אין משתמש שתואם את החיפוש. כדאי לבדוק את האיות או לחפש לפי חלק מהשם או מהמייל.'
+            : 'עוד אין משתמשים להצגה.'}
+          action={searchTerm.trim() !== '' ? { label: 'ניקוי החיפוש', onClick: () => setSearchTerm('') } : undefined}
+        />
       ) : (
         filteredUsers.map((user) => (
           <Card

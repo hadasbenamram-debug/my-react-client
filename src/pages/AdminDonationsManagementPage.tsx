@@ -11,6 +11,7 @@ import PageTitle from '../components/PageTitle';
 import DonationImage from '../components/DonationImage';
 import ManualAssignDialog from '../components/ManualAssignDialog';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import type { AdminDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS } from '../utils/format';
 import { getToken } from '../utils/auth';
@@ -92,7 +93,14 @@ export function AdminDonationsManagementPage() {
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
 
       {donations.length === 0 ? (
-        <EmptyState text="אין תרומות פעילות במערכת כרגע." />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        <EmptyState
+          icon={<LocalShippingOutlinedIcon />}
+          title="אין תרומות פעילות כרגע"
+          text="תרומות חדשות של ספקים יופיעו כאן עד שייאספו. בינתיים אפשר לעקוב אחרי מסלולים בדרך בחדר הבקרה."
+          action={{ label: 'לחדר הבקרה', to: '/app/admin/live-map' }}
+          secondaryAction={{ label: 'למנוע השידוכים', to: '/app/admin/matching' }}
+        />
       ) : (
         donations.map((item) => (
           <Card

@@ -9,6 +9,8 @@ import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
+import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import type { AdminVolunteerListItemDto } from '../types/api';
 import { authHeaders } from '../utils/auth';
 import { formatDateTime, isDateBeforeToday } from '../utils/format';
@@ -77,7 +79,22 @@ export function AdminVolunteersDirectoryPage({ embedded = false }: { embedded?: 
       </Box>
 
       {filteredVolunteers.length === 0 ? (
-        <EmptyState text={volunteers.length === 0 ? 'אין מתנדבים רשומים.' : 'לא נמצאו מתנדבים התואמים את החיפוש.'} />
+        // תיקון 76: מסך ריק עם הצעד הבא
+        volunteers.length === 0 ? (
+          <EmptyState
+            icon={<GroupAddOutlinedIcon />}
+            title="עוד אין מתנדבים רשומים"
+            text="מתנדבים שנרשמים לאתר יופיעו כאן. בקשות הרשמה חדשות, עם רישיון הנהיגה, מחכות במסך אישור המשתמשים."
+            action={{ label: 'לאישור משתמשים', to: '/app/admin/approvals' }}
+          />
+        ) : (
+          <EmptyState
+            icon={<SearchOffIcon />}
+            title="לא נמצאו מתנדבים"
+            text="אין מתנדב שתואם את החיפוש. כדאי לבדוק את האיות או לחפש לפי חלק מהשם."
+            action={{ label: 'ניקוי החיפוש', onClick: () => setSearchTerm('') }}
+          />
+        )
       ) : (
         filteredVolunteers.map((v) => (
           <Card key={v.id || v.userId} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
