@@ -22,7 +22,7 @@ import '../styles/donation-screen.css';
 // תיקון 63: גם הספק מקבל את המסך הזה (במקום "פרטי תרומה" ו"תגובות ספק"),
 // והעמותה מאשרת כאן את קבלת התרומה (במקום הדף "אישור קבלה").
 
-export type DonationScreenRole = 'ngo' | 'volunteer' | 'supplier';
+export type DonationScreenRole = 'ngo' | 'volunteer' | 'supplier' | 'admin';
 type Tab = 'details' | 'tracking' | 'chat';
 
 const TABS: { key: Tab; label: string }[] = [
@@ -31,18 +31,21 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'chat', label: 'שיחה' },
 ];
 
-const ROLE_PARAM: Record<DonationScreenRole, string> = { ngo: 'Ngo', volunteer: 'Volunteer', supplier: 'Supplier' };
+// למנהל אין פרמטר role: השרת מחזיר לו את כל התגובות (ו-Admin אינו ערך חוקי של RequestedRole)
+const ROLE_PARAM: Record<Exclude<DonationScreenRole, 'admin'>, string> = { ngo: 'Ngo', volunteer: 'Volunteer', supplier: 'Supplier' };
 // תיקון 62: "תרומות נכנסות" נמחק - העמותה חוזרת לדשבורד (שם רשימת "בדרך אליכם")
 const BACK: Record<DonationScreenRole, string> = {
   ngo: '/app/ngo/dashboard',
   volunteer: '/app/volunteer/history',
   supplier: '/app/supplier/dashboard',
+  admin: '/app/admin/donations',
 };
 
 const FINALE: Record<DonationScreenRole, string> = {
   ngo: 'אישרתם את קבלת המזון. תודה שאתם חלק ממעגל הנתינה!',
   volunteer: 'העמותה אישרה את הקבלה. תודה שיצאת לדרך - בזכותך המזון הגיע!',
   supplier: 'העמותה אישרה את הקבלה. תודה על התרומה - בזכותכם המזון הגיע למי שצריך!',
+  admin: 'העמותה אישרה את הקבלה. התרומה הגיעה ליעדה.',
 };
 
 // ── תאריכים: השרת שולח UTC ──
@@ -132,7 +135,8 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const loadComments = useCallback(async () => {
-    const res = await fetch(`/api/comments/tree?role=${ROLE_PARAM[role]}`, { headers: authHeaders() });
+    const query = role === 'admin' ? '' : `?role=${ROLE_PARAM[role]}`;
+    const res = await fetch(`/api/comments/tree${query}`, { headers: authHeaders() });
     if (!res.ok) return;
     const all = (await res.json()) as CommentDto[];
     setComments(all.filter((c) => c.donationId === donationId)
@@ -196,10 +200,14 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
   // עם מי השיחה: העמותה - עם המתנדב; המתנדב והספק - עם העמותה (הספק רואה גם את המתנדב בשורה נפרדת)
   const partnerName = role === 'ngo' ? donation?.volunteerName : donation?.ngoName;
   const partnerTitle = role === 'ngo' ? 'המתנדב/ת' : 'העמותה';
-  const chatWith = role === 'supplier' ? 'העמותה והמתנדב/ת' : partnerTitle;
-  const chatNote = role === 'supplier'
-    ? 'העמותה והמתנדב/ת רואים את השיחה ויכולים להגיב. אפשר להגיב לכל הודעה.'
-    : 'גם הספק רואה את השיחה ויכול להגיב. אפשר להגיב לכל הודעה.';
+  const chatWith = role === 'admin' ? 'כל המשתתפים בתרומה' : role === 'supplier' ? 'העמותה והמתנדב/ת' : partnerTitle;
+  const chatNote = role === 'admin'
+    ? 'הספק, העמותה והמתנדב/ת רואים את השיחה. אפשר להגיב לכל הודעה.'
+    : role === 'supplier'
+      ? 'העמותה והמתנדב/ת רואים את השיחה ויכולים להגיב. אפשר להגיב לכל הודעה.'
+      : 'גם הספק רואה את השיחה ויכול להגיב. אפשר להגיב לכל הודעה.';
+  // לספק ולמנהל מוצגת שורה נפרדת למתנדב/ת (למנהל - גם שם הספק מופיע למעלה)
+  const showVolunteerRow = role === 'supplier' || role === 'admin';
   const showConfirm = role === 'ngo' && !!donation && canConfirmReceipt(donation.status);
   const created = toDate(donation?.createdAt);
   const photo = imageUrl(donation?.image);
@@ -232,14 +240,16 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
           <span className="dscreen-status">{statusLabel}</span>
         </div>
 
-        {role === 'supplier' && (
+        {showVolunteerRow && (
           <div className="dscreen-row">
             <div>
               <p className="dscreen-row-title">המתנדב/ת: {donation.volunteerName ?? 'עוד לא שובץ'}</p>
               <p className="dscreen-row-sub">
                 {donation.pickedUpAt
-                  ? 'המזון נאסף ממכם'
-                  : donation.estimatedArrival ? `מגיע/ה לאיסוף בערך ב-${formatTime(donation.estimatedArrival)}` : 'נעדכן כשיימצא מתנדב'}
+                  ? (role === 'admin' ? 'המזון נאסף מהספק' : 'המזון נאסף ממכם')
+                  : donation.estimatedArrival
+                    ? `מגיע/ה לאיסוף בערך ב-${formatTime(donation.estimatedArrival)}`
+                    : (role === 'admin' ? 'עוד לא נמצא מתנדב' : 'נעדכן כשיימצא מתנדב')}
               </p>
             </div>
           </div>
@@ -303,7 +313,7 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
         <div className="dscreen-chat-head">
           <span className="dscreen-avatar" aria-hidden="true">{(partnerName ?? '?').trim().charAt(0) || '?'}</span>
           <div>
-            <p className="dscreen-row-title">שיחה עם {chatWith}{role !== 'supplier' && partnerName ? ` – ${partnerName}` : ''}</p>
+            <p className="dscreen-row-title">שיחה עם {chatWith}{(role === 'ngo' || role === 'volunteer') && partnerName ? ` – ${partnerName}` : ''}</p>
             <p className="dscreen-row-sub">{chatNote}</p>
           </div>
         </div>

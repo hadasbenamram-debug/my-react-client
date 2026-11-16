@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -20,6 +20,7 @@ import { getToken } from '../utils/auth';
 const WAS_MATCHED = ['Matched', 'PickedUp', 'Delivered', 'Completed'];
 
 export function AdminDonationsManagementPage() {
+  const navigate = useNavigate();
   const [donations, setDonations] = useState<AdminDonationView[]>([]);
   const [loading, setLoading] = useState(true);
   // תיקון 36: שיבוץ ידני של תרומה ממתינה למתנדב שהמנהל בוחר (אותו דיאלוג כמו בעמוד "טיפול באי-הגעה")
@@ -105,7 +106,25 @@ export function AdminDonationsManagementPage() {
         donations.map((item) => (
           <Card
             key={item.id}
+            // לחיצה על השורה פותחת את מסך התרומה (פרטים / מעקב / שיחה). לחיצה על כפתור או קישור בתוך השורה לא נחשבת.
+            role="link"
+            tabIndex={0}
+            aria-label={`פתיחת תרומה ${item.id}`}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('button, a')) return;
+              navigate(`/app/admin/donation/${item.id}`);
+            }}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(`/app/admin/donation/${item.id}`);
+              }
+            }}
             sx={{
+              cursor: 'pointer',
+              transition: 'box-shadow .15s ease',
+              '&:hover, &:focus-visible': { boxShadow: 4 },
               p: { xs: 2.5, md: 3 },
               mb: 2,
               display: 'flex',

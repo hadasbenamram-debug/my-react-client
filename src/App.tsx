@@ -118,6 +118,8 @@ export default function App() {
                                 <Route path="/app/admin/approvals" element={<AdminUserApprovalsPage />} />
                                 <Route path="/app/admin/users" element={<AdminPeoplePage />} />
                                 <Route path="/app/admin/donations" element={<AdminDonationsManagementPage />} />
+                                {/* מסך תרומה למנהל - פרטים / מעקב / שיחה (לחיצה על שורת תרומה בניהול תרומות) */}
+                                <Route path="/app/admin/donation/:id" element={<DonationScreen role="admin" />} />
                                 <Route path="/app/admin/matching" element={<AdminMatchingEnginePage />} />
                                 {/* תיקון 75: "למה המנוע החליט כך" - לפי מסלול, או לפי תרומה (המסלול האחרון שלה) */}
                                 <Route path="/app/admin/decisions/:routeId" element={<AdminDecisionPage />} />
