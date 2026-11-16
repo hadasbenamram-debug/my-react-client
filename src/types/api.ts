@@ -192,6 +192,9 @@ export interface UserDto {
     isEmailVerified: boolean;
     isPhoneVerified: boolean;
     createdAt: IsoDateString;
+    /** תיקון 77: false - המשתמש מחק את החשבון (מחיקה רכה) */
+    isActive?: boolean;
+    deactivatedAt?: IsoDateString | null;
 }
 
 /** תיקון 51: PUT api/users/{id}/verification (מנהל בלבד) - שדה שלא נשלח לא משתנה */

@@ -1,0 +1,159 @@
+/* ───────── תיקון 66: העוזר החכם בעיצוב החדש (כפתור צף "שאלו את לתת באהבה" + חלון צ'אט) ─────────
+   כל המחלקות מתחילות ב-lb- כדי לא להתנגש בשאר האתר. המשתנים מוגדרים על .lb-root בלבד.
+   z-index 1200: מעל הכותרת הקבועה, ומתחת לחלונות (Dialog 1300) ולהודעות הקופצות (Snackbar 1400). */
+.lb-root {
+    --lb: #1fbfc4;          /* טורקיז ראשי */
+    --lb-dark: #0f2f31;     /* כהה לכותרת */
+    --lb-soft: #e6f6f6;     /* טורקיז בהיר לרקעים */
+    --lb-bg: #f3f8f8;       /* רקע החלון */
+    --lb-text: #14282a;
+    --lb-muted: #6b8081;
+    --lb-online: #7ed957;
+    font-family: 'Heebo', 'Assistant', Arial, sans-serif;
+    direction: rtl;
+    color: var(--lb-text);
+}
+.lb-root *,
+.lb-root *::before,
+.lb-root *::after { box-sizing: border-box; }
+
+/* ---------- הכפתור הצף ---------- */
+.lb-launcher {
+    position: fixed; left: 20px; bottom: 20px; z-index: 1200;
+    display: flex; align-items: center; gap: 14px; cursor: pointer;
+    background: #fff; border-radius: 60px; padding: 10px 12px 10px 24px;
+    box-shadow: 0 8px 28px rgba(15, 47, 49, 0.22);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    border: 0; font: inherit; text-align: right; color: inherit;
+}
+.lb-launcher:hover { transform: translateY(-3px); }
+.lb-launcher.hide { opacity: 0; pointer-events: none; transform: scale(0.9); visibility: hidden; }
+.lb-launcher-texts { display: flex; flex-direction: column; line-height: 1.15; }
+.lb-launcher-title { font-weight: 700; font-size: 17px; color: var(--lb-dark); white-space: nowrap; }
+.lb-launcher-sub { font-size: 13px; color: var(--lb-muted); white-space: nowrap; }
+.lb-launcher-icon {
+    position: relative; width: 58px; height: 58px; border-radius: 50%;
+    background: var(--lb); display: flex; align-items: center; justify-content: center; flex: none;
+}
+.lb-launcher-icon svg { width: 30px; height: 30px; }
+.lb-launcher-icon::after { /* נקודת "מחובר" */
+    content: ""; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--lb-online); border: 3px solid #fff;
+}
+
+/* ---------- חלון הצ'אט ---------- */
+.lb-panel {
+    position: fixed; left: 20px; bottom: 20px; z-index: 1199;
+    width: 380px; max-width: calc(100vw - 24px); height: 600px; max-height: calc(100vh - 40px);
+    background: var(--lb-bg); border-radius: 28px; overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 16px 48px rgba(15, 47, 49, 0.35);
+    opacity: 0; transform: translateY(20px) scale(0.97); pointer-events: none; visibility: hidden;
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s linear 0.25s;
+}
+.lb-panel.open {
+    opacity: 1; transform: none; pointer-events: auto; visibility: visible;
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s;
+}
+
+.lb-head {
+    background: var(--lb-dark); color: #fff; padding: 18px 20px;
+    display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; flex: none;
+}
+.lb-head::before { /* עיגול דקורטיבי בפינה */
+    content: ""; position: absolute; left: -40px; top: -50px; width: 120px; height: 120px;
+    border-radius: 50%; background: rgba(31, 191, 196, 0.18); pointer-events: none;
+}
+.lb-bot-icon {
+    width: 44px; height: 44px; border-radius: 14px; background: var(--lb);
+    display: flex; align-items: center; justify-content: center; flex: none; position: relative;
+}
+.lb-bot-icon svg { width: 24px; height: 24px; }
+.lb-head-texts { flex: 1; min-width: 0; line-height: 1.2; position: relative; }
+.lb-head-name { font-weight: 700; font-size: 18px; }
+.lb-head-status { font-size: 13px; color: #b9d4d5; display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.lb-head-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--lb-online); display: inline-block; }
+.lb-head-btn {
+    position: relative; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+    background: rgba(255, 255, 255, 0.14); color: #fff; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+}
+.lb-head-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.26); }
+.lb-head-btn:disabled { opacity: 0.4; cursor: default; }
+.lb-head-btn svg { width: 18px; height: 18px; }
+
+/* ---------- ההודעות ---------- */
+.lb-msgs { flex: 1; overflow-y: auto; padding: 18px 16px 8px; display: flex; flex-direction: column; gap: 12px; }
+.lb-msg {
+    max-width: 86%; padding: 12px 16px; border-radius: 20px; font-size: 15px; line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+/* ב-RTL: flex-start = ימין. הבוט מימין, המשתמש משמאל */
+.lb-msg.bot { align-self: flex-start; background: #fff; border-top-right-radius: 6px; box-shadow: 0 2px 8px rgba(15, 47, 49, 0.07); }
+.lb-msg.user { align-self: flex-end; background: var(--lb); color: #fff; border-top-left-radius: 6px; white-space: pre-wrap; }
+.lb-msg a { color: #0e8a8f; font-weight: 700; text-decoration: underline; }
+.lb-msg p:last-child { margin-bottom: 0 !important; }
+
+.lb-status { display: flex; align-items: center; gap: 8px; color: var(--lb-muted); font-size: 13px; }
+.lb-msg-text + .lb-status { margin-top: 6px; }
+.lb-spinner {
+    width: 14px; height: 14px; border-radius: 50%; flex: none;
+    border: 2px solid #bfe9ea; border-top-color: var(--lb); animation: lb-spin 0.8s linear infinite;
+}
+@keyframes lb-spin { to { transform: rotate(360deg); } }
+.lb-stopped { margin-top: 4px; font-size: 12px; color: var(--lb-muted); }
+.lb-error {
+    margin-top: 8px; padding: 8px 12px; border-radius: 12px; font-size: 13px;
+    background: #fff4e5; color: #6a4300; border: 1px solid #ffd9a0;
+}
+.lb-msg-text + .lb-error { margin-top: 8px; }
+
+/* תיקון 69: הבועה והתאריך/שעה/V שמתחתיה. ב-RTL: flex-start = ימין (העוזר), flex-end = שמאל (המשתמש) */
+.lb-item { display: flex; flex-direction: column; max-width: 86%; }
+.lb-item.bot { align-self: flex-start; align-items: flex-start; }
+.lb-item.user { align-self: flex-end; align-items: flex-end; }
+.lb-item > .lb-msg { max-width: 100%; align-self: auto; }
+.lb-meta { display: flex; align-items: center; gap: 5px; margin-top: 3px; padding-inline: 8px; font-size: 11px; line-height: 1; color: var(--lb-muted); }
+.lb-ticks { width: 17px; height: 11px; flex: none; color: #9bb2b3; }
+.lb-ticks.seen { color: #0e8a8f; }
+
+/* ---------- כרטיסי בחירה מהירה ---------- */
+.lb-options { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.lb-opt {
+    display: flex; align-items: center; gap: 14px; width: 100%; cursor: pointer;
+    background: #fff; border: 1.5px solid #dcebeb; border-radius: 18px; padding: 12px 14px;
+    font: inherit; text-align: right; color: inherit; transition: border-color 0.2s, transform 0.2s;
+}
+.lb-opt:hover { border-color: var(--lb); transform: translateX(-3px); }
+.lb-opt-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--lb-soft); display: flex; align-items: center; justify-content: center; flex: none; }
+.lb-opt-icon svg { width: 22px; height: 22px; stroke: var(--lb-dark); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lb-opt-texts { flex: 1; min-width: 0; line-height: 1.25; }
+.lb-opt-title { font-weight: 700; font-size: 15px; }
+.lb-opt-sub { font-size: 13px; color: var(--lb-muted); }
+.lb-opt-arrow { width: 16px; height: 16px; stroke: #9bb2b3; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------- שורת הכתיבה ---------- */
+.lb-form { display: flex; align-items: center; gap: 10px; padding: 12px 16px 6px; background: #fff; flex: none; margin: 0; }
+.lb-input {
+    flex: 1; min-width: 0; height: 46px; border-radius: 30px; border: 2px solid #bfe9ea; background: var(--lb-bg);
+    padding: 0 18px; font: inherit; font-size: 15px; color: var(--lb-text); outline: none; direction: rtl;
+}
+.lb-input:focus { border-color: var(--lb); }
+.lb-send {
+    width: 46px; height: 46px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+    background: var(--lb); display: flex; align-items: center; justify-content: center; transition: transform 0.15s, background 0.2s;
+}
+.lb-send:hover:not(:disabled) { transform: scale(1.07); }
+.lb-send:disabled { background: #bfe9ea; cursor: default; transform: none; }
+.lb-send svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lb-send.stop svg { fill: #fff; stroke: none; width: 18px; height: 18px; }
+.lb-note { text-align: center; font-size: 12px; color: var(--lb-muted); background: #fff; padding: 2px 16px 12px; flex: none; }
+
+.lb-launcher:focus-visible, .lb-head-btn:focus-visible, .lb-send:focus-visible, .lb-opt:focus-visible { outline: 3px solid var(--lb-dark); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .lb-root * { transition: none !important; animation-duration: 2s !important; } }
+@media (max-width: 480px) {
+    .lb-panel { left: 12px; right: 12px; bottom: 12px; width: auto; max-width: none; height: calc(100vh - 24px); max-height: none; border-radius: 22px; }
+    .lb-launcher { left: 12px; bottom: 12px; }
+    .lb-launcher-sub { display: none; }
+    .lb-launcher { padding-inline: 10px 12px; }
+}

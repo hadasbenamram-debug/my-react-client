@@ -1,31 +1,21 @@
 import {useEffect, useRef, useState} from 'react';
-import type {FormEvent, KeyboardEvent} from 'react';
+import type {FormEvent} from 'react';
+import type {ReactNode} from 'react';
 import {useLocation} from 'react-router-dom';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
-import Fab from '@mui/material/Fab';
-import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import CloseIcon from '@mui/icons-material/Close';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import SendIcon from '@mui/icons-material/Send';
-import StopCircleIcon from '@mui/icons-material/StopCircle';
 import useAssistantChat from '../hooks/useAssistantChat';
 import type {ChatEntry} from '../hooks/useAssistantChat';
 import {getCurrentUser, getToken, mustChangePassword} from '../utils/auth';
 import {MAX_MESSAGE_LENGTH} from '../utils/assistantStream';
 import AssistantMessageText from './AssistantMessageText';
+import '../styles/assistant-chat.css';
 
 // העוזר החכם: כפתור צף בכל מסכי /app/... (למשתמש מחובר), שפותח חלון צ'אט.
 // התשובה מגיעה בהזרמה מ-api/chat/stream, והעוזר מכיר את הנתונים של התפקיד הפעיל.
+// תיקון 66: עיצוב חדש (כפתור "שאלו את לתת באהבה", חלון כהה-טורקיז וכרטיסי שאלות מהירות).
+// הלוגיקה (ההזרמה, ההיסטוריה, העצירה) לא השתנתה - היא ב-useAssistantChat.
 
 type RoleKey = 'admin' | 'volunteer' | 'supplier' | 'ngo' | 'general';
+type IconKey = 'route' | 'clock' | 'box' | 'people' | 'car' | 'question' | 'calendar' | 'pulse';
 
 const roleKeyOf = (role: string): RoleKey => {
     if (role === 'admin') return 'admin';
@@ -35,63 +25,200 @@ const roleKeyOf = (role: string): RoleKey => {
     return 'general';
 };
 
+interface Suggestion {
+    /** השאלה שנשלחת לעוזר */
+    question: string;
+    /** שורת הסבר קטנה מתחת לשאלה */
+    hint: string;
+    icon: IconKey;
+}
+
 // שאלות לדוגמה בחלון הריק - לחיצה שולחת אותן
-const SUGGESTIONS: Record<RoleKey, string[]> = {
-    volunteer: ['מה המסלול שלי עכשיו?', 'מתי אני זמין/ה השבוע?', 'כמה משלוחים עשיתי החודש?'],
-    supplier: ['מה מצב התרומות הפתוחות שלי?', 'מי אוסף את התרומה האחרונה שלי ומתי?', 'עד מתי אפשר לתרום לפני שבת?'],
-    ngo: ['אילו תרומות בדרך אלינו?', 'מה שעות הקבלה שלנו?', 'יש חג בקרוב? מה זה אומר לקבלת תרומות?'],
-    admin: ['מה מצב המערכת עכשיו?', 'למה תרומות לא שובצו בריצה האחרונה?', 'מי נמצא בדרך עכשיו?'],
-    general: ['איך המערכת עובדת?', 'מתי נכנסת השבת?'],
+const SUGGESTIONS: Record<RoleKey, Suggestion[]> = {
+    volunteer: [
+        {question: 'מה המסלול שלי עכשיו?', hint: 'המסלול הפעיל שלך', icon: 'route'},
+        {question: 'מתי אני זמין/ה השבוע?', hint: 'המשמרות שהגדרת', icon: 'clock'},
+        {question: 'כמה משלוחים עשיתי החודש?', hint: 'סיכום הפעילות שלך', icon: 'car'},
+    ],
+    supplier: [
+        {question: 'מה מצב התרומות הפתוחות שלי?', hint: 'מה ממתין ומה בדרך', icon: 'box'},
+        {question: 'מי אוסף את התרומה האחרונה שלי ומתי?', hint: 'מתנדב וזמן הגעה', icon: 'car'},
+        {question: 'עד מתי אפשר לתרום לפני שבת?', hint: 'זמני שבת', icon: 'clock'},
+    ],
+    ngo: [
+        {question: 'אילו תרומות בדרך אלינו?', hint: 'תרומות שבדרך אליכם', icon: 'box'},
+        {question: 'מה שעות הקבלה שלנו?', hint: 'שעות פעילות העמותה', icon: 'clock'},
+        {question: 'יש חג בקרוב? מה זה אומר לקבלת תרומות?', hint: 'חגים וקבלת תרומות', icon: 'calendar'},
+    ],
+    admin: [
+        {question: 'מה מצב המערכת עכשיו?', hint: 'תמונת מצב כללית', icon: 'pulse'},
+        {question: 'למה תרומות לא שובצו בריצה האחרונה?', hint: 'מנוע השידוכים', icon: 'question'},
+        {question: 'מי נמצא בדרך עכשיו?', hint: 'מסלולים פעילים', icon: 'car'},
+    ],
+    general: [
+        {question: 'איך המערכת עובדת?', hint: 'הסבר קצר על האתר', icon: 'question'},
+        {question: 'מתי נכנסת השבת?', hint: 'זמני שבת', icon: 'calendar'},
+    ],
 };
 
-const SUBTITLES: Record<RoleKey, string> = {
-    volunteer: 'מכיר את המסלולים והזמינות שלך',
-    supplier: 'מכיר את התרומות שלך',
-    ngo: 'מכיר את התרומות שבדרך אליכם',
-    admin: 'מכיר את מצב המערכת ומנוע השידוכים',
-    general: 'עונה על שאלות על המערכת',
+// אייקוני הכרטיסים (קווים, בסגנון הכרטיסים בעיצוב)
+const ICONS: Record<IconKey, ReactNode> = {
+    box: <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4" />,
+    people: (
+        <>
+            <circle cx="9" cy="8" r="3.5" />
+            <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+            <path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3c2.1.8 3.5 2.7 3.5 5.7" />
+        </>
+    ),
+    car: (
+        <>
+            <path d="M3 15v-3l2.2-5.5A2 2 0 0 1 7.1 5h9.8a2 2 0 0 1 1.9 1.5L21 12v3" />
+            <path d="M3 15h18v3H3zM6 18v2M18 18v2M3 12h18" />
+            <circle cx="7.5" cy="15" r=".6" />
+            <circle cx="16.5" cy="15" r=".6" />
+        </>
+    ),
+    route: (
+        <>
+            <circle cx="6" cy="19" r="2" />
+            <circle cx="18" cy="5" r="2" />
+            <path d="M8 19h7a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h7" />
+        </>
+    ),
+    clock: (
+        <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+        </>
+    ),
+    calendar: (
+        <>
+            <rect x="3.5" y="5" width="17" height="15" rx="2" />
+            <path d="M3.5 10h17M8 3v4M16 3v4" />
+        </>
+    ),
+    pulse: <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />,
+    question: (
+        <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 17h.01" />
+        </>
+    ),
 };
 
-function MessageBubble({entry, onNavigate}: {entry: ChatEntry; onNavigate: () => void}) {
+// תיקון 69: תאריך ושעה בשעון ישראל. באותו יום "היום", ביום שלפני "אתמול", ובשאר ימי השבוע הנוכחי
+// (שבוע = מיום א') שם היום - "יום ב'". רק הודעה משבוע שעבר ומעלה מקבלת תאריך מלא: "09.11.2026".
+const DAY_NAMES = ["יום א'", "יום ב'", "יום ג'", "יום ד'", "יום ה'", "יום ו'", 'שבת'];
+const DAY_MS = 24 * 60 * 60 * 1000;
+const israelParts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'Asia/Jerusalem',
+});
+
+const partsOf = (at: number) => {
+    const p: Record<string, string> = {};
+    for (const part of israelParts.formatToParts(new Date(at))) p[part.type] = part.value;
+    // מספר הימים מאז 1970 לפי תאריך ישראל, ויום בשבוע (0 = יום א')
+    const dayNumber = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)) / DAY_MS;
+    return {
+        year: p.year ?? '',
+        month: p.month ?? '',
+        day: p.day ?? '',
+        hour: p.hour ?? '',
+        minute: p.minute ?? '',
+        dayNumber,
+        weekday: new Date(dayNumber * DAY_MS).getUTCDay(),
+    };
+};
+
+const formatSentAt = (at: number, now: number = Date.now()): string => {
+    const msg = partsOf(at);
+    const today = partsOf(now);
+    const time = `${msg.hour}:${msg.minute}`;
+    const daysAgo = today.dayNumber - msg.dayNumber;
+    const weekStart = today.dayNumber - today.weekday;
+
+    let day: string;
+    if (daysAgo === 0) day = 'היום';
+    else if (daysAgo === 1) day = 'אתמול';
+    else if (msg.dayNumber >= weekStart && daysAgo > 0) day = DAY_NAMES[msg.weekday];
+    else day = `${msg.day}.${msg.month}.${msg.year}`;
+
+    return `${day}, ${time}`;
+};
+
+// הודעה שלך: V אחד = נשלחה. שני V = העוזר קרא אותה והתחיל לענות
+// (או שסיים / נעצר בלי שגיאה). אם השליחה נכשלה - נשאר V אחד.
+// הודעה של העוזר: V אחד = התשובה הגיעה (או עוד מוקרנת / החלון סגור).
+// שני V = התשובה הסתיימה והחלון פתוח, כלומר ראית אותה (ראו seenIds ב-AssistantChat).
+const wasSeen = (next: ChatEntry | undefined): boolean =>
+    !!next && (next.text !== '' || (!next.streaming && !next.error));
+
+function Ticks({seen}: {seen: boolean}) {
+    return (
+        <svg
+            className={`lb-ticks${seen ? ' seen' : ''}`}
+            viewBox="0 0 20 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            role="img"
+            aria-label={seen ? 'נקרא' : 'נשלח'}
+        >
+            <title>{seen ? 'נקרא' : 'נשלח'}</title>
+            <path d="M1.5 6.5l3.5 3.5L11.5 2" />
+            {seen && <path d="M8 9.2l1 .8L15.5 2" />}
+        </svg>
+    );
+}
+
+function MessageBubble({entry, onNavigate, seen}: {entry: ChatEntry; onNavigate: () => void; seen: boolean}) {
     const mine = entry.role === 'user';
 
+    const showMeta = mine || entry.text || entry.error;
+
     return (
-        <Box
-            sx={{
-                alignSelf: mine ? 'flex-end' : 'flex-start',
-                maxWidth: '88%',
-                px: 1.75,
-                py: 1.25,
-                borderRadius: '16px',
-                bgcolor: mine ? 'primary.main' : '#f6f8f8',
-                border: mine ? 'none' : '1px solid #dcebe9',
-                fontSize: '0.92rem',
-                lineHeight: 1.55,
-                whiteSpace: mine ? 'pre-wrap' : 'normal',
-                overflowWrap: 'anywhere',
-            }}
-        >
-            {mine ? entry.text : <AssistantMessageText text={entry.text} onNavigate={onNavigate} />}
+        <div className={`lb-item ${mine ? 'user' : 'bot'}`}>
+        <div className={`lb-msg ${mine ? 'user' : 'bot'}`}>
+            {mine ? (
+                entry.text
+            ) : (
+                entry.text && (
+                    <div className="lb-msg-text">
+                        <AssistantMessageText text={entry.text} onNavigate={onNavigate} />
+                    </div>
+                )
+            )}
 
             {entry.status && (
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mt: entry.text ? 0.75 : 0, color: 'text.secondary'}}>
-                    <CircularProgress size={14} thickness={5} />
-                    <Typography variant="caption">{entry.status}</Typography>
-                </Box>
+                <div className="lb-status">
+                    <span className="lb-spinner" aria-hidden="true" />
+                    <span>{entry.status}</span>
+                </div>
             )}
 
-            {entry.stopped && !entry.error && (
-                <Typography variant="caption" color="text.secondary" component="div" sx={{mt: 0.5}}>
-                    (התשובה נעצרה)
-                </Typography>
-            )}
+            {entry.stopped && !entry.error && <div className="lb-stopped">(התשובה נעצרה)</div>}
 
-            {entry.error && (
-                <Alert severity="warning" sx={{mt: entry.text ? 1 : 0, py: 0, fontSize: '0.85rem'}}>
-                    {entry.error}
-                </Alert>
+            {entry.error && <div className="lb-error" role="alert">{entry.error}</div>}
+
+        </div>
+
+            {/* תיקון 69: תאריך ושעה, ו-V אחד (נשלח / הגיע) או שניים (נקרא) - צמוד מתחת לבועה, על רקע הצ'אט */}
+            {showMeta && (
+                <div className="lb-meta">
+                    <time dateTime={new Date(entry.at).toISOString()}>{formatSentAt(entry.at)}</time>
+                    <Ticks seen={seen} />
+                </div>
             )}
-        </Box>
+        </div>
     );
 }
 
@@ -103,7 +230,11 @@ export default function AssistantChat() {
     const [input, setInput] = useState('');
     const {entries, busy, send, stop, reset} = useAssistantChat();
     const listRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const launcherRef = useRef<HTMLButtonElement>(null);
+    const wasOpen = useRef(false);
+    // תיקון 68: תשובות של העוזר שכבר הסתיימו בזמן שהחלון היה פתוח - אלה מסומנות "נקראו" (שני V)
+    const [seenIds, setSeenIds] = useState<ReadonlySet<number>>(() => new Set());
 
     useEffect(() => {
         const list = listRef.current;
@@ -111,7 +242,16 @@ export default function AssistantChat() {
     }, [entries, open]);
 
     useEffect(() => {
+        if (!open) return;
+        const finished = entries.filter((e) => e.role === 'assistant' && !e.streaming && !seenIds.has(e.id));
+        if (finished.length > 0) setSeenIds(new Set([...seenIds, ...finished.map((e) => e.id)]));
+    }, [entries, open, seenIds]);
+
+    // פתיחה - הפוקוס לשדה הכתיבה. סגירה - הפוקוס חוזר לכפתור (לא בטעינה הראשונה של הדף)
+    useEffect(() => {
         if (open) inputRef.current?.focus();
+        else if (wasOpen.current) launcherRef.current?.focus();
+        wasOpen.current = open;
     }, [open]);
 
     const user = getCurrentUser();
@@ -122,7 +262,7 @@ export default function AssistantChat() {
 
     const roleKey = roleKeyOf(role);
     const closeOnSmallScreen = () => {
-        if (window.matchMedia('(max-width: 600px)').matches) setOpen(false);
+        if (window.matchMedia('(max-width: 480px)').matches) setOpen(false);
     };
 
     const ask = (question: string) => {
@@ -136,124 +276,126 @@ export default function AssistantChat() {
         ask(input);
     };
 
-    // Enter שולח, Shift+Enter שורה חדשה
-    const onInputKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            ask(input);
-        }
-    };
-
-    if (!open) {
-        return (
-            <Tooltip title="העוזר החכם" placement="top">
-                <Fab
-                    color="primary"
-                    aria-label="פתיחת העוזר החכם"
-                    onClick={() => setOpen(true)}
-                    sx={{position: 'fixed', bottom: {xs: 16, md: 24}, insetInlineEnd: {xs: '16px', md: '24px'}, zIndex: 40}}
-                >
-                    <AutoAwesomeIcon />
-                </Fab>
-            </Tooltip>
-        );
-    }
-
     return (
-        <Paper
-            elevation={8}
-            role="dialog"
-            aria-label="העוזר החכם"
-            onKeyDown={(event) => {
-                if (event.key === 'Escape') setOpen(false);
-            }}
-            sx={{
-                position: 'fixed',
-                bottom: {xs: 12, md: 24},
-                insetInlineEnd: {xs: '12px', md: '24px'},
-                width: {xs: 'calc(100vw - 24px)', sm: 390},
-                height: {xs: 'min(72vh, 560px)', sm: 'min(76vh, 600px)'},
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                zIndex: 40,
-                border: '1px solid #dcebe9',
-            }}
-        >
-            {/* כותרת */}
-            <Box sx={{display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25, bgcolor: '#dcebe9'}}>
-                <AutoAwesomeIcon sx={{color: 'primary.dark'}} />
-                <Box sx={{flex: 1, minWidth: 0}}>
-                    <Typography sx={{fontWeight: 500, lineHeight: 1.2}}>העוזר של לתת באהבה</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                        {SUBTITLES[roleKey]}
-                    </Typography>
-                </Box>
-                <Tooltip title="שיחה חדשה">
-                    <span>
-                        <IconButton size="small" onClick={reset} disabled={entries.length === 0} aria-label="שיחה חדשה">
-                            <RestartAltIcon fontSize="small" />
-                        </IconButton>
-                    </span>
-                </Tooltip>
-                <IconButton size="small" onClick={() => setOpen(false)} aria-label="סגירת העוזר">
-                    <CloseIcon fontSize="small" />
-                </IconButton>
-            </Box>
-
-            {/* ההודעות */}
-            <Box
-                ref={listRef}
-                aria-live="polite"
-                sx={{flex: 1, overflowY: 'auto', px: 1.5, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25}}
+        <div className="lb-root">
+            {/* הכפתור הצף */}
+            <button
+                ref={launcherRef}
+                type="button"
+                className={`lb-launcher${open ? ' hide' : ''}`}
+                aria-label="פתיחת העוזר החכם של לתת באהבה"
+                aria-expanded={open}
+                tabIndex={open ? -1 : 0}
+                onClick={() => setOpen(true)}
             >
-                {entries.length === 0 ? (
-                    <Box sx={{textAlign: 'center', mt: 3, px: 1}}>
-                        <Typography sx={{mb: 0.5}}>שלום! במה אפשר לעזור?</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
-                            אפשר לשאול על הנתונים שלך במערכת, על שבת וחגים, ואיך עושים דברים באתר.
-                        </Typography>
-                        <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1}}>
-                            {SUGGESTIONS[roleKey].map((question) => (
-                                <Chip key={question} label={question} variant="outlined" onClick={() => ask(question)} />
-                            ))}
-                        </Box>
-                    </Box>
-                ) : (
-                    entries.map((entry) => <MessageBubble key={entry.id} entry={entry} onNavigate={closeOnSmallScreen} />)
-                )}
-            </Box>
+                <span className="lb-launcher-texts">
+                    <span className="lb-launcher-title">שאלו את לתת באהבה</span>
+                    <span className="lb-launcher-sub">כאן כדי לחבר ולעזור</span>
+                </span>
+                <span className="lb-launcher-icon">
+                    {/* בועת דיבור עם לב */}
+                    <svg viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M16 4C9.4 4 4.5 8.4 4.5 13.8c0 2.6 1.1 4.8 2.9 6.5L5.6 26l5.9-2.6c1.4.4 2.9.6 4.5.6 6.6 0 11.5-4.4 11.5-9.8S22.6 4 16 4z" />
+                        <path d="M16 18.3l-3.4-3.3a2.3 2.3 0 0 1 3.4-3.1 2.3 2.3 0 0 1 3.4 3.1z" fill="#fff" stroke="none" />
+                    </svg>
+                </span>
+            </button>
 
-            {/* שדה השאלה */}
-            <Box component="form" onSubmit={onSubmit} sx={{borderTop: '1px solid #dcebe9', px: 1.5, pt: 1.25, pb: 1}}>
-                <Box sx={{display: 'flex', alignItems: 'flex-end', gap: 1}}>
-                    <TextField
-                        inputRef={inputRef}
+            {/* חלון הצ'אט */}
+            <section
+                className={`lb-panel${open ? ' open' : ''}`}
+                role="dialog"
+                aria-label="העוזר החכם של לתת באהבה"
+                aria-hidden={!open}
+                onKeyDown={(event) => {
+                    if (event.key === 'Escape') setOpen(false);
+                }}
+            >
+                <header className="lb-head">
+                    <div className="lb-bot-icon">
+                        <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" />
+                        </svg>
+                    </div>
+                    <div className="lb-head-texts">
+                        <div className="lb-head-name">לתת באהבה AI</div>
+                        <div className="lb-head-status"><i /> זמין עכשיו</div>
+                    </div>
+                    <button
+                        type="button"
+                        className="lb-head-btn"
+                        onClick={reset}
+                        disabled={entries.length === 0}
+                        aria-label="שיחה חדשה"
+                        title="שיחה חדשה"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4.5H8" />
+                        </svg>
+                    </button>
+                    <button type="button" className="lb-head-btn" onClick={() => setOpen(false)} aria-label="סגירת העוזר">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" />
+                        </svg>
+                    </button>
+                </header>
+
+                <div className="lb-msgs" ref={listRef} aria-live="polite">
+                    {entries.length === 0 ? (
+                        <>
+                            <div className="lb-msg bot">
+                                שלום! אני העוזר של לתת באהבה. אפשר לשאול אותי על הנתונים שלך במערכת, על שבת וחגים, ואיך עושים דברים באתר. במה אפשר לעזור?
+                            </div>
+                            <div className="lb-options">
+                                {SUGGESTIONS[roleKey].map((item) => (
+                                    <button key={item.question} type="button" className="lb-opt" onClick={() => ask(item.question)}>
+                                        <span className="lb-opt-icon">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">{ICONS[item.icon]}</svg>
+                                        </span>
+                                        <span className="lb-opt-texts">
+                                            <div className="lb-opt-title">{item.question}</div>
+                                            <div className="lb-opt-sub">{item.hint}</div>
+                                        </span>
+                                        <svg className="lb-opt-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        entries.map((entry, index) => (
+                            <MessageBubble
+                                key={entry.id}
+                                entry={entry}
+                                onNavigate={closeOnSmallScreen}
+                                seen={entry.role === 'user' ? wasSeen(entries[index + 1]) : seenIds.has(entry.id)}
+                            />
+                        ))
+                    )}
+                </div>
+
+                <form className="lb-form" autoComplete="off" onSubmit={onSubmit}>
+                    <input
+                        ref={inputRef}
+                        className="lb-input"
+                        type="text"
                         value={input}
                         onChange={(event) => setInput(event.target.value)}
-                        onKeyDown={onInputKeyDown}
-                        placeholder="כתבו שאלה..."
-                        multiline
-                        maxRows={4}
-                        size="small"
-                        slotProps={{htmlInput: {maxLength: MAX_MESSAGE_LENGTH, 'aria-label': 'שאלה לעוזר'}}}
+                        placeholder="כתבו לי כאן..."
+                        aria-label="שאלה לעוזר"
+                        maxLength={MAX_MESSAGE_LENGTH}
                     />
                     {busy ? (
-                        <Tooltip title="עצירת התשובה">
-                            <IconButton onClick={stop} color="primary" aria-label="עצירת התשובה">
-                                <StopCircleIcon />
-                            </IconButton>
-                        </Tooltip>
+                        <button type="button" className="lb-send stop" onClick={stop} aria-label="עצירת התשובה" title="עצירת התשובה">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3" /></svg>
+                        </button>
                     ) : (
-                        <IconButton type="submit" color="primary" disabled={!input.trim()} aria-label="שליחה">
-                            <SendIcon sx={{transform: 'scaleX(-1)'}} />
-                        </IconButton>
+                        <button type="submit" className="lb-send" disabled={!input.trim()} aria-label="שליחה">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L3 10.5l7 3 3 7z" /><path d="M10 13.5L21 3" /></svg>
+                        </button>
                     )}
-                </Box>
-                <Typography variant="caption" color="text.secondary" component="div" sx={{mt: 0.75, textAlign: 'center'}}>
-                    העוזר רק מציג מידע ויכול לטעות. פעולות עושים במסכים עצמם.
-                </Typography>
-            </Box>
-        </Paper>
+                </form>
+                <div className="lb-note">העוזר רק מציג מידע ויכול לטעות. פעולות עושים במסכים עצמם.</div>
+            </section>
+        </div>
     );
 }

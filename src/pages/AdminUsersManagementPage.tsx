@@ -14,12 +14,14 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import SearchIcon from '@mui/icons-material/Search';
+import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import PageTitle from '../components/PageTitle';
 import { EmptyState } from '../components/PageParts';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import type { UpdateVerificationDto, UserDto, UserListItemView } from '../types/api';
 import { authHeaders, getToken, roleTitle } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
+import { formatDateTime } from '../utils/format';
 
 type Channel = 'email' | 'phone';
 const CHANNEL_LABEL: Record<Channel, string> = { email: 'המייל', phone: 'הטלפון' };
@@ -40,6 +42,8 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
   const [pending, setPending] = useState<PendingVerification | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  // תיקון 78: שחזור חשבון שהמשתמש מחק
+  const [restoreTarget, setRestoreTarget] = useState<UserListItemView | null>(null);
 
   const fetchUsers = () => {
     const token = getToken();
@@ -100,6 +104,36 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
         text: `${CHANNEL_LABEL[pending.channel]} של ${pending.user.name} ${pending.verify ? 'סומן כמאומת' : 'סומן כלא מאומת'}.`,
       });
       setPending(null);
+    } catch {
+      setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // תיקון 78: מנהל משחזר חשבון שנמחק (המשתמש פנה דרך "צור קשר")
+  const restoreAccount = async () => {
+    if (!restoreTarget) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/users/${restoreTarget.id}/restore`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        setStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לשחזר את החשבון כרגע.') });
+        setRestoreTarget(null);
+        return;
+      }
+      const updated = (await response.json()) as UserDto;
+      setUsers((list) => list.map((u) => (u.id === updated.id
+        ? { ...u, isActive: updated.isActive, deactivatedAt: updated.deactivatedAt }
+        : u)));
+      setStatus({
+        ok: true,
+        text: `החשבון של ${restoreTarget.name} שוחזר. אפשר להתחבר אליו שוב עם אותו מייל ואותה סיסמה.`,
+      });
+      setRestoreTarget(null);
     } catch {
       setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
     } finally {
@@ -201,8 +235,25 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
                 <Typography variant="h6" sx={{ fontWeight: 500 }}>{user.name}</Typography>
-                {verificationChip(user, 'email')}
-                {verificationChip(user, 'phone')}
+                {/* תיקון 77: חשבון שהמשתמש מחק - לא מתחבר ולא משובץ */}
+                {user.isActive === false ? (
+                  <>
+                    <Chip size="small" color="error" variant="outlined"
+                      label={user.deactivatedAt
+                        ? `החשבון נמחק ב-${formatDateTime(user.deactivatedAt)}`
+                        : 'החשבון נמחק'} />
+                    {/* תיקון 78 */}
+                    <Button size="small" variant="outlined" startIcon={<RestoreOutlinedIcon />}
+                      onClick={() => { setStatus(null); setRestoreTarget(user); }}>
+                      שחזור חשבון
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {verificationChip(user, 'email')}
+                    {verificationChip(user, 'phone')}
+                  </>
+                )}
               </Box>
               {/* תיקון 10: לחשבון יכולים להיות כמה תפקידים (למשל ספק שהוא גם מתנדב) */}
               <Typography color="text.secondary">
@@ -240,6 +291,29 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
           <Button color="error" onClick={() => setPending(null)} disabled={saving}>ביטול</Button>
           <Button variant="contained" color={pending?.verify ? 'primary' : 'error'} onClick={() => void saveVerification()} disabled={saving}>
             {saving ? 'שומר...' : pending?.verify ? 'סימון כמאומת' : 'ביטול האימות'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* תיקון 78: אישור לפני שחזור חשבון שנמחק */}
+      <Dialog open={restoreTarget !== null} onClose={saving ? undefined : () => setRestoreTarget(null)} fullWidth maxWidth="xs">
+        <DialogTitle>שחזור חשבון</DialogTitle>
+        <DialogContent dividers>
+          {restoreTarget && (
+            <Typography>
+              לשחזר את החשבון של <strong>{restoreTarget.name}</strong> ({restoreTarget.email})?
+              <Box component="span" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                המשתמש יוכל להתחבר שוב עם אותו מייל ואותה סיסמה, עם כל התפקידים וההיסטוריה שלו.
+                מתנדב יחזור לקבל בקשות איסוף לפי הזמינות השבועית שלו.
+                כדאי לשחזר רק אחרי שווידאת שהבקשה הגיעה מבעל החשבון.
+              </Box>
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setRestoreTarget(null)} disabled={saving}>ביטול</Button>
+          <Button variant="contained" onClick={() => void restoreAccount()} disabled={saving}>
+            {saving ? 'משחזר...' : 'שחזור החשבון'}
           </Button>
         </DialogActions>
       </Dialog>

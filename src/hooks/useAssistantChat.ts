@@ -8,6 +8,8 @@ export interface ChatEntry {
     id: number;
     role: AssistantRole;
     text: string;
+    /** תיקון 67: מתי נשלחה / נוצרה ההודעה (Date.now()) - מוצג מתחת להודעה */
+    at: number;
     /** "חושב..." / "בודק את התרומות שלך..." - בזמן שהתשובה עוד לא התחילה או שכלי רץ */
     status?: string;
     error?: string;
@@ -52,7 +54,8 @@ export default function useAssistantChat(): UseAssistantChatResult {
         const text = question.trim().slice(0, MAX_MESSAGE_LENGTH);
         if (!text || busy) return;
 
-        const userEntry: ChatEntry = {id: nextId.current++, role: 'user', text};
+        const now = Date.now();
+        const userEntry: ChatEntry = {id: nextId.current++, role: 'user', text, at: now};
         const answerId = nextId.current++;
         const history = toHistory([...entries, userEntry]);
 
@@ -60,7 +63,7 @@ export default function useAssistantChat(): UseAssistantChatResult {
         setEntries((list) => [
             ...list,
             userEntry,
-            {id: answerId, role: 'assistant', text: '', status: 'חושב...', streaming: true},
+            {id: answerId, role: 'assistant', text: '', at: now, status: 'חושב...', streaming: true},
         ]);
         setBusy(true);
 

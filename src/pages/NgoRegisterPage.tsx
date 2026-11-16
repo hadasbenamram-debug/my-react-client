@@ -3,8 +3,8 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Divider from '@mui/material/Divider';
-import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -14,12 +14,6 @@ import { useAddRoleMode } from '../hooks/useAddRoleMode';
 import { readErrorMessage } from '../utils/apiError';
 import { authHeaders } from '../utils/auth';
 import type { RegionResponseDto } from '../types/api';
-
-interface RegionOption {
-  id: number;
-  regionName?: string;
-  name?: string;
-}
 
 // האורכים תואמים לעמודות במסד (השרת בודק את אותו דבר)
 interface FieldDef { name: string; label: string; type?: string; maxLength?: number; minLength?: number; }
@@ -62,7 +56,6 @@ export function NgoRegisterPage() {
     saturdayNightCloseTime: '23:00',
   });
 
-  const [regions, setRegions] = useState<RegionOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [success, setSuccess] = useState(false);
@@ -70,13 +63,13 @@ export function NgoRegisterPage() {
   const { loggedIn, account, existing, blocked } = useAddRoleMode('Ngo');
   const [roleRequested, setRoleRequested] = useState(false);
 
-  // שליפת רשימת האזורים מהשרת בעת טעינת העמוד
+  // שליפת רשימת האזורים מהשרת בעת טעינת העמוד.
+  // תיקון 82: האזור עצמו נקבע בשרת לפי הכתובת - כאן רק שולחים מזהה אזור קיים, כי השדה עדיין חובה ב-DTO.
   useEffect(() => {
     fetch('/api/region')
       .then((res) => res.json())
       .then((data: RegionResponseDto[]) => {
         if (Array.isArray(data) && data.length > 0) {
-          setRegions(data);
           setFormData((prev) => ({ ...prev, regionId: data[0].id }));
         }
       })
@@ -200,21 +193,11 @@ export function NgoRegisterPage() {
           <FormSection title="פרטי העמותה">
             {ngoFields.map(renderField)}
             
-            {/* רשימה נפתחת לבחירת אזור פעילות מתוך השרת */}
-            <TextField
-              select
-              name="regionId"
-              label="אזור פעילות"
-              value={formData.regionId}
-              onChange={handleChange}
-              required
-            >
-              {regions.map((reg) => (
-                <MenuItem key={reg.id} value={reg.id}>
-                  {reg.regionName || reg.name || `אזור ${reg.id}`}
-                </MenuItem>
-              ))}
-            </TextField>
+            {/* תיקון 82: אין בחירה ידנית של אזור - השרת קובע אותו לפי הכתובת (כמו אזור של תרומה).
+                בעבר ברירת המחדל הייתה האזור הראשון ברשימה, ועמותות מהמרכז נרשמו בטעות בירושלים. */}
+            <Typography variant="body2" color="text.secondary">
+              אזור הפעילות של העמותה נקבע אוטומטית לפי הכתובת.
+            </Typography>
           </FormSection>
 
           <Divider sx={{ my: 4 }} />

@@ -12,6 +12,7 @@ import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
 import PhoneInTalkOutlinedIcon from '@mui/icons-material/PhoneInTalkOutlined';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
+import { DeleteAccountSection } from '../components/DeleteAccountSection';
 import { authHeaders, getCurrentUser, homePathForRole, roleTitle, saveSession, switchRole, syncRoles } from '../utils/auth';
 import { readErrorMessage } from '../utils/apiError';
 import type { AccountRoleDto, ChangePasswordResponse, MyProfileDto } from '../types/api';
@@ -53,6 +54,8 @@ export function ProfilePage() {
   const [roles, setRoles] = useState<AccountRoleDto[]>([]);
   const [canAddRoles, setCanAddRoles] = useState(false);
   const activeRole = getCurrentUser().role;
+  // תיקון 77: לחשבון מנהל אין אפשרות מחיקה עצמית
+  const isAdmin = String(activeRole ?? '').toLowerCase() === 'admin' || roles.some((r) => r.role === 'Admin');
 
   const loadProfile = async () => {
     try {
@@ -363,6 +366,9 @@ export function ProfilePage() {
               )}
             </Card>
           )}
+
+          {/* תיקון 77: מחיקת החשבון (מנהל מערכת לא מוחק את החשבון מכאן) */}
+          {!isAdmin && <DeleteAccountSection />}
         </>
       )}
     </Box>

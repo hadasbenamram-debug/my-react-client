@@ -27,6 +27,8 @@ export const LoginPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const resetToken = searchParams.get('reset');
   const [resetOpen, setResetOpen] = useState(() => !!resetToken || searchParams.get('forgot') === '1');
+  // תיקון 77: הגענו לכאן אחרי מחיקת החשבון מהפרופיל
+  const accountDeleted = searchParams.get('deleted') === '1';
 
   const closeReset = () => {
     setResetOpen(false);
@@ -97,6 +99,11 @@ export const LoginPage: React.FC = () => {
     <Box sx={{ maxWidth: 480, mx: 'auto' }}>
       <PageTitle title="התחברות" />
       <Card sx={{ p: { xs: 3, md: 4 } }}>
+        {accountDeleted && !message && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            החשבון נמחק. תודה על כל מה שנתתם לקהילה.
+          </Alert>
+        )}
         <form onSubmit={handleLogin}>
           <Stack spacing={3}>
             <TextField
