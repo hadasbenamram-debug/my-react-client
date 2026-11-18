@@ -114,8 +114,45 @@ export function AboutPage() {
             אנחנו מאמינים שלכל תרומה יש ערך, ושלפעמים כל מה שצריך כדי לעשות שינוי הוא
             <strong> לחבר בין האנשים הנכונים.</strong>
           </p>
+              </div>
+      </section>
+
+      {/* ── סרטון הסבר ── */}
+      <section className="about-video-section">
+        <div className="about-video-content">
+          <span className="about-video-label">LET'S MAKE A DIFFERENCE</span>
+
+          <h2 className="about-h2">
+            הסיפור שלנו, בסרטון אחד ❤️
+          </h2>
+
+          <p className="about-video-description">
+            איך הופכים עודפי מזון להזדמנות עבור מי שזקוק להם?
+            צפו והכירו את הדרך שבה אנחנו מחברים בין תורמים,
+            עמותות ומתנדבים – ויוצרים יחד מעגל של נתינה.
+          </p>
+
+          <div className="about-video-container">
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              aria-label="סרטון הסבר על מיזם לתת באהבה"
+            >
+              <source
+  src="/videos/VideoAbout.mp4"
+  type="video/mp4"
+/>
+              הדפדפן שלך אינו תומך בהפעלת סרטונים.
+            </video>
+          </div>
+
+          <p className="about-video-caption">
+            כל תרומה מתחילה בחיבור קטן. ביחד יוצרים שינוי גדול.
+          </p>
         </div>
       </section>
+
 
       {/* ── איך זה עובד ── */}
       <section className="about-how">
