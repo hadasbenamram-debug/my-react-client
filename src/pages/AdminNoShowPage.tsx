@@ -24,17 +24,26 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import ManualAssignDialog from '../components/ManualAssignDialog';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
 import { DONATION_STATUS_LABELS, formatAgo, formatDateTime, formatTime, MATCH_STATUS_LABELS } from '../utils/format';
-import type { AwaitingPickupRouteDto, NoShowBoardDto, NoShowDto, NoShowEventDto } from '../types/api';
+import type { AwaitingPickupRouteDto, NoShowDto, NoShowEventDto } from '../types/api';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { autoReassignDonation, fetchNoShowBoard, isFirstLoad, markNoShow as markNoShowThunk, selectNoShowBoard } from '../store/adminSlice';
 
 // הלוח מתרענן כל דקה (איחורים מתעדכנים, תרומות ששובצו מחדש)
 const REFRESH_MS = 60_000;
 
 type Notice = { text: string; ok: boolean };
 
-function PhoneLink({ phone }: { phone: string | null }) {
+interface PhoneLinkProps {
+  phone: string | null;
+}
+
+interface LatenessChipProps {
+  route: AwaitingPickupRouteDto;
+}
+
+function PhoneLink({ phone }: PhoneLinkProps) {
   if (!phone) return <>—</>;
   return (
     <Link href={`tel:${phone}`} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
@@ -44,7 +53,7 @@ function PhoneLink({ phone }: { phone: string | null }) {
   );
 }
 
-function LatenessChip({ route }: { route: AwaitingPickupRouteDto }) {
+function LatenessChip({ route }: LatenessChipProps) {
   if (route.minutesLate > 0) {
     return <Chip size="small" color="error" label={`באיחור של ${route.minutesLate} דק'`} sx={{ color: '#fff' }} />;
   }
@@ -65,9 +74,12 @@ const donationChip = (event: NoShowEventDto) => {
 // למתנדב שהמנהל בוחר - ושיבוץ ידני גם לתרומות שכבר סומנו.
 export function AdminNoShowPage() {
   const navigate = useNavigate();
-  const [board, setBoard] = useState<NoShowBoardDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const boardState = useAppSelector(selectNoShowBoard);
+  const board = boardState.item;
+  const loading = isFirstLoad(boardState, board !== null);
+  // השגיאה נשארת עד טעינה מוצלחת (הרענון כל דקה שקט)
+  const loadError = boardState.error;
   const [notice, setNotice] = useState<Notice | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -83,20 +95,12 @@ export function AdminNoShowPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/matches/no-show/board', { headers: authHeaders() });
-      if (!res.ok) {
-        setLoadError(await readErrorMessage(res, 'לא ניתן לטעון את נתוני אי-ההגעה.'));
-        return;
-      }
-      setBoard((await res.json()) as NoShowBoardDto);
-      setLoadError(null);
+      await dispatch(fetchNoShowBoard()).unwrap();
       setNow(Date.now());
     } catch {
-      setLoadError('שגיאת תקשורת מול השרת.');
-    } finally {
-      setLoading(false);
+      // השגיאה נשמרת בסלייס ומוצגת בראש העמוד
     }
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     void load();
@@ -117,24 +121,16 @@ export function AdminNoShowPage() {
     setMarkError(null);
     try {
       const body: NoShowDto = { reason: reason.trim() || null, autoReassign: mode === 'auto' };
-      const res = await fetch(`/api/matches/${noShowRoute.matchId}/no-show`, {
-        method: 'POST',
-        headers: authHeaders(true),
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        setMarkError(await readErrorMessage(res, 'הסימון נכשל.'));
-        return;
-      }
-      const result = (await res.json().catch(() => null)) as { message?: string } | null;
+      const result = await dispatch(markNoShowThunk({ matchId: noShowRoute.matchId, body })).unwrap();
       const firstDonation = noShowRoute.stops[0]?.donationId ?? null;
       setNoShowRoute(null);
       setNotice({ text: result?.message ?? 'סומן No-Show.', ok: true });
       await load();
       // שיבוץ ידני: פותחים מיד את בחירת המתנדב לתרומה הראשונה (השאר מופיעות למטה, ב"תרומות שסומנו No-Show")
       if (mode === 'manual' && firstDonation !== null) setAssignDonationId(firstDonation);
-    } catch {
-      setMarkError('שגיאת תקשורת מול השרת.');
+    } catch (err) {
+      // הודעת השרת, "הסימון נכשל." או "שגיאת תקשורת מול השרת." (נקבע ב-thunk)
+      setMarkError(errorMessage(err, 'הסימון נכשל.'));
     } finally {
       setMarking(false);
     }
@@ -143,11 +139,11 @@ export function AdminNoShowPage() {
   const autoReassign = async (donationId: number) => {
     setNotice(null);
     try {
-      const res = await fetch(`/api/matches/assign-donation/${donationId}`, { method: 'POST', headers: authHeaders() });
-      const body = (await res.json().catch(() => null)) as { matched?: boolean; message?: string } | null;
-      setNotice({ text: body?.message ?? (res.ok ? 'בוצע.' : 'הפעולה נכשלה.'), ok: res.ok && body?.matched === true });
-    } catch {
-      setNotice({ text: 'שגיאת תקשורת מול השרת.', ok: false });
+      const body = await dispatch(autoReassignDonation(donationId)).unwrap();
+      setNotice({ text: body?.message ?? 'בוצע.', ok: body?.matched === true });
+    } catch (err) {
+      // הודעת השרת, "הפעולה נכשלה." או "שגיאת תקשורת מול השרת." (נקבע ב-thunk)
+      setNotice({ text: errorMessage(err, 'הפעולה נכשלה.'), ok: false });
     }
     await load();
   };

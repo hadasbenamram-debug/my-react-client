@@ -12,9 +12,12 @@ import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsAc
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import LiveRouteMap from '../components/LiveRouteMap';
 import {useAutoRefresh, useLiveUpdates} from '../components/LiveUpdates';
-import {authHeaders} from '../utils/auth';
-import {readApiError, readErrorMessage, RESPONSE_WINDOW_CODES} from '../utils/apiError';
-import type {MatchResponseDto, RouteDto} from '../types/api';
+import {RESPONSE_WINDOW_CODES} from '../utils/apiError';
+import {errorMessage, toErrorPayload} from '../api/http';
+import type {ApiErrorPayload} from '../api/http';
+import {useAppDispatch, useAppSelector} from '../store';
+import {fetchIncomingRequest, incomingCleared, respondToRequest, selectIncoming} from '../store/volunteerSlice';
+import type {RouteDto} from '../types/api';
 
 type Notice = {text: string; severity: 'success' | 'info' | 'error'};
 
@@ -28,8 +31,12 @@ export function IncomingRequestPage() {
     const {id} = useParams<{id?: string}>();
     const navigate = useNavigate();
     const {refresh} = useLiveUpdates();
-    const [route, setRoute] = useState<RouteDto | null>(null);
-    const [loading, setLoading] = useState(true);
+    const dispatch = useAppDispatch();
+    const incoming = useAppSelector(selectIncoming);
+    // נתונים של בקשה אחרת (כתובת קודמת) לא מוצגים - עד שהבקשה הזו נטענת
+    const current = incoming.key === (id ?? 'active');
+    const route = current ? incoming.data : null;
+    const loading = !current || incoming.status === 'idle' || incoming.status === 'loading';
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState<Notice | null>(null);
     // תיקון 13: הספירה לאחור הגיעה ל-0 - הכפתורים נעלמים מיד. בעבר הדף נטען מחדש כל שנייה ("לולאה"),
@@ -38,28 +45,12 @@ export function IncomingRequestPage() {
 
     // silent: רענון ברקע (תיקון 45 - למשל אחרי שהמתנדב ענה מהקישור במייל) - בלי להחליף את הדף בסמל טעינה
     const load = useCallback(async (silent = false) => {
-        if (!silent) setLoading(true);
         try {
-            let next: RouteDto | null = null;
-            if (id) {
-                const matchRes = await fetch(`/api/matches/${id}`, {headers: authHeaders()});
-                if (!matchRes.ok) throw new Error(await readErrorMessage(matchRes, 'הבקשה לא נמצאה.'));
-                const match = (await matchRes.json()) as MatchResponseDto;
-                if (match.volunteerRouteId) {
-                    const routeRes = await fetch(`/api/matches/routes/${match.volunteerRouteId}`, {headers: authHeaders()});
-                    if (routeRes.ok) next = (await routeRes.json()) as RouteDto;
-                }
-            } else {
-                const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()});
-                if (res.status === 200) next = (await res.json()) as RouteDto;
-            }
-            setRoute(next);
+            await dispatch(fetchIncomingRequest({id, silent})).unwrap();
         } catch (err) {
-            if (!silent) setMessage({text: err instanceof Error ? err.message : 'שגיאה בטעינת הבקשה.', severity: 'error'});
-        } finally {
-            setLoading(false);
+            if (!silent) setMessage({text: errorMessage(err, 'שגיאה בטעינת הבקשה.'), severity: 'error'});
         }
-    }, [id]);
+    }, [id, dispatch]);
 
     useEffect(() => {
         void load();
@@ -81,17 +72,19 @@ export function IncomingRequestPage() {
         setBusy(true);
         setMessage(null);
         const firstMatchId = route.stops[0].matchId;
-        const res = await fetch(`/api/matches/${firstMatchId}/${accept ? 'accept' : 'decline'}`, {
-            method: 'POST',
-            headers: authHeaders(),
-        });
+        let failure: ApiErrorPayload | null = null;
+        try {
+            await dispatch(respondToRequest({matchId: firstMatchId, accept})).unwrap();
+        } catch (err) {
+            failure = toErrorPayload(err, 'הפעולה נכשלה.');
+        }
         setBusy(false);
         // הפס "מחכה לך בקשה" בשאר הדפים מתעדכן מיד
         refresh();
 
-        if (!res.ok) {
+        if (failure) {
             // תיקון 12: למשל אחרי שזמן התגובה עבר - הודעה ברורה מהשרת (ולא "נפילה" או שגיאה אדומה)
-            const {message: text, code} = await readApiError(res, 'הפעולה נכשלה.');
+            const {message: text, code} = failure;
             setMessage({text, severity: code && RESPONSE_WINDOW_CODES.includes(code) ? 'info' : 'error'});
             await load();
             return;
@@ -101,7 +94,7 @@ export function IncomingRequestPage() {
             navigate('/app/volunteer/active-route');
         } else {
             setMessage({text: 'הבקשה נדחתה. תודה על העדכון!', severity: 'success'});
-            setRoute(null);
+            dispatch(incomingCleared());
         }
     };
 

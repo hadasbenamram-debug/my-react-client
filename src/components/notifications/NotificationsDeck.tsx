@@ -173,7 +173,8 @@ export default function NotificationsDeck({ notifications, donations = {}, now =
 
       <section aria-label="התראות חדשות">
         <div className="dk-progress" aria-hidden="true">
-          {Array.from({ length: total }, (_, i) => <i key={i} className={i < seen.length ? 'is-done' : undefined} />)}
+          {/* נקודה לכל התראה חדשה (לפי המזהה שלה) - מסומנת כשכבר עברו עליה */}
+          {[...seen, ...queue].map((id) => <i key={id} className={seenSet.has(id) ? 'is-done' : undefined} />)}
         </div>
 
         <div
@@ -270,9 +271,15 @@ export default function NotificationsDeck({ notifications, donations = {}, now =
 }
 
 /** קישור בתוך האתר: href אמיתי (לחיצה אמצעית / פתיחה בלשונית), ובלחיצה רגילה - ניווט של האפליקציה */
-function SiteLink({ to, onOpen, className, title, children }: {
-  to: string; onOpen: (to: string) => void; className?: string; title?: string; children: ReactNode;
-}) {
+interface SiteLinkProps {
+  to: string;
+  onOpen: (to: string) => void;
+  className?: string;
+  title?: string;
+  children: ReactNode;
+}
+
+function SiteLink({ to, onOpen, className, title, children }: SiteLinkProps) {
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -282,9 +289,14 @@ function SiteLink({ to, onOpen, className, title, children }: {
 }
 
 // תוכן של קלף אחד
-function DeckCard({ n, donation, now, onOpen }: {
-  n: DeckNotification; donation?: DeckDonation; now: Date; onOpen: (to: string) => void;
-}) {
+interface DeckCardProps {
+  n: DeckNotification;
+  donation?: DeckDonation;
+  now: Date;
+  onOpen: (to: string) => void;
+}
+
+function DeckCard({ n, donation, now, onOpen }: DeckCardProps) {
   const t = typeOf(n);
   const d = parseServerDate(n.createdAt);
   const buttons: Array<DeckLink & { primary: boolean }> = [

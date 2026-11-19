@@ -1,4 +1,4 @@
-import {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import * as signalR from '@microsoft/signalr';
@@ -14,9 +14,21 @@ import Snackbar from '@mui/material/Snackbar';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import {DeadlineCountdown} from './RouteSummary';
-import {authHeaders, getCurrentUser, getToken, otherRoleForPath, switchRole} from '../utils/auth';
+import {getToken, otherRoleForPath, switchRole} from '../utils/auth';
 import {formatTime} from '../utils/format';
 import type {NotificationDto, RouteDto} from '../types/api';
+import {useAppDispatch, useAppSelector} from '../store';
+import {selectIsLoggedIn, selectIsVolunteer} from '../store/authSlice';
+import {
+    allMarkedRead,
+    fetchPendingOffer,
+    fetchUnreadCount,
+    notificationReceived,
+    selectPendingOffer,
+    selectUnread,
+    selectVersion,
+    versionBumped,
+} from '../store/liveUpdatesSlice';
 
 /**
  * תיקונים 45 + 50: עדכונים חיים בכל האתר.
@@ -45,26 +57,44 @@ export interface LiveUpdatesValue {
     subscribe: (handler: (notification: NotificationDto) => void) => () => void;
 }
 
-const noop = () => undefined;
+// מאזינים להתראות חדשות. פונקציות אינן ניתנות לסריאליזציה ולכן אינן נשמרות ב-Redux
+type NotificationHandler = (notification: NotificationDto) => void;
+const listeners = new Set<NotificationHandler>();
 
-const LiveUpdatesContext = createContext<LiveUpdatesValue>({
-    unread: 0,
-    version: 0,
-    pendingOffer: null,
-    refresh: noop,
-    markAllRead: noop,
-    subscribe: () => noop,
-});
+const subscribe = (handler: NotificationHandler): (() => void) => {
+    listeners.add(handler);
+    return () => {
+        listeners.delete(handler);
+    };
+};
 
-export const useLiveUpdates = (): LiveUpdatesValue => useContext(LiveUpdatesContext);
+/** המצב החי מתוך ה-store (unread / version / pendingOffer) + פעולות */
+export const useLiveUpdates = (): LiveUpdatesValue => {
+    const dispatch = useAppDispatch();
+    const unread = useAppSelector(selectUnread);
+    const version = useAppSelector(selectVersion);
+    const pendingOffer = useAppSelector(selectPendingOffer);
+
+    // version חדש -> הבקשה הממתינה (למתנדב) והדפים הפתוחים נטענים מחדש
+    const refresh = useCallback(() => {
+        void dispatch(fetchUnreadCount());
+        dispatch(versionBumped());
+    }, [dispatch]);
+
+    const markAllRead = useCallback(() => {
+        dispatch(allMarkedRead());
+    }, [dispatch]);
+
+    return useMemo(
+        () => ({unread, version, pendingOffer, refresh, markAllRead, subscribe}),
+        [unread, version, pendingOffer, refresh, markAllRead],
+    );
+};
 
 const OFFER_PATH = '/app/volunteer/incoming-request';
 const OFFER_POLL_MS = 30_000;
 // דפים שכבר מציגים את הבקשה הממתינה בעצמם - בלי פס כפול
 const SHOWS_OFFER_ITSELF = [OFFER_PATH, '/app/volunteer/dashboard', '/app/volunteer/active-route'];
-
-const isVolunteer = (): boolean => String(getCurrentUser().role || '').toLowerCase().includes('volunt');
-const isLoggedIn = (): boolean => !!getToken() && String(getCurrentUser().role || 'guest').toLowerCase() !== 'guest';
 
 const SEVERITY: Record<string, 'success' | 'info' | 'warning' | 'error'> = {
     success: 'success',
@@ -83,39 +113,30 @@ export function useOpenLink(): (link: string) => void {
     }, [navigate]);
 }
 
-export function LiveUpdatesProvider({children}: {children: ReactNode}) {
+export interface LiveUpdatesProviderProps {
+    children: ReactNode;
+}
+
+export function LiveUpdatesProvider({children}: LiveUpdatesProviderProps) {
     const location = useLocation();
     const openLink = useOpenLink();
-    const [unread, setUnread] = useState(0);
-    const [version, setVersion] = useState(0);
+    const dispatch = useAppDispatch();
+    const {version, pendingOffer, refresh} = useLiveUpdates();
+    // הודעה קופצת וחלון הבקשה - מצב תצוגה מקומי של הרכיב הזה בלבד
     const [toast, setToast] = useState<NotificationDto | null>(null);
-    const [pendingOffer, setPendingOffer] = useState<RouteDto | null>(null);
     const [offerDialog, setOfferDialog] = useState<RouteDto | null>(null);
-    const listeners = useRef(new Set<(notification: NotificationDto) => void>());
     // בקשות שכבר הוצגו בחלון קופץ - לא קופצים שוב על אותה בקשה בכל בדיקה
     const shownOffers = useRef(new Set<number>());
-    const loggedIn = isLoggedIn();
-    const volunteer = loggedIn && isVolunteer();
-
-    const bump = useCallback(() => setVersion((v) => v + 1), []);
+    const loggedIn = useAppSelector(selectIsLoggedIn);
+    const volunteer = useAppSelector(selectIsVolunteer);
 
     const loadUnread = useCallback(() => {
-        if (!isLoggedIn()) return;
-        fetch('/api/notifications/unread-count', {headers: authHeaders()})
-            .then(async (res) => (res.ok ? ((await res.json()) as {count?: number}) : null))
-            .then((body) => {
-                if (body && typeof body.count === 'number') setUnread(body.count);
-            })
-            .catch(() => undefined);
-    }, []);
+        void dispatch(fetchUnreadCount());
+    }, [dispatch]);
 
     const loadOffer = useCallback(() => {
-        if (!isLoggedIn() || !isVolunteer()) return;
-        fetch('/api/matches/routes/my-active', {headers: authHeaders()})
-            .then(async (res) => (res.status === 200 ? ((await res.json()) as RouteDto) : null))
-            .then((route) => setPendingOffer(route && route.awaitingResponse ? route : null))
-            .catch(() => undefined);
-    }, []);
+        void dispatch(fetchPendingOffer());
+    }, [dispatch]);
 
     // חיבור אחד לכל האתר (רק למשתמש מחובר)
     useEffect(() => {
@@ -128,23 +149,22 @@ export function LiveUpdatesProvider({children}: {children: ReactNode}) {
             .build();
 
         connection.on('ReceiveNotification', (notification: NotificationDto) => {
-            setUnread((count) => count + 1);
             // בקשת איסוף חדשה מוצגת בחלון משלה (למטה) - לא גם בהודעה קופצת
             if (!notification.link?.startsWith(OFFER_PATH)) setToast(notification);
-            listeners.current.forEach((handler) => handler(notification));
-            bump();
+            listeners.forEach((handler) => handler(notification));
+            dispatch(notificationReceived());
         });
         // אחרי ניתוק אפשר היה לפספס אירועים - טוענים הכול מחדש
         connection.onreconnected(() => {
             loadUnread();
-            bump();
+            dispatch(versionBumped());
         });
 
         connection.start().catch((error: unknown) => console.warn('SignalR connection error', error));
         return () => {
             void connection.stop();
         };
-    }, [loggedIn, loadUnread, bump]);
+    }, [loggedIn, loadUnread, dispatch]);
 
     // מתנדב: הבקשה הממתינה - בכל אירוע מהשרת, כל 30 שניות, וכשחוזרים ללשונית
     useEffect(() => {
@@ -176,30 +196,10 @@ export function LiveUpdatesProvider({children}: {children: ReactNode}) {
         if (!location.pathname.startsWith(OFFER_PATH)) setOfferDialog(pendingOffer);
     }, [pendingOffer, location.pathname]);
 
-    const subscribe = useCallback((handler: (notification: NotificationDto) => void) => {
-        listeners.current.add(handler);
-        return () => {
-            listeners.current.delete(handler);
-        };
-    }, []);
-
-    // version חדש -> הבקשה הממתינה (למתנדב) והדפים הפתוחים נטענים מחדש
-    const refresh = useCallback(() => {
-        loadUnread();
-        bump();
-    }, [loadUnread, bump]);
-
-    const markAllRead = useCallback(() => setUnread(0), []);
-
     // יציבה בין רינדורים - אחרת הספירה לאחור (DeadlineCountdown) מתחילה מחדש בכל רינדור
     const refreshSoon = useCallback(() => {
         window.setTimeout(refresh, 3000);
     }, [refresh]);
-
-    const value = useMemo<LiveUpdatesValue>(
-        () => ({unread, version, pendingOffer, refresh, markAllRead, subscribe}),
-        [unread, version, pendingOffer, refresh, markAllRead, subscribe],
-    );
 
     const goToOffer = () => {
         setOfferDialog(null);
@@ -207,7 +207,7 @@ export function LiveUpdatesProvider({children}: {children: ReactNode}) {
     };
 
     return (
-        <LiveUpdatesContext.Provider value={value}>
+        <>
             {children}
 
             {/* הודעה קופצת על כל התראה חדשה מהשרת */}
@@ -274,7 +274,7 @@ export function LiveUpdatesProvider({children}: {children: ReactNode}) {
                     <Button variant="contained" onClick={goToOffer}>לצפייה ואישור</Button>
                 </DialogActions>
             </Dialog>
-        </LiveUpdatesContext.Provider>
+        </>
     );
 }
 

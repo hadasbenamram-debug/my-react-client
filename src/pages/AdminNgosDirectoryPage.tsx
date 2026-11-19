@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
@@ -8,36 +8,27 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
-import type { AdminNgoListItemView } from '../types/api';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchAdminNgos, isFirstLoad, selectAdminNgos } from '../store/adminSlice';
+
+interface AdminNgosDirectoryPageProps {
+  /** בתוך עמוד "משתמשים" - בלי כותרת משלו */
+  embedded?: boolean;
+}
 
 // תיקון 63: גם לשונית בעמוד "משתמשים" (AdminPeoplePage) - אז בלי כותרת משלו
-export function AdminNgosDirectoryPage({ embedded = false }: { embedded?: boolean }) {
-  const [ngos, setNgos] = useState<AdminNgoListItemView[]>([]);
-  const [loading, setLoading] = useState(true);
+export function AdminNgosDirectoryPage({ embedded = false }: AdminNgosDirectoryPageProps) {
+  const dispatch = useAppDispatch();
+  const ngosState = useAppSelector(selectAdminNgos);
+  const ngos = ngosState.items ?? [];
+  const loading = isFirstLoad(ngosState, ngosState.items !== null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const token = getToken();
-    fetch('/api/admin/ngos', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then((data: AdminNgoListItemView[]) => {
-        if (Array.isArray(data)) {
-          setNgos(data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת עמותות:', err);
-        setLoading(false);
-      });
-  }, []);
+    dispatch(fetchAdminNgos())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת עמותות:', err));
+  }, [dispatch]);
 
   const filteredNgos = ngos.filter(n =>
     (n.name && n.name.toLowerCase().includes(searchTerm.toLowerCase())) ||

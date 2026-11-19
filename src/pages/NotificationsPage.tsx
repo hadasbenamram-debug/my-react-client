@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import { LoadingBlock } from '../components/PageParts';
@@ -6,8 +6,18 @@ import { useLiveUpdates, useOpenLink } from '../components/LiveUpdates';
 import NotificationsDeck from '../components/notifications/NotificationsDeck';
 import { toDeckNotification } from '../components/notifications/toDeckNotification';
 import type { DeckDonation } from '../components/notifications/notificationUtils';
-import { authHeaders, getCurrentUser } from '../utils/auth';
-import type { DonationResponseDto, NotificationDto } from '../types/api';
+import {
+  fetchNotificationDonation,
+  fetchNotifications,
+  markNotificationsRead,
+  notificationPushed,
+  selectNotificationDonations,
+  selectNotifications,
+  selectNotificationsStatus,
+} from '../store/notificationsSlice';
+import { useAppDispatch, useAppSelector } from '../store';
+import { selectCurrentUser } from '../store/authSlice';
+import type { DonationResponseDto } from '../types/api';
 
 // מרכז ההתראות: היסטוריה מהשרת (api/notifications) + התראות חדשות בזמן אמת (SignalR).
 // תיקון 50: החיבור ל-SignalR משותף לכל האתר (LiveUpdates) - כאן רק מאזינים לו.
@@ -26,33 +36,24 @@ const toDeckDonation = (d: DonationResponseDto): DeckDonation => {
 };
 
 export function NotificationsPage() {
+  const dispatch = useAppDispatch();
   const openLink = useOpenLink();
   const { subscribe, refresh } = useLiveUpdates();
-  const [raw, setRaw] = useState<NotificationDto[] | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [donations, setDonations] = useState<Record<number, DeckDonation>>({});
+  const raw = useAppSelector(selectNotifications);
+  const loadError = useAppSelector(selectNotificationsStatus) === 'failed';
+  const donationDetails = useAppSelector(selectNotificationDonations);
   const requested = useRef(new Set<number>());
-  const role = getCurrentUser().role;
+  const role = useAppSelector(selectCurrentUser).role;
 
+  // ההיסטוריה מהשרת - ב-thunk (store/notificationsSlice.ts)
   useEffect(() => {
-    fetch('/api/notifications?pageSize=100', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(String(res.status));
-        return (await res.json()) as NotificationDto[];
-      })
-      .then(setRaw)
-      .catch(() => {
-        setLoadError(true);
-        setRaw([]);
-      });
-  }, []);
+    void dispatch(fetchNotifications());
+  }, [dispatch]);
 
   // התראה חדשה בזמן שהדף פתוח - נכנסת לסוף החפיסה
   useEffect(() => subscribe((notification) => {
-    setRaw((prev) => (prev
-      ? [{ ...notification, isRead: false }, ...prev.filter((n) => n.id !== notification.id)]
-      : prev));
-  }), [subscribe]);
+    dispatch(notificationPushed(notification));
+  }), [subscribe, dispatch]);
 
   const notifications = useMemo(() => (raw ?? []).map((n) => toDeckNotification(n, role)), [raw, role]);
 
@@ -62,26 +63,23 @@ export function NotificationsPage() {
       .filter((id) => !requested.current.has(id));
     ids.forEach((id) => {
       requested.current.add(id);
-      fetch(`/api/donations/${id}`, { headers: authHeaders() })
-        .then(async (res) => (res.ok ? ((await res.json()) as DonationResponseDto) : null))
-        .then((d) => {
-          if (d) setDonations((prev) => ({ ...prev, [id]: toDeckDonation(d) }));
-        })
-        .catch(() => undefined);   // בלי הפרטים הקלף מוצג בלי השורה התחתונה
+      // בלי הפרטים הקלף מוצג בלי השורה התחתונה (כישלון לא מוצג)
+      void dispatch(fetchNotificationDonation(id));
     });
-  }, [notifications]);
+  }, [notifications, dispatch]);
+
+  const donations = useMemo(() => {
+    const result: Record<number, DeckDonation> = {};
+    Object.entries(donationDetails).forEach(([id, d]) => { result[Number(id)] = toDeckDonation(d); });
+    return result;
+  }, [donationDetails]);
 
   const markRead = useCallback((id: number, isRead: boolean) => {
     // "לקודמת" מחזיר את הקלף לחפיסה רק במסך - בשרת אין "סימון כלא נקרא", ההתראה נשארת נקראה
     if (!isRead) return;
-    fetch('/api/notifications/mark-read', {
-      method: 'POST',
-      headers: authHeaders(true),
-      body: JSON.stringify({ ids: [id] }),
-    })
-      .then(() => refresh())   // המספר בפעמון שבכותרת
-      .catch(() => undefined);
-  }, [refresh]);
+    void dispatch(markNotificationsRead([id]))
+      .then(() => refresh());   // המספר בפעמון שבכותרת
+  }, [dispatch, refresh]);
 
   // לחיצה על כפתור בקלף: ההתראה נחשבת נקראה, ועוברים למסך (גם של תפקיד אחר של החשבון)
   const open = useCallback((to: string, notificationId?: number) => {

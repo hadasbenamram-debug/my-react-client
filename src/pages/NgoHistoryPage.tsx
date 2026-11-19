@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
@@ -8,41 +8,27 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import type { NgoDonationView } from '../types/api';
 import { formatDateTime } from '../utils/format';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchNgoDonations, selectNgoDonations, selectNgoDonationsStatus } from '../store/ngoSlice';
 import DonationLink from '../components/DonationLink';
 
 export function NgoHistoryPage() {
-  const [completedDonations, setCompletedDonations] = useState<NgoDonationView[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const data = useAppSelector(selectNgoDonations);
+  const status = useAppSelector(selectNgoDonationsStatus);
+  // סינון תרומות שהושלמו בלבד
+  const completedDonations = useMemo<NgoDonationView[]>(
+    () => (data ?? []).filter((d) => d.status === 'Completed'),
+    [data],
+  );
+  const loading = data === null && status !== 'failed';
 
   useEffect(() => {
-    const token = getToken();
-
-    // פנייה לנתיב הייעודי המותאם לעמותה המחוברת עם שליחת טוקן ההזדהות
-    fetch(`/api/donations/my-ngo-donations`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('שגיאה בשליפת הנתונים');
-        return res.json();
-      })
-      .then((data: NgoDonationView[]) => {
-        if (Array.isArray(data)) {
-          // סינון תרומות שהושלמו בלבד
-          const ngoCompleted = data.filter((d: NgoDonationView) => d.status === 'Completed');
-          setCompletedDonations(ngoCompleted);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת היסטוריית תרומות:', err);
-        setLoading(false);
-      });
-  }, []);
+    // פנייה לנתיב הייעודי המותאם לעמותה המחוברת (הטוקן מצורף ב-thunk)
+    dispatch(fetchNgoDonations())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת היסטוריית תרומות:', err));
+  }, [dispatch]);
 
   if (loading) return <LoadingBlock text="טוען היסטוריה מהשרת..." />;
 

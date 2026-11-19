@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
@@ -7,35 +7,21 @@ import Chip from '@mui/material/Chip';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
-import type { VolunteerAvailabilityView } from '../types/api';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchVolunteersAvailability, isFirstLoad, selectVolunteersAvailability } from '../store/adminSlice';
 
 export function AdminVolunteersAvailabilityPage() {
-  const [availabilityList, setAvailabilityList] = useState<VolunteerAvailabilityView[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const availabilityState = useAppSelector(selectVolunteersAvailability);
+  const availabilityList = availabilityState.items ?? [];
+  const loading = isFirstLoad(availabilityState, availabilityState.items !== null);
   const [dayFilter, setDayFilter] = useState('');
 
   useEffect(() => {
-    const token = getToken();
-    fetch('/api/admin/volunteers/availability', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then((data: VolunteerAvailabilityView[]) => {
-        if (Array.isArray(data)) {
-          setAvailabilityList(data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת זמינות מתנדבים:', err);
-        setLoading(false);
-      });
-  }, []);
+    dispatch(fetchVolunteersAvailability())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת זמינות מתנדבים:', err));
+  }, [dispatch]);
 
   const filteredList = availabilityList.filter(item =>
     dayFilter === '' || (item.day && item.day.toLowerCase().includes(dayFilter.toLowerCase()))
@@ -75,8 +61,9 @@ export function AdminVolunteersAvailabilityPage() {
           />
         )
       ) : (
-        filteredList.map((item, index) => (
-          <Card key={index} sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        filteredList.map((item) => (
+          // משבצת = מתנדב + יום + שעות (אין לה מזהה משלה)
+          <Card key={`${item.volunteerId}-${item.day}-${item.timeSlot}`}sx={{ p: 2.5, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>{item.volunteerName || `מתנדב #${item.volunteerId}`}</Typography>
               <Typography color="text.secondary" variant="body2">שעות פנויות: {item.timeSlot || 'לא צוין'}</Typography>

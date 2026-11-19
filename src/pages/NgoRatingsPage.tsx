@@ -8,8 +8,9 @@ import Rating from '@mui/material/Rating';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { errorMessage } from '../api/http';
+import { useAppDispatch } from '../store';
+import { submitFeedback } from '../store/ngoSlice';
 import type { CreateFeedbackDto } from '../types/api';
 
 // דירוג אחרי אישור קבלה. תוקן: העמוד שלח ל-api/ratings שלא קיים.
@@ -17,6 +18,7 @@ import type { CreateFeedbackDto } from '../types/api';
 export function NgoRatingsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const matchId = Number(id);
 
   const [rating, setRating] = useState(5);
@@ -31,14 +33,14 @@ export function NgoRatingsPage() {
     setError('');
 
     const payload: CreateFeedbackDto = { matchId, rating, volunteerRating, comments: comments.trim() || null };
-    const res = await fetch('/api/feedbacks', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
-    setLoading(false);
-
-    if (res.ok) {
+    try {
+      await dispatch(submitFeedback(payload)).unwrap();
+      setLoading(false);
       alert('תודה! הדירוג נשמר.');
       navigate('/app/ngo/dashboard');
-    } else {
-      setError(await readErrorMessage(res, 'שגיאה בשמירת הדירוג.'));
+    } catch (err) {
+      setLoading(false);
+      setError(errorMessage(err, 'שגיאה בשמירת הדירוג.'));
     }
   };
 

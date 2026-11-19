@@ -10,13 +10,16 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock } from '../components/PageParts';
 import { homePathForRole, saveSession } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { errorMessage } from '../api/http';
+import { useAppDispatch } from '../store';
+import { linkLogin } from '../store/accountSlice';
 import type { LinkLoginResponseDto } from '../types/api';
 
 // /app/welcome?token=...  - הקישור במייל "הבקשה שלך אושרה".
 // נכנסים ישר למסך הראשון של התפקיד (למתנדב: הגדרת הזמינות) בלי מסך ההתחברות.
 // הקישור אישי וחד-פעמי. מי שעדיין עם הסיסמה הזמנית מההרשמה בוחר כאן סיסמה אישית (פעם אחת).
 export function WelcomeLinkPage() {
+  const dispatch = useAppDispatch();
   const [token] = useState(() => new URLSearchParams(window.location.search).get('token') ?? '');
   const [loading, setLoading] = useState(true);
   const [needsPassword, setNeedsPassword] = useState(false);
@@ -37,18 +40,15 @@ export function WelcomeLinkPage() {
   };
 
   const send = async (password?: string): Promise<void> => {
-    const res = await fetch('/api/auth/link-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, newPassword: password ?? null }),
-    });
-
-    if (!res.ok) {
-      setError(await readErrorMessage(res, 'קישור הכניסה אינו בתוקף. אפשר להתחבר כרגיל עם המייל והסיסמה.'));
+    let data: LinkLoginResponseDto;
+    try {
+      data = await dispatch(linkLogin({ token, newPassword: password })).unwrap();
+    } catch (err) {
+      // קישור לא בתוקף / כבר נוצל, או אין תקשורת עם השרת
+      setError(errorMessage(err, 'קישור הכניסה אינו בתוקף. אפשר להתחבר כרגיל עם המייל והסיסמה.'));
       return;
     }
 
-    const data = (await res.json()) as LinkLoginResponseDto;
     if (data.requiresPassword) {
       setEmail(data.email ?? null);
       setNeedsPassword(true);

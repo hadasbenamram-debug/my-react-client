@@ -1,6 +1,3 @@
-import type {BrowserMapConfigDto} from '../types/api';
-import {authHeaders} from './auth';
-
 // הגדרות המפה האינטראקטיבית (Google Maps JavaScript API).
 // אין מפתח בקוד, בקובץ .env או ב-git: מפתח הדפדפן שמור ב-User Secrets של השרת, והשרת נותן אותו
 // רק למשתמש מחובר (api/map/browser-config). זה מפתח נפרד ממפתח השרת, ומוגבל ב-Google Cloud
@@ -11,22 +8,8 @@ export const hasLocation = (lat: number | null | undefined, lng: number | null |
     lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) &&
     Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
 
-let pending: Promise<BrowserMapConfigDto | null> | null = null;
-
-/** ההגדרות נטענות פעם אחת לכל האפליקציה. null = אין מפה אינטראקטיבית (מציגים תמונה מהשרת) */
-export const loadBrowserMapConfig = (): Promise<BrowserMapConfigDto | null> => {
-    if (!pending) {
-        pending = fetch('/api/map/browser-config', {headers: authHeaders()})
-            .then(async (res) => (res.ok ? ((await res.json()) as BrowserMapConfigDto) : null))
-            .catch(() => null)
-            .then((config) => {
-                // תקלה זמנית (למשל השרת לא עלה) - בפעם הבאה מנסים שוב
-                if (!config) pending = null;
-                return config;
-            });
-    }
-    return pending;
-};
+// ההגדרות (api/map/browser-config) נטענות פעם אחת לכל האפליקציה ב-thunk fetchBrowserMapConfig
+// (store/routesSlice.ts) ונשמרות בסלייס. הרכיבים עושים dispatch וקוראים אותן עם selectBrowserMapConfig.
 
 // Google קורא ל-window.gm_authFailure כשהמפתח נדחה - למשל כתובת האתר לא ברשימה המותרת של המפתח,
 // או שה-API לא הופעל. במקום מפה שבורה עם הודעת שגיאה, כל המפות עוברות לתמונה מהשרת.

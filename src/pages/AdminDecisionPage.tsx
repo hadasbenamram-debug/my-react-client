@@ -3,8 +3,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { LoadingBlock } from '../components/PageParts';
 import useCountUp from '../hooks/useCountUp';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { useAppDispatch, useAppSelector } from '../store';
+import { decisionKey, fetchRouteDecision, selectRouteDecision } from '../store/adminSlice';
 import {
   MODE_LABELS, ROUTE_STATUS_LABELS,
   type DecisionCandidateDto, type DecisionFunnelStepDto, type DecisionGlobalDto, type DecisionRouteDto,
@@ -78,29 +78,18 @@ function useMounted(): boolean {
 
 export function AdminDecisionPage() {
   const { routeId, donationId } = useParams();
-  const [decision, setDecision] = useState<RouteDecisionDto | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const decisionState = useAppSelector(selectRouteDecision);
+  // רק ההחלטה של הכתובת הנוכחית (בסלייס יכולה להישאר החלטה של מסלול אחר)
+  const isCurrent = decisionState.key === decisionKey(routeId, donationId);
+  const decision = isCurrent ? decisionState.item : null;
+  const error = isCurrent ? decisionState.error : null;
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        let id = Number(routeId);
-        if (!routeId && donationId) {
-          const lookup = await fetch(`/api/matches/decisions/by-donation/${donationId}`, { headers: authHeaders() });
-          if (!lookup.ok) throw new Error(await readErrorMessage(lookup, 'לא נמצא הסבר לתרומה הזו.'));
-          id = ((await lookup.json()) as { routeId: number }).routeId;
-        }
-        const res = await fetch(`/api/matches/decisions/${id}`, { headers: authHeaders() });
-        if (!res.ok) throw new Error(await readErrorMessage(res, 'לא הצלחנו לטעון את ההסבר.'));
-        const data = (await res.json()) as RouteDecisionDto;
-        if (!cancelled) setDecision(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'שגיאת תקשורת מול השרת.');
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [routeId, donationId]);
+    // לפי תרומה - ה-thunk מוצא קודם את המסלול שלה. ביציאה מהעמוד הבקשה מבוטלת
+    const request = dispatch(fetchRouteDecision({ routeId, donationId }));
+    return () => request.abort();
+  }, [dispatch, routeId, donationId]);
 
   if (error) {
     return (
@@ -126,7 +115,11 @@ function BackLink() {
   );
 }
 
-function DecisionView({ d }: { d: RouteDecisionDto }) {
+interface DecisionViewProps {
+  d: RouteDecisionDto;
+}
+
+function DecisionView({ d }: DecisionViewProps) {
   const chosen = d.candidates.find((c) => c.outcome === 'Chosen') ?? d.candidates[0];
   const name = d.volunteerName || chosen?.name || 'המתנדב';
   const firstName = name.split(/\s+/)[0];
@@ -192,7 +185,13 @@ function DecisionView({ d }: { d: RouteDecisionDto }) {
   );
 }
 
-function Section({ title, lead, children }: { title: string; lead?: string; children: ReactNode }) {
+interface SectionProps {
+  title: string;
+  lead?: string;
+  children: ReactNode;
+}
+
+function Section({ title, lead, children }: SectionProps) {
   return (
     <section className="dc-card dc-section">
       <header>
@@ -205,7 +204,11 @@ function Section({ title, lead, children }: { title: string; lead?: string; chil
 }
 
 // ---------- טבעת ציון ההתאמה ----------
-function ScoreRing({ value }: { value: number }) {
+interface ScoreRingProps {
+  value: number;
+}
+
+function ScoreRing({ value }: ScoreRingProps) {
   const on = useMounted();
   const shown = useCountUp(Math.round(value), on, 1400);
   const r = 66;
@@ -231,7 +234,11 @@ function ScoreRing({ value }: { value: number }) {
 }
 
 // ---------- משפך ----------
-function Funnel({ steps }: { steps: DecisionFunnelStepDto[] }) {
+interface FunnelProps {
+  steps: DecisionFunnelStepDto[];
+}
+
+function Funnel({ steps }: FunnelProps) {
   const on = useMounted();
   const max = Math.max(1, ...steps.map((s) => s.count));
   return (
@@ -241,7 +248,7 @@ function Funnel({ steps }: { steps: DecisionFunnelStepDto[] }) {
         const last = i === steps.length - 1;
         const width = Math.max(4, (s.count / max) * 100);
         return (
-          <li key={i} className={last ? 'is-last' : undefined} style={{ '--i': i } as CSSProperties}>
+          <li key={s.label} className={last ? 'is-last' : undefined} style={{ '--i': i } as CSSProperties}>
             <div className="dc-funnel-head">
               <span className="dc-funnel-label">{s.label}</span>
               <span className="dc-algo">{s.algorithm}</span>
@@ -260,7 +267,14 @@ function Funnel({ steps }: { steps: DecisionFunnelStepDto[] }) {
 }
 
 // ---------- פירוק הציון ----------
-function StackedBar({ score, weights, height = 14, animate = true }: { score: DecisionScoreDto; weights: DecisionWeightsDto; height?: number; animate?: boolean }) {
+interface StackedBarProps {
+  score: DecisionScoreDto;
+  weights: DecisionWeightsDto;
+  height?: number;
+  animate?: boolean;
+}
+
+function StackedBar({ score, weights, height = 14, animate = true }: StackedBarProps) {
   const on = useMounted();
   const parts = contributions(score, weights);
   return (
@@ -272,7 +286,12 @@ function StackedBar({ score, weights, height = 14, animate = true }: { score: De
   );
 }
 
-function Breakdown({ c, d }: { c: DecisionCandidateDto; d: RouteDecisionDto }) {
+interface BreakdownProps {
+  c: DecisionCandidateDto;
+  d: RouteDecisionDto;
+}
+
+function Breakdown({ c, d }: BreakdownProps) {
   const parts = contributions(c.score, d.weights);
   const total = Math.round(c.score.total * 100);
   return (
@@ -309,7 +328,11 @@ function Breakdown({ c, d }: { c: DecisionCandidateDto; d: RouteDecisionDto }) {
 }
 
 // ---------- המועמדים ----------
-function Candidates({ d }: { d: RouteDecisionDto }) {
+interface CandidatesProps {
+  d: RouteDecisionDto;
+}
+
+function Candidates({ d }: CandidatesProps) {
   const rows = [...d.candidates].sort((a, b) => a.rank - b.rank);
   return (
     <ul className="dc-cands">
@@ -338,7 +361,11 @@ function Candidates({ d }: { d: RouteDecisionDto }) {
 }
 
 // ---------- המסלול ----------
-function RouteTimeline({ r }: { r: DecisionRouteDto }) {
+interface RouteTimelineProps {
+  r: DecisionRouteDto;
+}
+
+function RouteTimeline({ r }: RouteTimelineProps) {
   return (
     <>
       <ol className="dc-timeline">
@@ -377,7 +404,13 @@ function RouteTimeline({ r }: { r: DecisionRouteDto }) {
   );
 }
 
-function Stat({ label, value, badge }: { label: string; value: string; badge?: string }) {
+interface StatProps {
+  label: string;
+  value: string;
+  badge?: string;
+}
+
+function Stat({ label, value, badge }: StatProps) {
   return (
     <div className="dc-stat">
       <span>{label}</span>
@@ -388,7 +421,11 @@ function Stat({ label, value, badge }: { label: string; value: string; badge?: s
 }
 
 // ---------- הבחירה הגלובלית ----------
-function GlobalChoice({ g }: { g: DecisionGlobalDto }) {
+interface GlobalChoiceProps {
+  g: DecisionGlobalDto;
+}
+
+function GlobalChoice({ g }: GlobalChoiceProps) {
   const on = useMounted();
   const top = Math.max(g.upperBound, g.totalValue, g.greedyValue, 0.001);
   const gain = g.greedyValue > 0 ? ((g.totalValue - g.greedyValue) / g.greedyValue) * 100 : 0;

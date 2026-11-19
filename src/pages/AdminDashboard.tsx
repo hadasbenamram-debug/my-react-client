@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -9,43 +9,29 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PageTitle from '../components/PageTitle';
 import type { DashboardStatsDto } from '../types/api';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchDashboardStats, isFirstLoad, selectDashboardStats } from '../store/adminSlice';
+
+// עד שהנתונים נטענים (או אם הטעינה נכשלה) - אפסים
+const EMPTY_STATS: DashboardStatsDto = {
+  openDonations: 0,
+  availableVolunteers: 0,
+  activeAssignments: 0,
+  noShowAlerts: 0
+};
 
 export function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStatsDto>({
-    openDonations: 0,
-    availableVolunteers: 0,
-    activeAssignments: 0,
-    noShowAlerts: 0
-  });
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const statsState = useAppSelector(selectDashboardStats);
+  const stats = statsState.item ?? EMPTY_STATS;
+  const loading = isFirstLoad(statsState, statsState.item !== null);
 
   useEffect(() => {
-    // שליפת הטוקן מ-localStorage והוספתו לכותרת הבקשה
-    const token = getToken();
-
-    fetch('/api/admin/dashboard-stats', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('השרת החזיר שגיאה: ' + res.status);
-        }
-        return res.json();
-      })
-      .then((data: DashboardStatsDto) => {
-        setStats(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת הנתונים הניהוליים:', err);
-        setLoading(false);
-      });
-  }, []);
+    // הטוקן מתווסף לבקשה ב-apiRequest (דרך ה-thunk)
+    dispatch(fetchDashboardStats())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת הנתונים הניהוליים:', err));
+  }, [dispatch]);
 
   if (loading) {
     return (

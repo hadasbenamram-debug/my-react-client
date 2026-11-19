@@ -9,7 +9,9 @@ import Typography from '@mui/material/Typography';
 import { useSearchParams } from 'react-router-dom';
 import PageTitle from '../components/PageTitle';
 import PasswordResetDialog from '../components/PasswordResetDialog';
-import type { ApiErrorBody, AuthResponseDto } from '../types/api';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch } from '../store';
+import { login } from '../store/accountSlice';
 import { homePathForRole, saveSession } from '../utils/auth';
 
 // ?returnTo=/app/... - רק כתובת פנימית של האפליקציה (לא כתובת חיצונית)
@@ -19,6 +21,7 @@ const safeReturnTo = (): string | null => {
 };
 
 export const LoginPage: React.FC = () => {
+  const dispatch = useAppDispatch();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -54,38 +57,29 @@ export const LoginPage: React.FC = () => {
     setIsSuccess(false);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      // בהצלחה: AuthResponseDto. בכישלון: { status, message, code } (ב-payload של ה-thunk)
+      const data = await dispatch(login({ email, password })).unwrap();
 
-      // בהצלחה: AuthResponseDto. בכישלון: { status, message, code }
-      const data: AuthResponseDto & ApiErrorBody = await response.json();
+      setIsSuccess(true);
+      saveSession(data, email);
 
-      if (response.ok) {
-        setIsSuccess(true);
-        saveSession(data, email);
-
-        // חדש: משתמש שנרשם קיבל סיסמה זמנית במייל - חייב להחליף אותה לפני שימוש במערכת
-        if (data.mustChangePassword) {
-          setMessage('התחברת עם סיסמה זמנית. יש לבחור סיסמה חדשה.');
-          setTimeout(() => { window.location.href = '/app/profile?mustChange=1'; }, 800);
-          return;
-        }
-
-        setMessage('התחברת בהצלחה!');
-        // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד, או למסך שממנו הגיעו (למשל המסלול שאושר מהקישור)
-        const target = safeReturnTo() ?? homePathForRole(data.role);
-        setTimeout(() => {
-          window.location.href = target;
-        }, 800);
-
-      } else {
-        setMessage(data.message || 'שגיאה בפרטי ההתחברות');
+      // חדש: משתמש שנרשם קיבל סיסמה זמנית במייל - חייב להחליף אותה לפני שימוש במערכת
+      if (data.mustChangePassword) {
+        setMessage('התחברת עם סיסמה זמנית. יש לבחור סיסמה חדשה.');
+        setTimeout(() => { window.location.href = '/app/profile?mustChange=1'; }, 800);
+        return;
       }
+
+      setMessage('התחברת בהצלחה!');
+      // אחרי התחברות - מעבר ישיר לדשבורד לפי התפקיד, או למסך שממנו הגיעו (למשל המסלול שאושר מהקישור)
+      const target = safeReturnTo() ?? homePathForRole(data.role);
+      setTimeout(() => {
+        window.location.href = target;
+      }, 800);
     } catch (error) {
-      setMessage('לא ניתן להתחבר לשרת');
+      const payload = toErrorPayload(error, 'שגיאה בפרטי ההתחברות');
+      // status 0 = אין תקשורת עם השרת; אחרת ההודעה מהשרת (פרטים שגויים, חשבון נעול...)
+      setMessage(payload.status === 0 ? 'לא ניתן להתחבר לשרת' : payload.message);
     }
   };
 

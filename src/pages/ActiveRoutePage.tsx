@@ -21,9 +21,18 @@ import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined
 import RouteSummary from '../components/RouteSummary';
 import LiveRouteMap from '../components/LiveRouteMap';
 import {useAutoRefresh} from '../components/LiveUpdates';
-import {authHeaders} from '../utils/auth';
-import {readErrorMessage} from '../utils/apiError';
-import type {RouteDto, RouteStopDto} from '../types/api';
+import {errorMessage, toErrorPayload} from '../api/http';
+import {useAppDispatch, useAppSelector} from '../store';
+import {
+    completeMatch,
+    fetchMyActiveRoute,
+    markPickedUp,
+    selectActiveRoute,
+    selectActiveRouteStatus,
+    sendVolunteerLocation,
+    startRoute,
+} from '../store/volunteerSlice';
+import type {RouteStopDto} from '../types/api';
 import DonationLink from '../components/DonationLink';
 
 // כל 10 שניות - כך העמותה רואה את המתנדב זז על המפה כמעט בזמן אמת (השרת שומר לכל היותר רישום אחד ל-8 שניות)
@@ -59,8 +68,10 @@ const geolocationErrorText = (err: GeolocationPositionError): string => {
 // לפני היציאה לדרך המיקום לא נשלח.
 export function ActiveRoutePage() {
     const navigate = useNavigate();
-    const [route, setRoute] = useState<RouteDto | null>(null);
-    const [loading, setLoading] = useState(true);
+    const dispatch = useAppDispatch();
+    const route = useAppSelector(selectActiveRoute);
+    const status = useAppSelector(selectActiveRouteStatus);
+    const loading = status === 'idle' || status === 'loading';
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState<{text: string; ok: boolean} | null>(null);
     const [position, setPosition] = useState<{lat: number; lng: number} | null>(null);
@@ -69,16 +80,13 @@ export function ActiveRoutePage() {
     const lastSent = useRef(0);
     const latest = useRef<{lat: number; lng: number} | null>(null);
 
-    const load = useCallback(async () => {
-        const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()});
-        // רענון ברקע שנכשל (למשל רשת) לא "מעלים" את המסלול מהמסך
-        if (res.status === 200) setRoute((await res.json()) as RouteDto);
-        else if (res.status === 204 || res.status === 404) setRoute(null);
-        setLoading(false);
-    }, []);
+    // רענון ברקע שנכשל (למשל רשת) לא "מעלים" את המסלול מהמסך (ראו fetchMyActiveRoute.rejected בסלייס)
+    const load = useCallback(async (silent = true) => {
+        await dispatch(fetchMyActiveRoute({silent}));
+    }, [dispatch]);
 
     useEffect(() => {
-        void load();
+        void load(false);
     }, [load]);
 
     // תיקון 50: שינוי מבחוץ (למשל תחנה שבוטלה ע"י הספק) מתעדכן לבד
@@ -109,17 +117,15 @@ export function ActiveRoutePage() {
             const pos = latest.current;
             if (!pos || Date.now() - lastSent.current < LOCATION_INTERVAL_MS - 500) return;
             lastSent.current = Date.now();
-            fetch('/api/volunteers/me/location', {
-                method: 'PUT',
-                headers: authHeaders(true),
-                body: JSON.stringify({latitude: pos.lat, longitude: pos.lng}),
-            })
-                .then((res) => {
-                    setShare(res.ok
-                        ? {state: 'sharing', at: Date.now()}
-                        : {state: 'error', text: `המיקום לא נשמר בשרת (שגיאה ${res.status}). ננסה שוב בעוד כמה שניות.`});
-                })
-                .catch(() => setShare({state: 'error', text: 'אין חיבור לשרת, ולכן המיקום לא נשלח. ננסה שוב בעוד כמה שניות.'}));
+            dispatch(sendVolunteerLocation(pos))
+                .unwrap()
+                .then(() => setShare({state: 'sharing', at: Date.now()}))
+                .catch((err: unknown) => {
+                    const {status} = toErrorPayload(err);
+                    setShare(status === 0
+                        ? {state: 'error', text: 'אין חיבור לשרת, ולכן המיקום לא נשלח. ננסה שוב בעוד כמה שניות.'}
+                        : {state: 'error', text: `המיקום לא נשמר בשרת (שגיאה ${status}). ננסה שוב בעוד כמה שניות.`});
+                });
         };
 
         const watchId = navigator.geolocation.watchPosition(
@@ -146,12 +152,18 @@ export function ActiveRoutePage() {
         // רק כשהמסלול מתחיל / מסתיים - לא בכל רענון של פרטי המסלול
     }, [route?.id, route?.status]);
 
-    const act = async (url: string, success: string) => {
+    // action: פעולה על המסלול (יציאה לדרך / איסוף) - thunk שה-dispatch שלו מחזיר הבטחה עם unwrap
+    const act = async (action: () => Promise<void>, success: string) => {
         setBusy(true);
         setMessage(null);
-        const res = await fetch(url, {method: 'POST', headers: authHeaders()});
-        setBusy(false);
-        setMessage(res.ok ? {text: success, ok: true} : {text: await readErrorMessage(res, 'הפעולה נכשלה.'), ok: false});
+        try {
+            await action();
+            setMessage({text: success, ok: true});
+        } catch (err) {
+            setMessage({text: errorMessage(err, 'הפעולה נכשלה.'), ok: false});
+        } finally {
+            setBusy(false);
+        }
         await load();
     };
 
@@ -168,11 +180,11 @@ export function ActiveRoutePage() {
         let delivered = 0;
         let failure: string | null = null;
         for (const stop of inCar) {
-            const res = await fetch(`/api/matches/${stop.matchId}/complete`, {method: 'POST', headers: authHeaders()});
-            if (res.ok) {
+            try {
+                await dispatch(completeMatch(stop.matchId)).unwrap();
                 delivered++;
-            } else {
-                failure = await readErrorMessage(res, 'המסירה לא נרשמה.');
+            } catch (err) {
+                failure = errorMessage(err, 'המסירה לא נרשמה.');
                 break;
             }
         }
@@ -241,7 +253,7 @@ export function ActiveRoutePage() {
         if (stop.status === 'Confirmed' || stop.status === 'InPickup') {
             return (
                 <Button size="small" variant="contained" disabled={busy}
-                    onClick={() => void act(`/api/matches/${stop.matchId}/picked-up`, 'האיסוף נרשם.')}>
+                    onClick={() => void act(() => dispatch(markPickedUp(stop.matchId)).unwrap(), 'האיסוף נרשם.')}>
                     אספתי
                 </Button>
             );
@@ -282,7 +294,7 @@ export function ActiveRoutePage() {
                 <Stack direction={{xs: 'column', sm: 'row'}} spacing={1.5}>
                     {route.status === 'Planned' && (
                         <Button variant="contained" startIcon={<PlayArrowIcon />} disabled={busy}
-                            onClick={() => void act(`/api/matches/routes/${route.id}/start`, 'יצאת לדרך! המיקום שלך משותף עם המשתתפים במסלול.')}>
+                            onClick={() => void act(() => dispatch(startRoute(route.id)).unwrap(), 'יצאת לדרך! המיקום שלך משותף עם המשתתפים במסלול.')}>
                             יציאה לדרך
                         </Button>
                     )}

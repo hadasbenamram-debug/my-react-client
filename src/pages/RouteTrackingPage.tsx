@@ -27,10 +27,16 @@ import LiveRouteMap, {TRAIL_COLOR} from '../components/LiveRouteMap';
 import {MAP_COLORS} from '../components/GoogleMapView';
 import {useRouteLive} from '../hooks/useRouteLive';
 import type {LiveConnectionState} from '../hooks/useRouteLive';
-import {authHeaders} from '../utils/auth';
-import {readErrorMessage} from '../utils/apiError';
 import {formatAgo, formatDateTime, formatTime, secondsSince} from '../utils/format';
-import type {DeliveryLogResponseDto, RouteTrackingDto, TrackingPointDto} from '../types/api';
+import {useAppDispatch, useAppSelector} from '../store';
+import {
+    fetchRouteTracking,
+    selectTracking,
+    trackingEventReceived,
+    trackingLocationReceived,
+    trackingNotFound,
+} from '../store/routesSlice';
+import type {RouteTrackingDto, TrackingPointDto} from '../types/api';
 import type {LatLng} from '../types';
 
 // מעקב חי אחרי משלוח (/app/track/:routeId) - לעמותה המקבלת, לספקים שבמסלול ולמנהל.
@@ -81,7 +87,12 @@ const progressOf = (tracking: RouteTrackingDto): {percent: number; label: string
     };
 };
 
-function LiveChip({live, connection}: {live: boolean; connection: LiveConnectionState}) {
+interface LiveChipProps {
+    live: boolean;
+    connection: LiveConnectionState;
+}
+
+function LiveChip({live, connection}: LiveChipProps) {
     if (!live) return null;
     if (connection === 'live') {
         return (
@@ -99,7 +110,14 @@ function LiveChip({live, connection}: {live: boolean; connection: LiveConnection
     return <Chip variant="outlined" label={connection === 'reconnecting' ? 'מתחבר מחדש...' : 'מתחבר...'} />;
 }
 
-function LegendItem({color, label, line = false, dashed = false}: {color: string; label: string; line?: boolean; dashed?: boolean}) {
+interface LegendItemProps {
+    color: string;
+    label: string;
+    line?: boolean;
+    dashed?: boolean;
+}
+
+function LegendItem({color, label, line = false, dashed = false}: LegendItemProps) {
     return (
         <Stack direction="row" spacing={0.75} sx={{alignItems: 'center'}}>
             {line ? (
@@ -117,45 +135,24 @@ export function RouteTrackingPage() {
     const navigate = useNavigate();
     const routeId = Number(params.routeId) || 0;
 
-    const [tracking, setTracking] = useState<RouteTrackingDto | null>(null);
-    const [trail, setTrail] = useState<TrackingPointDto[]>([]);
-    const [events, setEvents] = useState<DeliveryLogResponseDto[]>([]);
-    const [current, setCurrent] = useState<TrackingPointDto | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [notFound, setNotFound] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
+    const dispatch = useAppDispatch();
+    const trackingState = useAppSelector(selectTracking);
+    // נתונים של מסלול אחר (כתובת קודמת) לא מוצגים - עד שהמסלול הזה נטען
+    const isCurrent = trackingState.routeId === routeId;
+    const tracking = isCurrent ? trackingState.data : null;
+    const {trail, events, current, notFound, error} = trackingState;
+    const loading = !isCurrent || trackingState.status === 'idle' || trackingState.status === 'loading';
     const [now, setNow] = useState<number>(() => Date.now());
     const reloadTimer = useRef<number | null>(null);
 
     const load = useCallback(async () => {
         if (!routeId) {
-            setNotFound(true);
-            setLoading(false);
+            dispatch(trackingNotFound(routeId));
             return;
         }
-        try {
-            const res = await fetch(`/api/tracking/routes/${routeId}`, {headers: authHeaders()});
-            if (res.status === 404) {
-                setNotFound(true);
-                return;
-            }
-            if (!res.ok) {
-                setError(await readErrorMessage(res, 'לא ניתן לטעון את המעקב כרגע.'));
-                return;
-            }
-            const data = (await res.json()) as RouteTrackingDto;
-            setTracking(data);
-            setTrail(data.trail);
-            setEvents(data.events);
-            setCurrent(data.currentPosition);
-            setNotFound(false);
-            setError(null);
-        } catch {
-            setError('לא ניתן לטעון את המעקב כרגע.');
-        } finally {
-            setLoading(false);
-        }
-    }, [routeId]);
+        // 404 / שגיאה / הצלחה - מטופלים ב-extraReducers של הסלייס
+        await dispatch(fetchRouteTracking(routeId));
+    }, [routeId, dispatch]);
 
     // כמה עדכונים ברצף (למשל "נאסף" + שינוי הסטטוס) - טעינה אחת
     const scheduleReload = useCallback(() => {
@@ -181,11 +178,10 @@ export function RouteTrackingPage() {
             if (log.type === 'Location') {
                 if (log.latitude == null || log.longitude == null) return;
                 const point: TrackingPointDto = {latitude: log.latitude, longitude: log.longitude, at: log.timestamp};
-                setTrail((prev) => (prev.length > 0 && prev[prev.length - 1].at === point.at ? prev : [...prev, point]));
-                setCurrent(point);
+                dispatch(trackingLocationReceived(point));
                 return;
             }
-            setEvents((prev) => (prev.some((e) => e.id === log.id) ? prev : [...prev, log]));
+            dispatch(trackingEventReceived(log));
             scheduleReload();
         },
         onStatusChanged: scheduleReload,

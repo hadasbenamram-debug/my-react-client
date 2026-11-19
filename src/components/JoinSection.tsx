@@ -1,6 +1,7 @@
 import {useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {getCurrentUser, getToken} from '../utils/auth';
+import {useAppSelector} from '../store';
+import {selectIsLoggedIn} from '../store/authSlice';
 import useHeaderOverScene from '../hooks/useHeaderOverScene';
 
 // תיקון 56: סוף דף הבית - "אנו מזמינים אתכם להצטרף לקהילה שלנו".
@@ -46,7 +47,7 @@ const MORE_LINKS: JoinLink[] = [
 const HINT = 'העבירו את העכבר על אחד התפקידים כדי לשמוע עוד - ולחצו כדי להירשם.';
 
 export default function JoinSection() {
-    const loggedIn = !!getToken() && String(getCurrentUser().role || 'guest').toLowerCase() !== 'guest';
+    const loggedIn = useAppSelector(selectIsLoggedIn);
     const ref = useRef<HTMLElement>(null);
     const [active, setActive] = useState<string | null>(null);
 

@@ -1,6 +1,8 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
+import {Provider} from 'react-redux';
 import App from './App';
+import {store} from './store';
 import './index.css';
 import AppThemeProvider from './theme/AppThemeProvider';
 import {installAuthGuard} from './utils/auth';
@@ -15,8 +17,10 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
     <React.StrictMode>
-        <AppThemeProvider>
-            <App />
-        </AppThemeProvider>
+        <Provider store={store}>
+            <AppThemeProvider>
+                <App />
+            </AppThemeProvider>
+        </Provider>
     </React.StrictMode>
 );

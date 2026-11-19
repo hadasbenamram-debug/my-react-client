@@ -13,14 +13,17 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
-import { authHeaders, clearSession } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { clearSession } from '../utils/auth';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch } from '../store';
+import { deleteAccount } from '../store/accountSlice';
 
 // תיקון 77: מחיקת החשבון מהפרופיל.
 // בשרת זו "מחיקה רכה" (IsActive = false): אי אפשר להתחבר יותר, והמנוע לא משבץ את החשבון,
 // אבל ההיסטוריה של הצדדים האחרים (תרומות, מסלולים, משובים) נשמרת.
 // הסיסמה נדרשת שוב, ואי אפשר למחוק באמצע עבודה - השרת מחזיר הודעה שמסבירה מה לסיים קודם.
 export function DeleteAccountSection() {
+  const dispatch = useAppDispatch();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [understood, setUnderstood] = useState(false);
@@ -40,23 +43,17 @@ export function DeleteAccountSection() {
     setError('');
     setDeleting(true);
     try {
-      const response = await fetch('/api/users/me', {
-        method: 'DELETE',
-        headers: authHeaders(true),
-        body: JSON.stringify({ password }),
-      });
-      if (!response.ok) {
-        setError(await readErrorMessage(response, 'מחיקת החשבון נכשלה. נסו שוב.'));
-        setDeleting(false);
-        return;
-      }
-      // החשבון נמחק והטוקן כבר לא תקף - יוצאים ועוברים לדף ההתחברות עם הודעת סיום
-      clearSession();
-      window.location.href = '/app/login?deleted=1';
-    } catch {
-      setError('לא ניתן להתחבר לשרת. נסו שוב.');
+      await dispatch(deleteAccount({ password })).unwrap();
+    } catch (err) {
+      const payload = toErrorPayload(err, 'מחיקת החשבון נכשלה. נסו שוב.');
+      // status 0 = אין תקשורת; אחרת ההודעה מהשרת (למשל מה צריך לסיים לפני המחיקה)
+      setError(payload.status === 0 ? 'לא ניתן להתחבר לשרת. נסו שוב.' : payload.message);
       setDeleting(false);
+      return;
     }
+    // החשבון נמחק והטוקן כבר לא תקף - יוצאים ועוברים לדף ההתחברות עם הודעת סיום
+    clearSession();
+    window.location.href = '/app/login?deleted=1';
   };
 
   return (

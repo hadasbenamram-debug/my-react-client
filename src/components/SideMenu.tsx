@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import type { StoredUser } from '../types';
-import { otherRoles, roleTitle, switchRole } from '../utils/auth';
+import { clearSession, otherRoles, roleTitle, switchRole } from '../utils/auth';
+import { useAppSelector } from '../store';
+import { selectCurrentUser } from '../store/authSlice';
 
 interface SideMenuProps {
     open: boolean;
@@ -69,16 +70,8 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
         if (group) setOpenAdminGroup(group);
     }, [pathname]);
 
-    let currentUser: StoredUser = { role: 'guest' };
-    try {
-        const storedUser = localStorage.getItem('currentUser');
-        if (storedUser) {
-            currentUser = JSON.parse(storedUser) as StoredUser;
-        }
-    } catch (e) {
-        currentUser = { role: 'guest' };
-    }
-    
+    const currentUser = useAppSelector(selectCurrentUser);
+
     const role = (currentUser.role || currentUser.type || '').toLowerCase();
     const isGuest = !role || role === 'guest';
     // תיקון 10: לחשבון יכולים להיות כמה תפקידים (למשל ספק שהוא גם מתנדב) - מעבר ביניהם מכאן
@@ -258,8 +251,7 @@ export default function SideMenu({ open, onClose }: SideMenuProps) {
                             className="side-link" 
                             style={{ width: '100%', textAlign: 'right', color: '#ffb3b3', background: 'none', border: 'none', cursor: 'pointer' }}
                             onClick={() => {
-                                localStorage.removeItem('token');
-                                localStorage.removeItem('currentUser');
+                                clearSession();
                                 onClose();
                                 window.location.href = '/app/login';
                             }}

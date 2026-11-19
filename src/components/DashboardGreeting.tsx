@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import PageTitle from './PageTitle';
-import { authHeaders, getCurrentUser } from '../utils/auth';
+import { fetchMyProfile } from '../store/accountSlice';
+import { useAppDispatch, useAppSelector } from '../store';
+import { selectCurrentUser, userUpdated } from '../store/authSlice';
 
 // תיקון 70: כותרת אישית לדשבורדים (עמותה, מתנדב, ספק) - "בוקר טוב, הדס" במקום "הדשבורד שלי".
 // השם נלקח מהפרופיל (api/users/me) ונשמר ב-currentUser, כדי שבכניסה הבאה יופיע מיד.
@@ -20,27 +22,29 @@ function greetingForNow(): string {
 const firstName = (name: unknown): string =>
   typeof name === 'string' ? name.trim().split(/\s+/)[0] ?? '' : '';
 
-export default function DashboardGreeting({ eyebrow }: { eyebrow: string }) {
-  const [name, setName] = useState(() => firstName(getCurrentUser().name));
+interface DashboardGreetingProps {
+  eyebrow: string;
+}
+
+export default function DashboardGreeting({ eyebrow }: DashboardGreetingProps) {
+  const dispatch = useAppDispatch();
+  const name = firstName(useAppSelector(selectCurrentUser).name);
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/users/me', { headers: authHeaders() })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { name?: string } | null) => {
+    // הפרופיל נטען ב-thunk המשותף (store/accountSlice.ts)
+    dispatch(fetchMyProfile())
+      .unwrap()
+      .then((data) => {
         if (cancelled || !data?.name) return;
-        setName(firstName(data.name));
-        try {
-          localStorage.setItem('currentUser', JSON.stringify({ ...getCurrentUser(), name: data.name }));
-        } catch {
-          // אין גישה ל-localStorage - השם פשוט ייטען שוב בפעם הבאה
-        }
+        // נשמר ב-Redux (ומשם ב-localStorage) - בכניסה הבאה השם מופיע מיד
+        dispatch(userUpdated({ name: data.name }));
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dispatch]);
 
   const greeting = greetingForNow();
   return (

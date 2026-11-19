@@ -1,10 +1,8 @@
-import {authHeaders} from './auth';
-import {readErrorMessage} from './apiError';
-
 // העוזר החכם: שליחת השיחה לשרת וקריאת התשובה בהזרמה (Server-Sent Events).
-// ה-HttpClient של axios מחזיר את התשובה רק כשהיא נגמרת, ו-EventSource של הדפדפן תומך רק ב-GET,
+// ספריית HTTP רגילה (XHR) מחזירה את התשובה רק כשהיא נגמרת, ו-EventSource של הדפדפן תומך רק ב-GET,
 // ואנחנו שולחים POST עם ההיסטוריה - לכן fetch, שמאפשר לקרוא את גוף התשובה חלק אחרי חלק.
-// fetch לא עובר דרך ה-interceptors של axios, ולכן הטוקן נוסף כאן (authHeaders).
+// הבקשה עצמה נשלחת מה-thunk streamAssistantReply (store/publicSlice.ts) דרך apiFetchRaw, שמוסיף את הטוקן;
+// כאן נשאר רק הפענוח של ההזרמה.
 
 export type AssistantRole = 'user' | 'assistant';
 
@@ -20,7 +18,7 @@ export interface AssistantStreamHandlers {
     onStatus: (status: string) => void;
 }
 
-const STREAM_URL = '/api/chat/stream';
+export const ASSISTANT_STREAM_URL = '/api/chat/stream';
 
 /** כמו בשרת: כל הודעה עד 2000 תווים (תשובה ארוכה של העוזר נחתכת בהיסטוריה) */
 export const MAX_MESSAGE_LENGTH = 2000;
@@ -61,29 +59,11 @@ const handleBlock = (block: string, handlers: AssistantStreamHandlers): boolean 
 };
 
 /**
- * שולח את כל השיחה (השרת לא שומר שיחות) וקורא את התשובה בהזרמה.
- * activeRole - התפקיד הפעיל בתפריט. השרת בודק אותו מול התפקידים המאושרים של החשבון.
- * signal - לעצירה (כפתור "עצור" / סגירת הדף): השרת מקבל ביטול ומפסיק לפנות למודל.
+ * קורא את גוף התשובה בהזרמה וקורא ל-handlers על כל חלק. מסתיים ב-[DONE] או בסוף הזרם.
+ * ביטול הבקשה (signal) מפסיק את הקריאה עם AbortError.
  */
-export async function streamAssistantAnswer(
-    messages: AssistantMessage[],
-    activeRole: string | undefined,
-    handlers: AssistantStreamHandlers,
-    signal: AbortSignal,
-): Promise<void> {
-    const res = await fetch(STREAM_URL, {
-        method: 'POST',
-        headers: authHeaders(true),
-        body: JSON.stringify({messages, activeRole}),
-        signal,
-    });
-
-    // שגיאה לפני ההזרמה (ולידציה, הגבלת קצב, העוזר לא מוגדר...) - אותו מבנה שגיאה כמו בכל ה-API
-    if (!res.ok || !res.body) {
-        throw new Error(await readErrorMessage(res, 'לא הצלחנו לקבל תשובה מהעוזר. נסו שוב.'));
-    }
-
-    const reader = res.body.getReader();
+export async function readAssistantStream(body: ReadableStream<Uint8Array>, handlers: AssistantStreamHandlers): Promise<void> {
+    const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 

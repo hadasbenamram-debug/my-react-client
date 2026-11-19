@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -12,7 +12,8 @@ import { LoadingBlock, EmptyState } from '../components/PageParts';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import type { AdminVolunteerListItemDto } from '../types/api';
-import { authHeaders } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchAdminVolunteers, isFirstLoad, selectAdminVolunteers } from '../store/adminSlice';
 import { formatDateTime, isDateBeforeToday } from '../utils/format';
 
 // תיקון 62: הדף "ניהול מתנדבים" (VolunteersPage) אוחד לכאן - אותה רשימה מאותו שרת (/api/volunteers),
@@ -23,27 +24,25 @@ const STATUS_LABELS: Record<string, string> = { Pending: 'ממתין לאישו�
 const licenseExpired = (v: AdminVolunteerListItemDto) => isDateBeforeToday(v.driverLicenseExpiry);
 const licenseMissing = (v: AdminVolunteerListItemDto) => !v.driverLicenseExpiry;
 
+interface AdminVolunteersDirectoryPageProps {
+  /** בתוך עמוד "משתמשים" - בלי כותרת משלו */
+  embedded?: boolean;
+}
+
 // תיקון 63: גם לשונית בעמוד "משתמשים" (AdminPeoplePage) - אז בלי כותרת משלו
-export function AdminVolunteersDirectoryPage({ embedded = false }: { embedded?: boolean }) {
+export function AdminVolunteersDirectoryPage({ embedded = false }: AdminVolunteersDirectoryPageProps) {
   const navigate = useNavigate();
-  const [volunteers, setVolunteers] = useState<AdminVolunteerListItemDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const dispatch = useAppDispatch();
+  const volunteersState = useAppSelector(selectAdminVolunteers);
+  const volunteers = volunteersState.items ?? [];
+  const loading = isFirstLoad(volunteersState, volunteersState.items !== null);
+  const error = volunteersState.error ?? '';
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetch('/api/volunteers', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`שגיאת שרת: ${res.status}`);
-        const data = await res.json();
-        if (Array.isArray(data)) setVolunteers(data as AdminVolunteerListItemDto[]);
-      })
-      .catch((err) => {
-        console.error('שגיאה בטעינת מתנדבים:', err);
-        setError('שגיאה בטעינת המתנדבים.');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    // השגיאה נשמרת בסלייס ומוצגת למטה
+    void dispatch(fetchAdminVolunteers());
+  }, [dispatch]);
 
   const term = searchTerm.trim().toLowerCase();
   const filteredVolunteers = volunteers.filter((v) =>

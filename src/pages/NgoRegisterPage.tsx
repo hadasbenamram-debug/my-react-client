@@ -11,9 +11,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import { AddRoleNotice } from '../components/AddRoleNotice';
 import { useAddRoleMode } from '../hooks/useAddRoleMode';
-import { readErrorMessage } from '../utils/apiError';
-import { authHeaders } from '../utils/auth';
-import type { RegionResponseDto } from '../types/api';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch } from '../store';
+import { fetchRegions, registerNgo } from '../store/ngoSlice';
 
 // האורכים תואמים לעמודות במסד (השרת בודק את אותו דבר)
 interface FieldDef { name: string; label: string; type?: string; maxLength?: number; minLength?: number; }
@@ -36,6 +36,7 @@ const ngoFields: FieldDef[] = [
 const SATURDAY_NIGHT_EARLIEST = '17:00';
 
 export function NgoRegisterPage() {
+  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -66,15 +67,15 @@ export function NgoRegisterPage() {
   // שליפת רשימת האזורים מהשרת בעת טעינת העמוד.
   // תיקון 82: האזור עצמו נקבע בשרת לפי הכתובת - כאן רק שולחים מזהה אזור קיים, כי השדה עדיין חובה ב-DTO.
   useEffect(() => {
-    fetch('/api/region')
-      .then((res) => res.json())
-      .then((data: RegionResponseDto[]) => {
-        if (Array.isArray(data) && data.length > 0) {
+    dispatch(fetchRegions())
+      .unwrap()
+      .then((data) => {
+        if (data.length > 0) {
           setFormData((prev) => ({ ...prev, regionId: data[0].id }));
         }
       })
-      .catch((err) => console.error('שגיאה בטעינת אזורים:', err));
-  }, []);
+      .catch((err: unknown) => console.error('שגיאה בטעינת אזורים:', err));
+  }, [dispatch]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | { name?: string; value: unknown }>) => {
     const target = e.target as HTMLInputElement;
@@ -108,10 +109,9 @@ export function NgoRegisterPage() {
 
     // מחוברים: רק פרטי העמותה, והתפקיד מצורף לחשבון הקיים (POST api/ngos). אחרת - הרשמה חדשה.
     const { name, email, phone, ...ngoFields } = formData;
-    fetch(loggedIn ? '/api/ngos' : '/api/ngos/register', {
-      method: 'POST',
-      headers: loggedIn ? authHeaders(true) : { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    dispatch(registerNgo({
+      loggedIn,
+      body: {
         ...(loggedIn ? ngoFields : { ...ngoFields, name, email, phone }),
         dailyCapacity: Number(formData.dailyCapacity),
         regionId: Number(formData.regionId),
@@ -121,29 +121,31 @@ export function NgoRegisterPage() {
         fridayCloseTime: formData.receivesOnFriday && formData.fridayCloseTime ? formData.fridayCloseTime + ':00' : null,
         saturdayNightOpenTime: formData.receivesOnSaturdayNight ? formData.saturdayNightOpenTime + ':00' : null,
         saturdayNightCloseTime: formData.receivesOnSaturdayNight ? formData.saturdayNightCloseTime + ':00' : null,
-      }),
-    })
-      .then(async res => {
+      },
+    }))
+      .unwrap()
+      .then((body) => {
         setLoading(false);
-        if (res.ok && loggedIn) {
-          const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        if (loggedIn) {
           setMessage(body?.message || 'הבקשה נשלחה לאישור מנהל.');
           setSuccess(true);
           setRoleRequested(true);
-        } else if (res.ok) {
+        } else {
           // השרת מחזיר אותה הודעה גם כשהמייל כבר רשום (כדי לא לחשוף אילו מיילים קיימים) - הפרטים נשלחים למייל
-          const body = (await res.json().catch(() => null)) as { message?: string } | null;
           setMessage(body?.message || 'הבקשה נקלטה. פרטי ההמשך נשלחו לכתובת המייל שהזנת.');
           setSuccess(true);
           setFormData((prev) => ({ ...prev, name: '', email: '', phone: '', ngoName: '', registrationNumber: '', address: '' }));
-        } else {
-          setMessage(await readErrorMessage(res, 'אירעה שגיאה בעת הרישום. נסה שוב.'));
         }
       })
-      .catch(err => {
+      .catch((err: unknown) => {
         setLoading(false);
-        setMessage('שגיאת תקשורת מול השרת.');
-        console.error('שגיאת תקשורת:', err);
+        const { status, message } = toErrorPayload(err, 'אירעה שגיאה בעת הרישום. נסה שוב.');
+        if (status === 0) {
+          setMessage('שגיאת תקשורת מול השרת.');
+          console.error('שגיאת תקשורת:', err);
+        } else {
+          setMessage(message);
+        }
       });
   };
 
@@ -153,7 +155,7 @@ export function NgoRegisterPage() {
       name={f.name}
       label={f.label}
       type={f.type || 'text'}
-      value={(formData as Record<string, any>)[f.name]}
+      value={formData[f.name as keyof typeof formData]}
       onChange={handleChange}
       required
       slotProps={{ htmlInput: { maxLength: f.maxLength, minLength: f.minLength, ...(f.type === 'number' ? { min: 1, max: 100000 } : {}) } }}
@@ -166,7 +168,7 @@ export function NgoRegisterPage() {
       name={name}
       label={label}
       type="time"
-      value={(formData as Record<string, any>)[name]}
+      value={formData[name as keyof typeof formData]}
       onChange={handleChange}
       required={required}
       slotProps={{ inputLabel: { shrink: true } }}

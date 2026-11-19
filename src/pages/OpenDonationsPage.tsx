@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -17,8 +17,10 @@ import DonationImage from '../components/DonationImage';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import VolunteerActivismOutlinedIcon from '@mui/icons-material/VolunteerActivismOutlined';
 import { useAutoRefresh } from '../components/LiveUpdates';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { cancelDonation, fetchDonationById, updateDonation } from '../store/donationsSlice';
+import { fetchSupplierDonations, selectSupplierDonations, selectSupplierDonationsStatus } from '../store/supplierSlice';
 import { DONATION_STATUS_LABELS, MATCH_STATUS_LABELS, formatDateTime, formatPickupWindow, formatTime, formatTimeSpan } from '../utils/format';
 import type { DonationResponseDto, SupplierDonationSummaryDto } from '../types/api';
 
@@ -33,8 +35,14 @@ const minutesOf = (value: string) => {
 // תוקן: הביטול שלח DELETE לנתיב שלא היה קיים.
 export function OpenDonationsPage() {
   const navigate = useNavigate();
-  const [donations, setDonations] = useState<SupplierDonationSummaryDto[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const dispatch = useAppDispatch();
+  const allDonations = useAppSelector(selectSupplierDonations);
+  const loadStatus = useAppSelector(selectSupplierDonationsStatus);
+  const donations = useMemo<SupplierDonationSummaryDto[]>(
+    () => (allDonations ?? []).filter((d) => OPEN_STATUSES.includes(d.status)),
+    [allDonations],
+  );
+  const loading = allDonations === null && loadStatus !== 'failed';
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [editing, setEditing] = useState<DonationResponseDto | null>(null);
   const [editPickup, setEditPickup] = useState('');
@@ -43,15 +51,10 @@ export function OpenDonationsPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const fetchDonations = useCallback(() => {
-    fetch('/api/donations/my-supplier-donations', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error();
-        const all = (await res.json()) as SupplierDonationSummaryDto[];
-        setDonations(all.filter((d) => OPEN_STATUSES.includes(d.status)));
-      })
-      .catch(() => setMessage({ text: 'שגיאה בטעינת התרומות.', ok: false }))
-      .finally(() => setLoading(false));
-  }, []);
+    dispatch(fetchSupplierDonations())
+      .unwrap()
+      .catch(() => setMessage({ text: 'שגיאה בטעינת התרומות.', ok: false }));
+  }, [dispatch]);
 
   useEffect(() => {
     fetchDonations();
@@ -64,22 +67,23 @@ export function OpenDonationsPage() {
     const reason = window.prompt('לבטל את התרומה? אם כבר שובץ מתנדב הוא יקבל הודעה. סיבה (לא חובה):', '');
     if (reason === null) return;
 
-    const res = await fetch(`/api/donations/${donationId}/cancel`, {
-      method: 'PUT',
-      headers: authHeaders(true),
-      body: JSON.stringify({ reason: reason || null }),
-    });
-    setMessage(res.ok ? { text: 'התרומה בוטלה.', ok: true } : { text: await readErrorMessage(res, 'לא ניתן לבטל את התרומה.'), ok: false });
+    try {
+      await dispatch(cancelDonation({ donationId, reason: reason || null })).unwrap();
+      setMessage({ text: 'התרומה בוטלה.', ok: true });
+    } catch (err) {
+      setMessage({ text: errorMessage(err, 'לא ניתן לבטל את התרומה.'), ok: false });
+    }
     fetchDonations();
   };
 
   const openEdit = async (donationId: number) => {
-    const res = await fetch(`/api/donations/${donationId}`, { headers: authHeaders() });
-    if (!res.ok) {
-      setMessage({ text: await readErrorMessage(res, 'לא ניתן לטעון את התרומה.'), ok: false });
+    let donation: DonationResponseDto;
+    try {
+      donation = await dispatch(fetchDonationById(donationId)).unwrap();
+    } catch (err) {
+      setMessage({ text: errorMessage(err, 'לא ניתן לטעון את התרומה.'), ok: false });
       return;
     }
-    const donation = (await res.json()) as DonationResponseDto;
     setEditing(donation);
     setEditPickup(formatTimeSpan(donation.latestPickupTime));
     setEditReady(donation.earliestPickupTime ? formatTimeSpan(donation.earliestPickupTime) : '');
@@ -93,22 +97,21 @@ export function OpenDonationsPage() {
       return;
     }
     setEditError(null);
-    const res = await fetch(`/api/donations/${editing.id}`, {
-      method: 'PUT',
-      headers: authHeaders(true),
-      body: JSON.stringify({
-        latestPickupTime: `${editPickup}:00`,
-        earliestPickupTime: editReady ? `${editReady}:00` : null,
-        expirationTime: editing.expirationTime,
-        categories: editing.categories.map((c) => ({ categoryId: c.categoryId, quantity: c.quantity, weightKg: c.weightKg })),
-      }),
-    });
-    if (res.ok) {
+    try {
+      await dispatch(updateDonation({
+        donationId: editing.id,
+        body: {
+          latestPickupTime: `${editPickup}:00`,
+          earliestPickupTime: editReady ? `${editReady}:00` : null,
+          expirationTime: editing.expirationTime,
+          categories: editing.categories.map((c) => ({ categoryId: c.categoryId, quantity: c.quantity, weightKg: c.weightKg })),
+        },
+      })).unwrap();
       setEditing(null);
       setMessage({ text: 'התרומה עודכנה.', ok: true });
       fetchDonations();
-    } else {
-      setMessage({ text: await readErrorMessage(res, 'שגיאה בעדכון התרומה.'), ok: false });
+    } catch (err) {
+      setMessage({ text: errorMessage(err, 'שגיאה בעדכון התרומה.'), ok: false });
     }
   };
 

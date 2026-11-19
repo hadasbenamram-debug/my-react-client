@@ -1,6 +1,9 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {getCurrentUser} from '../utils/auth';
-import {MAX_MESSAGE_LENGTH, streamAssistantAnswer} from '../utils/assistantStream';
+import {MAX_MESSAGE_LENGTH} from '../utils/assistantStream';
+import {errorMessage} from '../api/http';
+import {useAppDispatch, useAppSelector} from '../store';
+import {ASSISTANT_ABORTED_CODE, streamAssistantReply} from '../store/publicSlice';
+import {selectCurrentUser} from '../store/authSlice';
 import type {AssistantMessage, AssistantRole} from '../utils/assistantStream';
 
 /** הודעה כפי שהיא מוצגת בחלון הצ'אט */
@@ -39,13 +42,18 @@ const toHistory = (entries: ChatEntry[]): AssistantMessage[] => {
     return messages;
 };
 
-const isAbort = (err: unknown): boolean => err instanceof DOMException && err.name === 'AbortError';
+// עצירה (כפתור "עצור" / סגירת הדף) - ה-thunk נדחה עם code = Aborted
+const isAbort = (err: unknown): boolean =>
+    (err instanceof DOMException && err.name === 'AbortError')
+    || (typeof err === 'object' && err !== null && (err as {code?: unknown}).code === ASSISTANT_ABORTED_CODE);
 
 export default function useAssistantChat(): UseAssistantChatResult {
     const [entries, setEntries] = useState<ChatEntry[]>([]);
     const [busy, setBusy] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
     const nextId = useRef(1);
+    const dispatch = useAppDispatch();
+    const activeRole = useAppSelector(selectCurrentUser).role;
 
     // יציאה מהדף באמצע תשובה - מבטלים את הבקשה (השרת מקבל CancellationToken ומפסיק)
     useEffect(() => () => abortRef.current?.abort(), []);
@@ -73,20 +81,20 @@ export default function useAssistantChat(): UseAssistantChatResult {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        streamAssistantAnswer(
+        // השליחה והקריאה בהזרמה ב-thunk; כל חלק מגיע ל-callbacks ומתווסף להודעה במסך
+        dispatch(streamAssistantReply({
             history,
-            getCurrentUser().role,
-            {
-                onText: (chunk) => update((e) => ({...e, text: e.text + chunk, status: undefined})),
-                onStatus: (status) => update((e) => ({...e, status})),
-            },
-            controller.signal,
-        )
+            role: activeRole,
+            onText: (chunk) => update((e) => ({...e, text: e.text + chunk, status: undefined})),
+            onStatus: (status) => update((e) => ({...e, status})),
+            signal: controller.signal,
+        }))
+            .unwrap()
             .catch((err: unknown) => {
                 if (isAbort(err)) {
                     update((e) => ({...e, stopped: true}));
                 } else {
-                    update((e) => ({...e, error: err instanceof Error ? err.message : 'משהו השתבש. נסו שוב.'}));
+                    update((e) => ({...e, error: errorMessage(err, 'משהו השתבש. נסו שוב.')}));
                 }
             })
             .finally(() => {
@@ -94,7 +102,7 @@ export default function useAssistantChat(): UseAssistantChatResult {
                 if (abortRef.current === controller) abortRef.current = null;
                 setBusy(false);
             });
-    }, [busy, entries]);
+    }, [busy, entries, dispatch, activeRole]);
 
     const stop = useCallback(() => abortRef.current?.abort(), []);
 

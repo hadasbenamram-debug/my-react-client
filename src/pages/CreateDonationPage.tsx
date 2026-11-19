@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -17,14 +17,24 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import type { DonationResponseDto, FoodCategoryResponseDto, ImageAnalysisResponseDto, SupplierResponseDto, ValidationProblemBody } from '../types/api';
-import { getToken } from '../utils/auth';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { selectToken } from '../store/authSlice';
+import { analyzeDonationImage, createDonation, fetchCategories, selectCategories } from '../store/donationsSlice';
+import type { AiParsedItem } from '../store/donationsSlice';
+import { fetchCurrentSupplier, selectCurrentSupplier, selectCurrentSupplierStatus } from '../store/supplierSlice';
 
 interface DonationCategoryLineDto {
+  /** מזהה מקומי של השורה בטופס (ל-key ברשימה) - לא נשלח לשרת */
+  lineId: number;
   categoryId: number | '';
   quantity: number;
   weightKg: number;
 }
+
+// מונה למזהי שורות בטופס (שורה חדשה = מזהה חדש, גם אחרי מחיקת שורות)
+let lastLineId = 0;
+const nextLineId = () => ++lastLineId;
 
 interface CategoryOption {
   id: number;
@@ -44,29 +54,21 @@ const defaultReadyTime = () => {
   return `${String(d.getHours()).padStart(2, '0')}:00`;
 };
 
-/** פריט שה-AI זיהה בתמונה (תוכן aiParsedData אחרי JSON.parse) */
-interface AiParsedItem {
-  categoryId?: number | string;
-  quantity?: number | string;
-  weightKg?: number | string;
-  error?: string;
-}
-
-/** תשובת analyze-image: לפי ה-DTO aiParsedData הוא string, אבל הקוד תומך גם באובייקט מוכן */
-type AnalyzeImageResponse = Partial<Omit<ImageAnalysisResponseDto, 'aiParsedData'>> & {
-  aiParsedData?: string | AiParsedItem | AiParsedItem[] | null;
-};
-
 export function CreateDonationPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const token = useAppSelector(selectToken);
   // תוקן: אחרי פרסום מוצלח נשארו בטופס, ולחיצה נוספת על "פרסם" שלחה את אותה תרומה שוב
   // (עם תמונה שכבר נוצלה) - והשרת נכשל. עכשיו: שליחה אחת בלבד, ואחרי ההצלחה יוצאים מעמוד הפרסום.
   const submitting = useRef(false);
   // תיקון 33: מקום האיסוף הוא הכתובת של העסק מההרשמה - לא בוחרים אזור ולא מזינים כתובת.
   // השרת לוקח את המיקום המדויק של העסק (שנקבע לפי הכתובת, דרך Google Maps) וקובע לפיו את האזור.
   // כאן רק מציגים לספק מאיזו כתובת ייאספו (GET api/suppliers/current).
-  const [supplier, setSupplier] = useState<SupplierResponseDto | null>(null);
-  const [supplierError, setSupplierError] = useState<string | null>(null);
+  const supplier = useAppSelector(selectCurrentSupplier);
+  const supplierStatus = useAppSelector(selectCurrentSupplierStatus);
+  const supplierError = !supplier && supplierStatus === 'failed'
+    ? 'לא הצלחנו להציג כרגע את כתובת העסק. התרומה תיאסף מהכתובת שנרשמה בהרשמה.'
+    : null;
   const supplierHasLocation = !!supplier && (supplier.latitude !== 0 || supplier.longitude !== 0);
 
   const [latestPickupTime, setLatestPickupTime] = useState<string>('18:00');
@@ -81,11 +83,16 @@ export function CreateDonationPage() {
   // שם קובץ התמונה שהשרת שמר (לא נתיב ולא כתובת)
   const [imageFileName, setImageFileName] = useState<string>('');
 
-  const [categories, setCategories] = useState<DonationCategoryLineDto[]>([
-    { categoryId: '', quantity: 1, weightKg: 1 }
+  const [categories, setCategories] = useState<DonationCategoryLineDto[]>(() => [
+    { lineId: nextLineId(), categoryId: '', quantity: 1, weightKg: 1 }
   ]);
 
-  const [availableCategories, setAvailableCategories] = useState<CategoryOption[]>([]);
+  // api/categories מחזיר FoodCategoryResponseDto { id, categoryName, perishabilityFactor }
+  const rawCategories = useAppSelector(selectCategories);
+  const availableCategories = useMemo<CategoryOption[]>(
+    () => (rawCategories ?? []).map((c) => ({ id: c.id, name: c.categoryName })),
+    [rawCategories],
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -102,55 +109,32 @@ export function CreateDonationPage() {
   // שליפת קטגוריות ואזורים.
   // תוקן: בעבר טוקן מהכתובת נשמר כטוקן התחברות.
   useEffect(() => {
-    const token = getToken();
-
-    fetch('/api/categories', {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      }
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`שגיאה בטעינת קטגוריות: ${res.status}`);
-        return res.json();
-      })
-      .then((raw: FoodCategoryResponseDto[]) => {
-        if (!Array.isArray(raw)) throw new Error('השרת החזיר רשימת קטגוריות לא תקינה.');
-        // api/categories מחזיר FoodCategoryResponseDto { id, categoryName, perishabilityFactor }
-        const data: CategoryOption[] = raw.map((c) => ({ id: c.id, name: c.categoryName }));
-        setAvailableCategories(data);
-        if (data.length > 0) {
+    dispatch(fetchCategories())
+      .unwrap()
+      .then((raw) => {
+        if (raw.length > 0) {
           setCategories((prev) =>
             prev.map((item, idx) =>
-              idx === 0 && item.categoryId === '' ? { ...item, categoryId: data[0].id } : item
+              idx === 0 && item.categoryId === '' ? { ...item, categoryId: raw[0].id } : item
             )
           );
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('שגיאה בטעינת קטגוריות:', err);
         setError('לא ניתן לטעון את הקטגוריות. נסו לרענן את הדף.');
       });
 
-    fetch('/api/suppliers/current', {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      }
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`שגיאה בטעינת פרטי העסק: ${res.status}`);
-        return res.json();
-      })
-      .then((data: SupplierResponseDto) => setSupplier(data))
-      .catch((err) => {
-        console.error('שגיאה בטעינת פרטי העסק:', err);
-        setSupplierError('לא הצלחנו להציג כרגע את כתובת העסק. התרומה תיאסף מהכתובת שנרשמה בהרשמה.');
-      });
-  }, []);
+    dispatch(fetchCurrentSupplier())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת פרטי העסק:', err));
+  }, [dispatch]);
 
   const handleAddCategoryLine = () => {
     setCategories((prev) => [
       ...prev,
       {
+        lineId: nextLineId(),
         categoryId: availableCategories[0]?.id ?? '',
         quantity: 1,
         weightKg: 1
@@ -164,7 +148,7 @@ export function CreateDonationPage() {
 
   const handleCategoryChange = (
     index: number,
-    field: keyof DonationCategoryLineDto,
+    field: Exclude<keyof DonationCategoryLineDto, 'lineId'>,
     value: number | ''
   ) => {
     setCategories((prev) =>
@@ -189,28 +173,16 @@ export function CreateDonationPage() {
     setSuccessMessage(null);
     setImageFileName('');
 
-    const token = getToken();
     if (!token) {
       setError('יש להתחבר למערכת מחדש.');
       return;
     }
 
-    const formData = new FormData();
-    formData.append('image', file);
     setLoading(true);
 
     try {
-      const response = await fetch('/api/donations/analyze-image', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
-
-      const data: AnalyzeImageResponse = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.message || 'שגיאה בניתוח התמונה מול השרת.');
-      }
+      // הקובץ נשלח כ-FormData בתוך ה-thunk
+      const data = await dispatch(analyzeDonationImage(file)).unwrap();
 
       // שומרים את שם הקובץ שהשרת החזיר
       if (data.image) setImageFileName(data.image);
@@ -250,6 +222,7 @@ export function CreateDonationPage() {
         }
 
         return {
+          lineId: nextLineId(),
           categoryId: categoryExists ? parsedCategoryId : '',
           quantity: quantityValid ? Math.round(parsedQuantity) : 1,
           weightKg: weightValid ? Math.round(parsedWeightKg * 10) / 10 : 1
@@ -270,9 +243,7 @@ export function CreateDonationPage() {
       setError(
         err instanceof SyntaxError
           ? 'התקבלו נתונים לא תקינים מניתוח התמונה. נא למלא ידנית.'
-          : err instanceof Error
-            ? err.message
-            : 'שגיאת תקשורת בניתוח התמונה.'
+          : toErrorPayload(err, 'שגיאת תקשורת בניתוח התמונה.').message
       );
     } finally {
       setLoading(false);
@@ -295,7 +266,6 @@ export function CreateDonationPage() {
       submitting.current = false;
     };
 
-    const token = getToken();
     if (!token) {
       stop('יש להתחבר למערכת מחדש.');
       return;
@@ -366,38 +336,24 @@ export function CreateDonationPage() {
     };
 
     try {
-      const response = await fetch('/api/donations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(donationPayload)
+      const created = await dispatch(createDonation(donationPayload)).unwrap();
+      published = true;
+      // יוצאים מעמוד הפרסום (replace - כך שגם "חזרה" בדפדפן לא מחזירה לטופס המלא)
+      // תיקון 63: מסך התרומה של הספק (פרטים / מעקב / שיחה) במקום "פרטי תרומה"
+      navigate(created?.id ? `/app/supplier/donation/${created.id}` : '/app/supplier/open-donations', {
+        replace: true,
+        state: { justPublished: true },
       });
-
-      if (response.ok) {
-        const created = (await response.json().catch(() => null)) as DonationResponseDto | null;
-        published = true;
-        // יוצאים מעמוד הפרסום (replace - כך שגם "חזרה" בדפדפן לא מחזירה לטופס המלא)
-        // תיקון 63: מסך התרומה של הספק (פרטים / מעקב / שיחה) במקום "פרטי תרומה"
-        navigate(created?.id ? `/app/supplier/donation/${created.id}` : '/app/supplier/open-donations', {
-          replace: true,
-          state: { justPublished: true },
-        });
-        return;
-      } else {
-        const errData: ValidationProblemBody = await response.json().catch(() => ({}));
-        let errorText = 'שגיאה בשמירת התרומה בשרת.';
-        if (errData.errors) {
-          errorText = Object.values(errData.errors).flat().join(', ');
-        } else if (errData.message) {
-          errorText = errData.message;
-        }
-        setError(errorText);
-      }
+      return;
     } catch (err) {
-      console.error('שגיאת תקשורת:', err);
-      setError('שגיאת תקשורת מול השרת.');
+      const errData = toErrorPayload(err, 'שגיאה בשמירת התרומה בשרת.');
+      if (errData.status === 0) {
+        console.error('שגיאת תקשורת:', err);
+        setError('שגיאת תקשורת מול השרת.');
+      } else {
+        // שגיאות ולידציה - כל ההודעות יחד (כמו קודם)
+        setError(errData.errors ? Object.values(errData.errors).flat().join(', ') : errData.message);
+      }
     } finally {
       if (!published) {
         submitting.current = false;
@@ -540,7 +496,7 @@ export function CreateDonationPage() {
 
           {categories.map((cat, index) => (
             <Box
-              key={index}
+              key={cat.lineId}
               sx={{
                 p: 2.5,
                 mb: 2,

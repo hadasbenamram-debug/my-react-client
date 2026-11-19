@@ -59,7 +59,12 @@ const initialsOf = (name: string) =>
     name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join('') || '?';
 
 /** עיגול עם ראשי התיבות של הכותב - אותו צבע תמיד לאותו שם */
-export function CommentAvatar({name, size = 36}: {name: string; size?: number}) {
+export interface CommentAvatarProps {
+    name: string;
+    size?: number;
+}
+
+export function CommentAvatar({name, size = 36}: CommentAvatarProps) {
     const tone = toneFor(name);
     return (
         <Box
@@ -77,9 +82,14 @@ export function CommentAvatar({name, size = 36}: {name: string; size?: number}) 
 }
 
 /** שורת תגובה: אווטאר, שם וזמן, והטקסט בבועה. children - פעולות מתחת לבועה */
-export function CommentRow({authorName, text, createdAt, children}: {
-    authorName: string; text?: string; createdAt?: string; children?: ReactNode;
-}) {
+export interface CommentRowProps {
+    authorName: string;
+    text?: string;
+    createdAt?: string;
+    children?: ReactNode;
+}
+
+export function CommentRow({authorName, text, createdAt, children}: CommentRowProps) {
     return (
         <Box sx={{display: 'flex', gap: 1.5, alignItems: 'flex-start'}}>
             <CommentAvatar name={authorName} />

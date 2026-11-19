@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
@@ -7,7 +7,8 @@ import { LoadingBlock } from '../components/PageParts';
 import { InteractiveMap, StaticMap, MAP_COLORS } from '../components/GoogleMapView';
 import type { MapMarker } from '../components/GoogleMapView';
 import type { MapEntityView } from '../types/api';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchMapEntities, selectMapEntities, selectMapEntitiesStatus } from '../store/routesSlice';
 
 type EntityKind = 'donor' | 'ngo' | 'volunteer' | 'other';
 
@@ -36,40 +37,25 @@ const getKind = (loc: MapEntityView): EntityKind => {
 };
 
 export function GeneralMapPage() {
-  const [locations, setLocations] = useState<MapEntityView[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const locations = useAppSelector(selectMapEntities);
+  const status = useAppSelector(selectMapEntitiesStatus);
+  // שגיאה בטעינה - מוצגת מפה ריקה (כמו קודם; השגיאה נרשמת בקונסול ב-thunk)
+  const loading = status === 'idle' || status === 'loading';
   const [hidden, setHidden] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const token = getToken();
-    fetch('/api/map/all-entities', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then((data: MapEntityView[]) => {
-        if (Array.isArray(data)) {
-          setLocations(data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת נתוני מפה:', err);
-        setLoading(false);
-      });
-  }, []);
+    void dispatch(fetchMapEntities());
+  }, [dispatch]);
 
   // רק ישויות עם מיקום מוצגות כסיכה (0,0 = עדיין אין מיקום, כמו בשרת)
   const entities = useMemo(
     () =>
       locations
-        .map((loc, index) => {
+        .map((loc) => {
           const lat = Number(loc.latitude ?? loc.lat);
           const lng = Number(loc.longitude ?? loc.lng ?? loc.lon);
-          return { loc, index, lat, lng, kind: getKind(loc) };
+          return { loc, lat, lng, kind: getKind(loc) };
         })
         .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lng) && !(e.lat === 0 && e.lng === 0)),
     [locations]
@@ -91,7 +77,8 @@ export function GeneralMapPage() {
   const markers: MapMarker[] = entities
     .filter(e => !hidden[e.kind])
     .map(e => ({
-      id: `${e.kind}-${e.index}`,
+      // מזהה יציב: סוג הישות בשרת + המזהה שלה (מזהים של ספק ועמותה יכולים להיות זהים)
+      id: `${e.kind}-${String(e.loc.type || e.loc.entityType || e.loc.role || '')}-${e.loc.id}`,
       position: { lat: e.lat, lng: e.lng },
       title: e.loc.name,
       color: MAP_COLORS[e.kind],

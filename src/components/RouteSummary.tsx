@@ -16,7 +16,13 @@ import {formatPickupWindow, formatTime, MATCH_STATUS_LABELS, secondsUntil} from 
 // ספירה לאחור עד מועד התגובה שהשרת קבע (ResponseDeadline) - לא 5 דקות קבועות בצד הלקוח
 // תיקון 38: secondsLeft (מהשרת) - הספירה מתחילה ממה שהשרת מדד, כך ששעון לא מדויק במכשיר לא מקצר / מאריך
 // את הזמן שמוצג. בלעדיו - לפי deadline ושעון המכשיר (כמו קודם). ההחלטה עצמה תמיד בשרת.
-export function DeadlineCountdown({deadline, secondsLeft, onExpire}: {deadline: string | null; secondsLeft?: number | null; onExpire?: () => void}) {
+export interface DeadlineCountdownProps {
+    deadline: string | null;
+    secondsLeft?: number | null;
+    onExpire?: () => void;
+}
+
+export function DeadlineCountdown({deadline, secondsLeft, onExpire}: DeadlineCountdownProps) {
     const [left, setLeft] = useState(() => secondsLeft ?? secondsUntil(deadline));
 
     useEffect(() => {

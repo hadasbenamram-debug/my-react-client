@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
@@ -10,36 +10,27 @@ import { openSupplierLicense } from '../utils/openSupplierLicense';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
-import type { AdminSupplierListItemView } from '../types/api';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchAdminSuppliers, isFirstLoad, selectAdminSuppliers } from '../store/adminSlice';
+
+interface AdminSuppliersDirectoryPageProps {
+  /** בתוך עמוד "משתמשים" - בלי כותרת משלו */
+  embedded?: boolean;
+}
 
 // תיקון 63: גם לשונית בעמוד "משתמשים" (AdminPeoplePage) - אז בלי כותרת משלו
-export function AdminSuppliersDirectoryPage({ embedded = false }: { embedded?: boolean }) {
-  const [suppliers, setSuppliers] = useState<AdminSupplierListItemView[]>([]);
-  const [loading, setLoading] = useState(true);
+export function AdminSuppliersDirectoryPage({ embedded = false }: AdminSuppliersDirectoryPageProps) {
+  const dispatch = useAppDispatch();
+  const suppliersState = useAppSelector(selectAdminSuppliers);
+  const suppliers = suppliersState.items ?? [];
+  const loading = isFirstLoad(suppliersState, suppliersState.items !== null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const token = getToken();
-    fetch('/api/admin/suppliers', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then((data: AdminSupplierListItemView[]) => {
-        if (Array.isArray(data)) {
-          setSuppliers(data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת ספקים:', err);
-        setLoading(false);
-      });
-  }, []);
+    dispatch(fetchAdminSuppliers())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת ספקים:', err));
+  }, [dispatch]);
 
   const filteredSuppliers = suppliers.filter(s =>
     (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -88,7 +79,7 @@ export function AdminSuppliersDirectoryPage({ embedded = false }: { embedded?: b
               <Typography color="text.secondary" variant="body2">טלפון: {sup.phone || 'לא צויין'} | כתובת: {sup.address || 'לא צויין'}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Button size="small" variant="text" onClick={() => openSupplierLicense(sup.id)}>
+              <Button size="small" variant="text" onClick={() => void openSupplierLicense(dispatch, sup.id)}>
                 רישיון עסק
               </Button>
               <Chip color="primary" variant="outlined" label={sup.status || 'פעיל'} />

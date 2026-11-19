@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -8,8 +7,10 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
-import { getApiErrorMessage } from '../utils/apiError';
-import type { NgoResponseDto, UpdateNgoHoursDto } from '../types/api';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchNgoProfile, saveNgoHours, selectNgoProfile } from '../store/ngoSlice';
+import type { UpdateNgoHoursDto } from '../types/api';
 
 const timeField = { inputLabel: { shrink: true } };
 
@@ -20,6 +21,8 @@ const SATURDAY_NIGHT_EARLIEST = '17:00';
 const withSeconds = (t: string) => (t.length === 5 ? `${t}:00` : t);
 
 export function NgoWorkingHoursPage() {
+  const dispatch = useAppDispatch();
+  const ngo = useAppSelector(selectNgoProfile);
   const [workingHours, setWorkingHours] = useState({
     address: '',
     sunToThuOpenTime: '09:00',
@@ -38,20 +41,25 @@ export function NgoWorkingHoursPage() {
   // טעינת השעות והמיקום הנוכחיים של העמותה (בעבר הטופס תמיד התחיל מערכי ברירת מחדל,
   // ונשמר מה-URL טוקן כטוקן התחברות)
   useEffect(() => {
-    axios.get<NgoResponseDto>('/api/ngos/me')
-      .then(({ data }) => setWorkingHours({
-        address: data.address ?? '',
-        sunToThuOpenTime: (data.sunToThuOpenTime ?? '09:00').substring(0, 5),
-        sunToThuCloseTime: (data.sunToThuCloseTime ?? '17:00').substring(0, 5),
-        receivesOnFriday: data.receivesOnFriday,
-        fridayOpenTime: (data.fridayOpenTime ?? '08:00').substring(0, 5),
-        fridayCloseTime: (data.fridayCloseTime ?? '13:00').substring(0, 5),
-        receivesOnSaturdayNight: data.receivesOnSaturdayNight ?? false,
-        saturdayNightOpenTime: (data.saturdayNightOpenTime ?? '20:00').substring(0, 5),
-        saturdayNightCloseTime: (data.saturdayNightCloseTime ?? '23:00').substring(0, 5),
-      }))
-      .catch(() => { /* אין פרופיל עדיין - נשארים עם ברירת המחדל */ });
-  }, []);
+    // אין פרופיל עדיין (שגיאה) - נשארים עם ברירת המחדל
+    void dispatch(fetchNgoProfile());
+  }, [dispatch]);
+
+  // כשפרטי העמותה נטענים - ממלאים מהם את הטופס
+  useEffect(() => {
+    if (!ngo) return;
+    setWorkingHours({
+      address: ngo.address ?? '',
+      sunToThuOpenTime: (ngo.sunToThuOpenTime ?? '09:00').substring(0, 5),
+      sunToThuCloseTime: (ngo.sunToThuCloseTime ?? '17:00').substring(0, 5),
+      receivesOnFriday: ngo.receivesOnFriday,
+      fridayOpenTime: (ngo.fridayOpenTime ?? '08:00').substring(0, 5),
+      fridayCloseTime: (ngo.fridayCloseTime ?? '13:00').substring(0, 5),
+      receivesOnSaturdayNight: ngo.receivesOnSaturdayNight ?? false,
+      saturdayNightOpenTime: (ngo.saturdayNightOpenTime ?? '20:00').substring(0, 5),
+      saturdayNightCloseTime: (ngo.saturdayNightCloseTime ?? '23:00').substring(0, 5),
+    });
+  }, [ngo]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,11 +110,11 @@ export function NgoWorkingHoursPage() {
 
     try {
       // נתיב יחסי (עובר דרך ה-proxy של Vite / אותו דומיין בייצור) - לא כתובת localhost קבועה
-      await axios.put('/api/ngos/my-hours', payload);
+      await dispatch(saveNgoHours(payload)).unwrap();
       setSuccessMessage('שעות הקבלה והמיקום עודכנו בהצלחה!');
     } catch (err: unknown) {
       console.error('שגיאה בעדכון הנתונים:', err);
-      setError(getApiErrorMessage(err) || 'שגיאה בעדכון הנתונים מול השרת.');
+      setError(errorMessage(err, 'שגיאה בעדכון הנתונים מול השרת.'));
     } finally {
       setLoading(false);
     }

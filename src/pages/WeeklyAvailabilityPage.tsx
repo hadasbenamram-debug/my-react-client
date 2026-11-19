@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -22,33 +21,25 @@ import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import PageTitle from '../components/PageTitle';
-import { getApiErrorMessage } from '../utils/apiError';
-import type { AvailabilitySlotResponseDto } from '../types/api';
-import { getToken } from '../utils/auth';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import {
+  fetchAvailability,
+  nextSlotKey,
+  saveAvailability,
+  selectAvailability,
+  selectAvailabilityError,
+  selectAvailabilityStatus,
+} from '../store/volunteerSlice';
+import type { AvailabilitySlot } from '../store/volunteerSlice';
 
 // תיקון 54: ניהול הזמינות כטבלה שבועית - עמודה לכל יום (ראשון עד שישי ומוצאי שבת).
 // לחיצה על יום (או על שעה בתוך היום) פותחת חלון להוספת זמינות לאותו יום, ולחיצה על משבצת קיימת - עריכה או מחיקה.
 // כל שינוי נשמר מיד בשרת (אותו POST api/volunteers/availability כמו קודם - הרשימה המלאה).
 // בטלפון: אותה טבלה בשורות - שורה לכל יום.
 
-interface AvailabilitySlot {
-  /** מזהה מקומי לרשימה בלבד (לא נשלח לשרת) */
-  key: number;
-  day: number;
-  startTime: string;
-  endTime: string;
-  regionId: number;
-  /** 0 = אותו אזור (לא נוסע לאזור אחר) */
-  toRegionId: number;
-}
-
+// AvailabilitySlot (משבצת עם מזהה מקומי key) ו-RegionOption מוגדרים בסלייס - שם נשמרת הזמינות שנטענה מהשרת
 type SlotDraft = Omit<AvailabilitySlot, 'key'>;
-
-interface RegionOption {
-  id: number;
-  regionName?: string;
-  name?: string;
-}
 
 interface EditorState {
   /** null = משבצת חדשה */
@@ -158,16 +149,15 @@ const layoutDay = (slots: AvailabilitySlot[]) => {
   return { lanes, laneCount: Math.max(1, laneEnds.length) };
 };
 
-let nextKey = 1;
-
 export const WeeklyAvailabilityPage: React.FC = () => {
   const theme = useTheme();
   const narrow = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
-  const [regions, setRegions] = useState<RegionOption[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const { slots, regions } = useAppSelector(selectAvailability);
+  const status = useAppSelector(selectAvailabilityStatus);
+  const loadError = useAppSelector(selectAvailabilityError);
+  const loading = status === 'idle' || status === 'loading';
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
@@ -176,41 +166,9 @@ export const WeeklyAvailabilityPage: React.FC = () => {
   const today = new Date().getDay();   // 0 = ראשון ... 6 = שבת (מוצ"ש)
 
   useEffect(() => {
-    // תוקן: בעבר טוקן מהכתובת נשמר כטוקן התחברות. עכשיו רק הטוקן מההתחברות.
-    const token = getToken();
-    if (!token) {
-      setLoadError('לא נמצא טוקן התחברות. אנא התחבר מחדש למערכת.');
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const [regionsRes, slotsRes] = await Promise.all([
-          axios.get<RegionOption[]>('/api/region', { headers }),
-          axios.get<AvailabilitySlotResponseDto[]>('/api/volunteers/availability', { headers }),
-        ]);
-        const regionList = Array.isArray(regionsRes.data) ? regionsRes.data : [];
-        setRegions(regionList);
-        setSlots((Array.isArray(slotsRes.data) ? slotsRes.data : []).map((slot) => ({
-          key: nextKey++,
-          day: slot.day ?? 0,
-          startTime: slot.startTime ? slot.startTime.substring(0, 5) : '08:00',
-          endTime: slot.endTime ? slot.endTime.substring(0, 5) : '12:00',
-          regionId: slot.regionId ?? (regionList[0]?.id || 1),
-          toRegionId: slot.toRegionId ?? 0,
-        })));
-      } catch (err: unknown) {
-        console.error('Error fetching data:', err);
-        setLoadError('שגיאה בטעינת הנתונים מהשרת.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchData();
-  }, []);
+    // האזורים והמשבצות (בלי טוקן התחברות - ה-thunk מחזיר הודעה מתאימה)
+    void dispatch(fetchAvailability());
+  }, [dispatch]);
 
   const regionName = (id: number) => {
     const region = regions.find((r) => r.id === id);
@@ -232,16 +190,13 @@ export const WeeklyAvailabilityPage: React.FC = () => {
     const ordered = [...next].sort((a, b) => a.day - b.day || toMinutes(a.startTime) - toMinutes(b.startTime));
     setSaving(true);
     try {
-      await axios.post('/api/volunteers/availability',
-        ordered.map(({ key: _key, ...s }) => ({ ...s, toRegionId: s.toRegionId === 0 ? null : s.toRegionId })),
-        { headers: { Authorization: `Bearer ${getToken()}` } });
-      setSlots(next);
+      // בהצלחה הרשימה בסלייס מתעדכנת ל-next
+      await dispatch(saveAvailability({ slots: next, ordered })).unwrap();
       setToast(successText);
       return true;
     } catch (err: unknown) {
-      console.error('Error saving availability:', err);
       // השרת מציין "משבצת N" לפי הסדר שנשלח - מתרגמים ליום ולשעות
-      const message = (getApiErrorMessage(err) || 'שגיאה בשמירת הנתונים. נסו שוב.')
+      const message = errorMessage(err, 'שגיאה בשמירת הנתונים. נסו שוב.')
         .replace(/משבצת (\d+)/g, (match, n: string) => {
           const slot = ordered[Number(n) - 1];
           return slot ? `${dayName(slot.day)} ${timeRange(slot.startTime, slot.endTime)}` : match;
@@ -311,7 +266,7 @@ export const WeeklyAvailabilityPage: React.FC = () => {
       }
     }
     const kept = slots.filter((s) => s.key !== editor.key);
-    const added = drafts.map((draft, i) => ({ ...draft, key: i === 0 && editor.key !== null ? editor.key : nextKey++ }));
+    const added = drafts.map((draft, i) => ({ ...draft, key: i === 0 && editor.key !== null ? editor.key : nextSlotKey() }));
     const text = editor.key !== null ? 'השינוי נשמר.'
       : drafts.length > 1 ? `נוספה זמינות ב-${drafts.length} ימים.` : `נוספה זמינות ב${dayName(editor.draft.day)}.`;
     if (await persist([...kept, ...added], text)) setEditor(null);

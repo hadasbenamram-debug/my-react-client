@@ -1,4 +1,7 @@
 import {useState, type ChangeEvent, type FormEvent} from 'react';
+import {toErrorPayload} from '../api/http';
+import {useAppDispatch} from '../store';
+import {sendContactMessage} from '../store/publicSlice';
 
 // לוגיקת השליחה של טופס צור קשר (עמוד ContactSupportPage)
 export interface ContactFormData {
@@ -11,10 +14,8 @@ export interface ContactFormData {
 
 const EMPTY: ContactFormData = {name: '', email: '', phone: '', subject: '', message: ''};
 
-// הנתיב יחסי - עובר דרך ה-proxy של Vite אל https://localhost:7295
-const CONTACT_URL = '/api/support/contact';
-
 export function useContactForm(defaults: Partial<ContactFormData> = {}) {
+    const dispatch = useAppDispatch();
     const [form, setForm] = useState<ContactFormData>({...EMPTY, ...defaults});
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
@@ -30,34 +31,27 @@ export function useContactForm(defaults: Partial<ContactFormData> = {}) {
         setStatus(null);
 
         try {
-            const res = await fetch(CONTACT_URL, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+            // השליחה עצמה ב-thunk (store/publicSlice.ts) - POST api/support/contact
+            await dispatch(sendContactMessage({
+                ...form,
                 // תיקון 57: בעמוד החדש אין שדה "נושא" (השרת דורש אותו) - נושא אוטומטי לפי השם
-                body: JSON.stringify({
-                    ...form,
-                    phone: form.phone || null,
-                    subject: form.subject.trim() || `פנייה מהאתר - ${form.name.trim()}`,
-                }),
-            });
+                phone: form.phone || null,
+                subject: form.subject.trim() || `פנייה מהאתר - ${form.name.trim()}`,
+            })).unwrap();
 
-            if (res.ok) {
-                setStatus({ok: true, text: 'הפנייה נשלחה בהצלחה! נחזור אליכם בהקדם.'});
-                setForm({...EMPTY, ...defaults});
-                return;
-            }
-
-            if (res.status === 429) {
+            setStatus({ok: true, text: 'הפנייה נשלחה בהצלחה! נחזור אליכם בהקדם.'});
+            setForm({...EMPTY, ...defaults});
+        } catch (err) {
+            const error = toErrorPayload(err, 'אירעה שגיאה בשליחת הפנייה. נסו שוב.');
+            if (error.status === 0) {
+                setStatus({ok: false, text: 'אין תקשורת עם השרת. ודאו שהשרת רץ ונסו שוב.'});
+            } else if (error.status === 429) {
                 setStatus({ok: false, text: 'נשלחו יותר מדי פניות. נסו שוב בעוד כמה דקות.'});
-                return;
+            } else {
+                // שגיאת ולידציה (400) - מציגים את ההודעה הראשונה מהשרת
+                const firstError = error.errors ? Object.values(error.errors)[0]?.[0] : undefined;
+                setStatus({ok: false, text: firstError || error.message});
             }
-
-            // שגיאת ולידציה (400) - מציגים את ההודעה הראשונה מהשרת
-            const body = await res.json().catch(() => null);
-            const firstError = body?.errors ? Object.values(body.errors as Record<string, string[]>)[0]?.[0] : null;
-            setStatus({ok: false, text: firstError || body?.message || 'אירעה שגיאה בשליחת הפנייה. נסו שוב.'});
-        } catch {
-            setStatus({ok: false, text: 'אין תקשורת עם השרת. ודאו שהשרת רץ ונסו שוב.'});
         } finally {
             setLoading(false);
         }

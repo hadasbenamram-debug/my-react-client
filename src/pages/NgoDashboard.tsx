@@ -20,11 +20,13 @@ import DonationImage from '../components/DonationImage';
 import { LoadingBlock } from '../components/PageParts';
 import { useAutoRefresh } from '../components/LiveUpdates';
 import type { NgoDonationView, NgoResponseDto } from '../types/api';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { confirmDonationReceipt } from '../store/donationsSlice';
+import { fetchNgoDonations, fetchNgoProfile, selectNgoDonations, selectNgoDonationsError, selectNgoProfile } from '../store/ngoSlice';
 import { MATCH_STATUS_LABELS, formatDateTime, formatTime, formatTimeSpan } from '../utils/format';
 import DonationLink from '../components/DonationLink';
-import { canConfirmReceipt, confirmDonationReceipt, ratingPath } from '../utils/confirmReceipt';
+import { canConfirmReceipt, ratingPath } from '../utils/confirmReceipt';
 
 // השידוך חי: ממתין למתנדב / אושר / המתנדב בדרך לאיסוף / נאסף ובדרך לעמותה
 const ON_THE_WAY = ['AwaitingVolunteerConfirmation', 'Confirmed', 'InPickup', 'InTransit'];
@@ -56,9 +58,10 @@ const todaysHours = (ngo: NgoResponseDto): string => {
 // תיקון 50: מתעדכן לבד - בכל התראה מהשרת (מתנדב אישר / יצא / אסף / מסר), כל דקה, וכשחוזרים ללשונית.
 export function NgoDashboard() {
   const navigate = useNavigate();
-  const [donations, setDonations] = useState<NgoDonationView[] | null>(null);
-  const [ngo, setNgo] = useState<NgoResponseDto | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const donations = useAppSelector(selectNgoDonations);
+  const ngo = useAppSelector(selectNgoProfile);
+  const error = useAppSelector(selectNgoDonationsError);
   // תיקון 63: אישור קבלה ישירות מהדשבורד (הדף "אישור קבלה" נמחק)
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -67,9 +70,9 @@ export function NgoDashboard() {
     setConfirmError(null);
     setConfirmingId(donationId);
     try {
-      navigate(ratingPath(await confirmDonationReceipt(donationId)));
+      navigate(ratingPath(await dispatch(confirmDonationReceipt(donationId)).unwrap()));
     } catch (err: unknown) {
-      setConfirmError(err instanceof Error ? err.message : 'שגיאת תקשורת מול השרת.');
+      setConfirmError(errorMessage(err, 'שגיאה באישור קבלת התרומה.'));
       setConfirmingId(null);
     }
   };
@@ -77,24 +80,10 @@ export function NgoDashboard() {
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const load = useCallback(() => {
-    fetch('/api/donations/my-ngo-donations', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await readErrorMessage(res, `שגיאה בשרת: ${res.status}`));
-        return (await res.json()) as NgoDonationView[];
-      })
-      .then((data) => {
-        setDonations(Array.isArray(data) ? data : []);
-        setError(null);
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'שגיאה בטעינת נתוני העמותה.'));
-
-    fetch('/api/ngos/me', { headers: authHeaders() })
-      .then(async (res) => (res.ok ? ((await res.json()) as NgoResponseDto) : null))
-      .then((data) => {
-        if (data) setNgo(data);
-      })
-      .catch(() => undefined);
-  }, []);
+    void dispatch(fetchNgoDonations());
+    // פרטי העמותה (שעות וקיבולת) - שגיאה לא מוצגת, נשארים הפרטים הקודמים
+    void dispatch(fetchNgoProfile());
+  }, [dispatch]);
 
   useEffect(() => {
     load();
@@ -266,7 +255,14 @@ export function NgoDashboard() {
   );
 }
 
-function Section({ id, title, empty, children }: { id?: string; title: string; empty?: string; children: React.ReactNode }) {
+interface SectionProps {
+  id?: string;
+  title: string;
+  empty?: string;
+  children: React.ReactNode;
+}
+
+function Section({ id, title, empty, children }: SectionProps) {
   const hasItems = React.Children.count(children) > 0;
   return (
     <Box id={id} sx={{ mt: 4, scrollMarginTop: '96px' }}>

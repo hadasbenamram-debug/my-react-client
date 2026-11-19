@@ -1,22 +1,18 @@
 import { useEffect } from 'react';
 import { useContactForm, type ContactFormData } from '../hooks/useContactForm';
 import type { StoredUser } from '../types';
+import { useAppSelector } from '../store';
+import { selectCurrentUser } from '../store/authSlice';
 import '../styles/contact.css';
 
-// אם המשתמש מחובר - ממלאים מראש שם ואימייל מתוך currentUser
-function getLoggedInDefaults(): Partial<ContactFormData> {
-  try {
-    const stored = localStorage.getItem('currentUser');
-    if (!stored) return {};
-    const user = JSON.parse(stored) as StoredUser;
-    const name = user.name ?? user.fullName;
-    return {
-      name: typeof name === 'string' ? name : '',
-      email: typeof user.email === 'string' ? user.email : '',
-    };
-  } catch {
-    return {};
-  }
+// אם המשתמש מחובר - ממלאים מראש שם ואימייל מתוך המשתמש שב-Redux
+function getLoggedInDefaults(user: StoredUser): Partial<ContactFormData> {
+  if (!user.email && !user.name && !user.fullName) return {};
+  const name = user.name ?? user.fullName;
+  return {
+    name: typeof name === 'string' ? name : '',
+    email: typeof user.email === 'string' ? user.email : '',
+  };
 }
 
 // אותו מספר כמו בתחתית האתר (components/Footer.tsx) - כשמחליפים שם, להחליף גם כאן
@@ -27,7 +23,8 @@ const CONTACT_PHONE = '050-000-0000';
 // ובצד השני טופס עם שדות מעוגלים (רקע לבן): שם, טלפון, דוא"ל ותיבה לכתיבת הפנייה.
 // עמוד אחד לכולם (אורחים ומחוברים) - /contact. השליחה עצמה לא השתנתה (useContactForm).
 export function ContactSupportPage() {
-  const { form, onChange, onSubmit, loading, status } = useContactForm(getLoggedInDefaults());
+  const currentUser = useAppSelector(selectCurrentUser);
+  const { form, onChange, onSubmit, loading, status } = useContactForm(getLoggedInDefaults(currentUser));
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -133,13 +130,14 @@ const FLOWERS = (() => {
     path += `Q${pt.x.toFixed(1)} ${pt.y.toFixed(1)} ${m.x.toFixed(1)} ${m.y.toFixed(1)} `;
   });
 
-  const dots: { x: number; y: number; r: number; c: string }[] = [];
+  // לכל נקודה מזהה קבוע (נקבע פעם אחת כשהזר נבנה) - משמש כ-key ברינדור
+  const dots: { id: string; x: number; y: number; r: number; c: string }[] = [];
   const add = (u: number, v: number, r: number, noise: number) => {
     // האור מגיע מלמעלה-שמאלה
     const light = (-(u / FLOWER_RX) * 0.6 - (v / FLOWER_RY) * 0.8 + 1.4) / 2.8;   // 0..1
     const shade = Math.round(light * (FLOWER_COLORS.length - 1) + noise);
     const { x, y } = toFlower(u, v);
-    dots.push({ x, y, r, c: FLOWER_COLORS[Math.max(0, Math.min(FLOWER_COLORS.length - 1, shade))] });
+    dots.push({ id: `dot-${dots.length}`, x, y, r, c: FLOWER_COLORS[Math.max(0, Math.min(FLOWER_COLORS.length - 1, shade))] });
   };
   for (let i = 0; i < 420; i++) {
     const a = rand() * Math.PI * 2;
@@ -163,6 +161,11 @@ const FLOWERS = (() => {
 const MEGA_X = 368;
 const MEGA_Y = 185;
 const MEGA_ANGLE = 24;
+
+// חלקים שחוזרים בציור. הערך עצמו (מספר הקו / האצבע / הגבעול) משמש גם לחישוב המיקום וגם כ-key
+const STITCHES = [0, 1, 2, 3] as const;   // קווי הסריגה בחפת
+const FINGERS = [0, 1, 2, 3] as const;    // האצבעות המקופלות
+const STEMS = [0, 1, 2] as const;         // הגבעולים שיוצאים מהמגפון
 
 function ContactIllustration() {
   return (
@@ -193,8 +196,8 @@ function ContactIllustration() {
           <path d="M506 312 Q556 344 600 396" stroke="#b3b3b3" strokeWidth="2" fill="none" opacity="0.6" strokeLinecap="round" />
           {/* חפת סרוג ליד שורש כף היד */}
           <path d="M440 350 Q466 318 496 290 L516 306 Q488 334 460 368 Z" fill="#a5a5a5" />
-          {[0, 1, 2, 3].map((i) => (
-            <path key={i} d={`M${446 + i * 5} ${355 + i * 4} Q${472 + i * 5} ${324 + i * 4} ${500 + i * 5} ${296 + i * 4}`}
+          {STITCHES.map((s) => (
+            <path key={s} d={`M${446 + s * 5} ${355 + s * 4} Q${472 + s * 5} ${324 + s * 4} ${500 + s * 5} ${296 + s * 4}`}
               stroke="#8a8a8a" strokeWidth="1.2" fill="none" />
           ))}
         </g>
@@ -215,11 +218,11 @@ function ContactIllustration() {
           <ellipse cx="2" cy="0" rx="6" ry="52" fill="#3a3d3f" />
           {/* האגרוף: כף יד, ארבע אצבעות מקופלות ואגודל מעל */}
           <path d="M112 40 Q150 30 166 50 L170 92 Q168 110 146 112 L120 108 Q106 100 108 80 Z" fill="#bdbdbd" />
-          {[0, 1, 2, 3].map((i) => (
-            <g key={i}>
-              <rect x={95 + (i === 0 || i === 3 ? 4 : 0)} y={40 + i * 16} width={44 - (i === 3 ? 6 : 0)} height="17" rx="8.5"
-                fill={['#d9d9d9', '#d2d2d2', '#d6d6d6', '#cdcdcd'][i]} stroke="#8a8a8a" strokeWidth="1.1" />
-              <path d={`M${103 + (i === 0 || i === 3 ? 4 : 0)} ${44 + i * 16} q3 4 0 9`} stroke="#a0a0a0" strokeWidth="1" fill="none" />
+          {FINGERS.map((finger) => (
+            <g key={finger}>
+              <rect x={95 + (finger === 0 || finger === 3 ? 4 : 0)} y={40 + finger * 16} width={44 - (finger === 3 ? 6 : 0)} height="17" rx="8.5"
+                fill={['#d9d9d9', '#d2d2d2', '#d6d6d6', '#cdcdcd'][finger]} stroke="#8a8a8a" strokeWidth="1.1" />
+              <path d={`M${103 + (finger === 0 || finger === 3 ? 4 : 0)} ${44 + finger * 16} q3 4 0 9`} stroke="#a0a0a0" strokeWidth="1" fill="none" />
             </g>
           ))}
           <path d="M116 38 Q128 22 158 24 Q170 26 168 34 Q160 40 140 40 Z" fill="#d4d4d4" stroke="#8a8a8a" strokeWidth="1.1" />
@@ -228,12 +231,12 @@ function ContactIllustration() {
 
       {/* הזר שפורץ מהמגפון */}
       <g className="contact-flowers">
-        {[0, 1, 2].map((i) => (
-          <path key={i} d={`M${MEGA_X - 4} ${MEGA_Y + (i - 1) * 18} Q${345 - i * 6} ${178 + (i - 1) * 10} ${322 - i * 10} ${150 + i * 26}`}
+        {STEMS.map((stem) => (
+          <path key={stem} d={`M${MEGA_X - 4} ${MEGA_Y + (stem - 1) * 18} Q${345 - stem * 6} ${178 + (stem - 1) * 10} ${322 - stem * 10} ${150 + stem * 26}`}
             stroke="#0b6f76" strokeWidth="2" fill="none" />
         ))}
         <path d={FLOWERS.path} fill="#0a737a" />
-        {FLOWERS.dots.map((d, i) => <circle key={i} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(1)} fill={d.c} />)}
+        {FLOWERS.dots.map((d) => <circle key={d.id} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(1)} fill={d.c} />)}
       </g>
     </svg>
   );

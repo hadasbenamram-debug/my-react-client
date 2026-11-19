@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -7,37 +7,20 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import StarOutlineRoundedIcon from '@mui/icons-material/StarOutlineRounded';
-import type { FeedbackView } from '../types/api';
-import { getToken } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchFeedbacks, selectFeedbacks, selectFeedbacksError, selectFeedbacksStatus } from '../store/volunteerSlice';
 
 export function VolunteerRatingsPage() {
-  const [feedbacks, setFeedbacks] = useState<FeedbackView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const feedbacks = useAppSelector(selectFeedbacks);
+  const status = useAppSelector(selectFeedbacksStatus);
+  const error = useAppSelector(selectFeedbacksError);
+  const loading = status === 'idle' || status === 'loading';
 
   useEffect(() => {
-    // שליפת הטוקן מהאחסון המקומי
-    const token = getToken();
-
-    fetch('/api/feedbacks', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('שגיאה בטעינת המשובים מהשרת');
-        return res.json();
-      })
-      .then((data: FeedbackView[]) => {
-        setFeedbacks(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        console.error(err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+    // המשובים נטענים דרך ה-thunk (הטוקן מצורף אוטומטית)
+    void dispatch(fetchFeedbacks());
+  }, [dispatch]);
 
   if (loading) return <LoadingBlock text="טוען משובים ודירוגים..." />;
   if (error) {
@@ -65,8 +48,8 @@ export function VolunteerRatingsPage() {
           action={{ label: 'להיסטוריית השיבוצים', to: '/app/volunteer/history' }}
         />
       ) : (
-        feedbacks.map((fb, idx) => (
-          <Card key={idx} sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
+        feedbacks.map((fb) => (
+          <Card key={fb.id}sx={{ p: { xs: 2.5, md: 3 }, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
               <Typography variant="h6" sx={{ fontWeight: 500 }}>{fb.volunteerName || 'מתנדב'}</Typography>
               {/* דירוג המתנדב (משפיע על ציון האמינות שלו); fb.rating הוא דירוג התרומה עצמה */}

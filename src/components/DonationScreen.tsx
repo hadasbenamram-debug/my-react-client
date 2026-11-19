@@ -8,12 +8,21 @@ import HeartShape from './HeartShape';
 import { CommentItem } from './CommentParts';
 import { LoadingBlock } from './PageParts';
 import { useAutoRefresh } from './LiveUpdates';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import {
+  confirmDonationReceipt,
+  fetchDonationById,
+  fetchDonationComments,
+  postDonationComment,
+  selectDonationComments,
+  selectDonationDetail,
+  selectDonationDetailError,
+} from '../store/donationsSlice';
 import { imageUrl } from '../utils/images';
 import { DONATION_STATUS_LABELS, MATCH_STATUS_LABELS, formatDateTime, formatPickupWindow, formatTime } from '../utils/format';
-import { canConfirmReceipt, confirmDonationReceipt, ratingPath } from '../utils/confirmReceipt';
-import type { CommentDto, DonationResponseDto } from '../types/api';
+import { canConfirmReceipt, ratingPath } from '../utils/confirmReceipt';
+import type { CommentDto, CreateCommentDto, DonationResponseDto } from '../types/api';
 import '../styles/donation-screen.css';
 
 // תיקון 60: מסך תרומה אחד לעמותה ולמתנדב, בסגנון של מסך הזמנה באפליקציה:
@@ -96,7 +105,11 @@ function buildTimeline(d: DonationResponseDto, role: DonationScreenRole): Timeli
 }
 
 /** איור קטן: קופסה עם לב (במקום התמונה של החבילה) */
-function BoxArt({ done = false }: { done?: boolean }) {
+interface BoxArtProps {
+  done?: boolean;
+}
+
+function BoxArt({ done = false }: BoxArtProps) {
   return (
     <svg className="dscreen-boxart" viewBox="0 0 80 80" aria-hidden="true">
       <circle cx="40" cy="40" r="38" fill="#e6f5f5" />
@@ -115,48 +128,42 @@ function BoxArt({ done = false }: { done?: boolean }) {
   );
 }
 
-export default function DonationScreen({ role }: { role: DonationScreenRole }) {
+interface DonationScreenProps {
+  role: DonationScreenRole;
+}
+
+export default function DonationScreen({ role }: DonationScreenProps) {
   const { id } = useParams();
   const donationId = Number(id);
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   // הספק מגיע לכאן מיד אחרי פרסום התרומה (CreateDonationPage)
   const justPublished = role === 'supplier' && (location.state as { justPublished?: boolean } | null)?.justPublished === true;
   const tab: Tab = (['details', 'tracking', 'chat'] as Tab[]).includes(params.get('tab') as Tab) ? (params.get('tab') as Tab) : 'details';
 
-  const [donation, setDonation] = useState<DonationResponseDto | null>(null);
-  const [comments, setComments] = useState<CommentDto[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const validId = Number.isFinite(donationId);
+  const donation = useAppSelector((state) => selectDonationDetail(state, donationId));
+  const comments = useAppSelector((state) => selectDonationComments(state, donationId));
+  const loadError = useAppSelector((state) => selectDonationDetailError(state, donationId));
+  const error = validId ? loadError : 'מספר התרומה לא תקין.';
   const [chatError, setChatError] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
+  // שגיאה בטעינת השיחה לא מוצגת - נשארת השיחה הקודמת
   const loadComments = useCallback(async () => {
-    const query = role === 'admin' ? '' : `?role=${ROLE_PARAM[role]}`;
-    const res = await fetch(`/api/comments/tree${query}`, { headers: authHeaders() });
-    if (!res.ok) return;
-    const all = (await res.json()) as CommentDto[];
-    setComments(all.filter((c) => c.donationId === donationId)
-      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)));
-  }, [role, donationId]);
+    await dispatch(fetchDonationComments({ donationId, role: role === 'admin' ? null : ROLE_PARAM[role] }));
+  }, [dispatch, role, donationId]);
 
   const load = useCallback(() => {
-    if (!Number.isFinite(donationId)) {
-      setError('מספר התרומה לא תקין.');
-      return;
-    }
-    fetch(`/api/donations/${donationId}`, { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await readErrorMessage(res, 'לא הצלחנו לטעון את התרומה.'));
-        return (await res.json()) as DonationResponseDto;
-      })
-      .then((data) => { setDonation(data); setError(null); })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'שגיאת תקשורת מול השרת.'));
+    if (!validId) return;
+    void dispatch(fetchDonationById(donationId));
     void loadComments();
-  }, [donationId, loadComments]);
+  }, [dispatch, validId, donationId, loadComments]);
 
   useEffect(() => { load(); }, [load]);
   useAutoRefresh(load);
@@ -164,11 +171,12 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
   const timeline = useMemo(() => (donation ? buildTimeline(donation, role) : []), [donation, role]);
   const chatCount = comments.reduce((n, c) => n + countAll(c), 0);
 
-  const post = async (body: { content: string; donationId?: number; parentCommentId?: number }) => {
+  const post = async (body: CreateCommentDto) => {
     setChatError(null);
-    const res = await fetch('/api/comments', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(body) });
-    if (!res.ok) {
-      setChatError(await readErrorMessage(res, 'לא הצלחנו לשלוח את ההודעה.'));
+    try {
+      await dispatch(postDonationComment(body)).unwrap();
+    } catch (err) {
+      setChatError(errorMessage(err, 'לא הצלחנו לשלוח את ההודעה.'));
       return false;
     }
     await loadComments();
@@ -180,9 +188,9 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
     setConfirmError(null);
     setConfirming(true);
     try {
-      navigate(ratingPath(await confirmDonationReceipt(donationId)));
+      navigate(ratingPath(await dispatch(confirmDonationReceipt(donationId)).unwrap()));
     } catch (err: unknown) {
-      setConfirmError(err instanceof Error ? err.message : 'שגיאת תקשורת מול השרת.');
+      setConfirmError(errorMessage(err, 'שגיאה באישור קבלת התרומה.'));
       setConfirming(false);
     }
   };
@@ -257,8 +265,9 @@ export default function DonationScreen({ role }: { role: DonationScreenRole }) {
 
         <h3 className="dscreen-h3">מה בתרומה</h3>
         <ul className="dscreen-items">
-          {(donation.categories ?? []).map((c, i) => (
-            <li key={`${c.categoryId}-${i}`}>
+          {(donation.categories ?? []).map((c) => (
+            // קטגוריה מופיעה פעם אחת בכל תרומה (המפתח בשרת הוא DonationId + CategoryId), ולכן categoryId ייחודי כאן
+            <li key={c.categoryId}>
               <span>{c.categoryName ?? 'פריט'}</span>
               <span className="dscreen-qty">×{c.quantity}{c.weightKg ? ` · ${c.weightKg.toLocaleString('he-IL', { maximumFractionDigits: 1 })} ק״ג` : ''}</span>
             </li>

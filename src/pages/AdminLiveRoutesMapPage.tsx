@@ -17,8 +17,10 @@ import ControlRoomSchematic, {type SchematicRoute} from '../components/ControlRo
 import {useAllRoutesLive} from '../hooks/useAllRoutesLive';
 import {useAnimatedPositions, type AnimatedTarget} from '../hooks/useAnimatedPositions';
 import type {LiveConnectionState} from '../hooks/useRouteLive';
-import {authHeaders} from '../utils/auth';
-import {readErrorMessage} from '../utils/apiError';
+import {useAppDispatch, useAppSelector} from '../store';
+import {
+    fetchActiveMatches, fetchLiveRoutes, isFirstLoad, liveRoutePositionReceived, selectActiveMatches, selectLiveRoutes,
+} from '../store/adminSlice';
 import {formatAgo, formatTime, secondsSince} from '../utils/format';
 import {hasLocation} from '../utils/googleMaps';
 import {decodePolyline, headingDeg, pathKm} from '../utils/liveEta';
@@ -156,11 +158,21 @@ const groupWaiting = (matches: MatchView[]): WaitingGroup[] => {
         || (a.firstPickup ? Date.parse(a.firstPickup) : Infinity) - (b.firstPickup ? Date.parse(b.firstPickup) : Infinity));
 };
 
-function WaitingRoutes({groups, standalone = false, onTrack}: {
+interface WaitingRoutesProps {
     groups: WaitingGroup[];
     standalone?: boolean;
     onTrack: (routeId: number) => void;
-}) {
+}
+
+interface LiveChipProps {
+    connection: LiveConnectionState;
+}
+
+// רשימות ריקות קבועות (כדי ש-useMemo לא יחושב מחדש בכל ציור לפני הטעינה)
+const NO_ROUTES: RouteTrackingDto[] = [];
+const NO_MATCHES: MatchView[] = [];
+
+function WaitingRoutes({groups, standalone = false, onTrack}: WaitingRoutesProps) {
     if (groups.length === 0) return null;
     return (
         <section className={`cr-waiting ${standalone ? 'is-standalone' : ''}`} aria-label="ממתינים ליציאה">
@@ -197,7 +209,7 @@ function WaitingRoutes({groups, standalone = false, onTrack}: {
     );
 }
 
-function LiveChip({connection}: {connection: LiveConnectionState}) {
+function LiveChip({connection}: LiveChipProps) {
     if (connection === 'live') {
         return (
             <Chip
@@ -214,13 +226,16 @@ function LiveChip({connection}: {connection: LiveConnectionState}) {
 
 export function AdminLiveRoutesMapPage() {
     const navigate = useNavigate();
-    const [routes, setRoutes] = useState<RouteTrackingDto[]>([]);
+    const dispatch = useAppDispatch();
+    // המסלולים שבדרך והשיבוצים הפעילים - בסלייס (מיקומים בזמן אמת מתעדכנים שם)
+    const liveRoutes = useAppSelector(selectLiveRoutes);
+    const routes = liveRoutes.items ?? NO_ROUTES;
+    const activeMatches = useAppSelector(selectActiveMatches).items ?? NO_MATCHES;
+    const loading = isFirstLoad(liveRoutes, liveRoutes.items !== null);
+    const error = liveRoutes.error;
     const [baselines, setBaselines] = useState<Record<number, EtaBaseline>>({});
     const [feed, setFeed] = useState<FeedItem[]>([]);
-    const [waiting, setWaiting] = useState<MatchView[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
     const [ready, setReady] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [now, setNow] = useState<number>(() => Date.now());
     const reloadTimer = useRef<number | null>(null);
@@ -241,27 +256,16 @@ export function AdminLiveRoutesMapPage() {
     }, []);
 
     // תיקון 63: השיבוצים הפעילים שהמסלול שלהם עוד לא במפה (לא יצאו לדרך). זה חלק משני - כישלון לא מציג שגיאה.
-    const loadWaiting = useCallback(async (liveRouteIds: Set<number>) => {
-        try {
-            const res = await fetch('/api/matches/active', {headers: authHeaders()});
-            if (!res.ok) return;
-            const all = (await res.json()) as MatchView[];
-            setWaiting(all.filter((m) => m.volunteerRouteId == null || !liveRouteIds.has(m.volunteerRouteId)));
-        } catch {
-            // נשארת הרשימה הקודמת
-        }
-    }, []);
+    const loadWaiting = useCallback(() => {
+        // בכישלון נשארת הרשימה הקודמת (הסינון למסלולים שעוד לא במפה נעשה בהצגה)
+        void dispatch(fetchActiveMatches());
+    }, [dispatch]);
 
     const load = useCallback(async () => {
         try {
-            const res = await fetch('/api/tracking/live', {headers: authHeaders()});
-            if (!res.ok) {
-                setError(await readErrorMessage(res, 'לא ניתן לטעון את המסלולים כרגע.'));
-                return;
-            }
-            const data = [...((await res.json()) as RouteTrackingDto[])].sort((a, b) => a.route.id - b.route.id);
-            setRoutes(data);
-            void loadWaiting(new Set(data.map((t) => t.route.id)));
+            // השגיאה (אם יש) נשמרת בסלייס; המסלולים הקודמים נשארים על המפה
+            const data = await dispatch(fetchLiveRoutes()).unwrap();
+            loadWaiting();
 
             // ההערכה של השרת - והמרחק שנשאר באותו רגע, כדי לעדכן אותה כשהרכב מתקדם
             const base: Record<number, EtaBaseline> = {};
@@ -277,14 +281,11 @@ export function AdminLiveRoutesMapPage() {
                 .map((e) => ({e, text: describeLog(e, t)}))
                 .filter((x): x is {e: DeliveryLogResponseDto; text: string} => x.text != null)
                 .map(({e, text}) => ({id: e.id, at: e.timestamp, routeId: t.route.id, color: colorOf(t.route.id), text}))));
-            setError(null);
             setReady(true);
         } catch {
-            setError('לא ניתן לטעון את המסלולים כרגע.');
-        } finally {
-            setLoading(false);
+            // 'לא ניתן לטעון את המסלולים כרגע.' - נשמר בסלייס ומוצג מעל המפה
         }
-    }, [addToFeed, loadWaiting]);
+    }, [dispatch, addToFeed, loadWaiting]);
 
     // כמה עדכונים ברצף (למשל "נאסף" + שינוי הסטטוס) - טעינה אחת
     const scheduleReload = useCallback(() => {
@@ -322,13 +323,8 @@ export function AdminLiveRoutesMapPage() {
             }
 
             const point: TrackingPointDto = {latitude: log.latitude, longitude: log.longitude, at: log.timestamp};
-            setRoutes((prev) =>
-                prev.map((t) => {
-                    if (t.route.id !== log.volunteerRouteId) return t;
-                    const last = t.trail[t.trail.length - 1];
-                    return {...t, trail: last && last.at === point.at ? t.trail : [...t.trail, point], currentPosition: point};
-                }),
-            );
+            // מוסיפים לשובל של המסלול בסלייס (אם זו לא אותה נקודה) ומזיזים את הרכב
+            dispatch(liveRoutePositionReceived({routeId: log.volunteerRouteId, point}));
         },
         onStatusChanged: scheduleReload,
         onJoined: scheduleReload,
@@ -406,6 +402,9 @@ export function AdminLiveRoutesMapPage() {
     const totalStops = routes.reduce((n, t) => n + t.totalStops, 0);
     const pickedStops = routes.reduce((n, t) => n + t.pickedUpStops, 0);
     const staleCount = routes.filter(isStale).length;
+    // ממתינים ליציאה = שיבוצים פעילים שהמסלול שלהם עוד לא במפה
+    const liveRouteIds = new Set(routes.map((t) => t.route.id));
+    const waiting = activeMatches.filter((m) => m.volunteerRouteId == null || !liveRouteIds.has(m.volunteerRouteId));
     const waitingGroups = groupWaiting(waiting);
     const openTracking = (routeId: number) => navigate(`/app/track/${routeId}`);
     const soonest = routes

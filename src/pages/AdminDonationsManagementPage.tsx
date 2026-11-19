@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -12,73 +12,47 @@ import DonationImage from '../components/DonationImage';
 import ManualAssignDialog from '../components/ManualAssignDialog';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
-import type { AdminDonationView } from '../types/api';
 import { DONATION_STATUS_LABELS } from '../utils/format';
-import { getToken } from '../utils/auth';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { cancelDonation, fetchAdminDonations, isFirstLoad, selectAdminDonations } from '../store/adminSlice';
 
 // תיקון 75: תרומות שהמנוע כבר שיבץ (יש להן מסלול - ואולי הסבר להחלטה)
 const WAS_MATCHED = ['Matched', 'PickedUp', 'Delivered', 'Completed'];
 
 export function AdminDonationsManagementPage() {
   const navigate = useNavigate();
-  const [donations, setDonations] = useState<AdminDonationView[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const donationsState = useAppSelector(selectAdminDonations);
+  const donations = donationsState.items ?? [];
+  const loading = isFirstLoad(donationsState, donationsState.items !== null);
   // תיקון 36: שיבוץ ידני של תרומה ממתינה למתנדב שהמנהל בוחר (אותו דיאלוג כמו בעמוד "טיפול באי-הגעה")
   const [assignDonationId, setAssignDonationId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const fetchDonations = () => {
-    const token = getToken();
-
-    fetch('/api/donations', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('שגיאה בטעינת תרומות');
-        return res.json();
-      })
-      .then((data: AdminDonationView[]) => {
-        if (Array.isArray(data)) {
-          setDonations(data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת ניהול תרומות:', err);
-        setLoading(false);
-      });
-  };
+  const fetchDonations = useCallback(() => {
+    dispatch(fetchAdminDonations())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת ניהול תרומות:', err));
+  }, [dispatch]);
 
   useEffect(() => {
     fetchDonations();
-  }, []);
+  }, [fetchDonations]);
 
-  const handleManualIntervention = (donationId: number) => {
-    const token = getToken();
+  const handleManualIntervention = async (donationId: number) => {
     const reason = window.prompt('סיבת הביטול (תישלח למתנדב אם כבר שובץ):', 'התרומה בוטלה ע"י מנהל.');
     if (reason === null) return;
 
-    fetch(`/api/donations/${donationId}/cancel`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ reason })
-    })
-      .then(res => {
-        if (res.ok) {
-          alert('סטטוס התרומה עודכן בהתערבות ידנית.');
-          fetchDonations();
-        } else {
-          alert('שגיאה בעדכון התרומה.');
-        }
-      })
-      .catch(err => console.error('שגיאת תקשורת:', err));
+    try {
+      await dispatch(cancelDonation({ donationId, reason })).unwrap();
+      alert('סטטוס התרומה עודכן בהתערבות ידנית.');
+      fetchDonations();
+    } catch (err) {
+      // כמו קודם: שגיאת תקשורת רק ביומן, תשובת שגיאה מהשרת - הודעה קבועה
+      if (toErrorPayload(err).status === 0) console.error('שגיאת תקשורת:', err);
+      else alert('שגיאה בעדכון התרומה.');
+    }
   };
 
   if (loading) return <LoadingBlock text="טוען נתוני תרומות מערכתיים..." />;
@@ -159,7 +133,7 @@ export function AdminDonationsManagementPage() {
                     שיבוץ ידני
                   </Button>
                 )}
-                <Button variant="outlined" color="error" onClick={() => handleManualIntervention(item.id)}>
+                <Button variant="outlined" color="error" onClick={() => void handleManualIntervention(item.id)}>
                   בטל תרומה (התערבות)
                 </Button>
               </Stack>

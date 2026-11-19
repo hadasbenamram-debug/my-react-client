@@ -10,8 +10,9 @@ import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { openSupplierLicense } from '../utils/openSupplierLicense';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { decideApprovalRequest, fetchPendingApprovals, selectPendingApprovals } from '../store/adminSlice';
 import { formatDateTime, isDateBeforeToday } from '../utils/format';
 import type { PendingApprovalRequestDto, RequestedRoleName } from '../types/api';
 
@@ -31,57 +32,41 @@ const TABS: { value: RequestedRoleName; label: string }[] = [
 ];
 
 export function AdminUserApprovalsPage() {
+  const dispatch = useAppDispatch();
   const [role, setRole] = useState<RequestedRoleName>('Volunteer');
-  const [pending, setPending] = useState<PendingApprovalRequestDto[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const approvals = useAppSelector(selectPendingApprovals);
+  const pending = approvals.items ?? [];
+  // ספינר בכל טעינה של הרשימה (כמו קודם), וגם כשבסלייס עוד יש רשימה של לשונית אחרת
+  const loading = approvals.role !== role || approvals.status === 'loading' || approvals.status === 'idle';
+  const error = approvals.status === 'failed' ? approvals.error : null;
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ id: number; text: string } | null>(null);
 
-  const fetchPending = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/approvalrequests/pending?role=${role}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error(await readErrorMessage(res, 'שגיאה בטעינת הבקשות.'));
-      setPending((await res.json()) as PendingApprovalRequestDto[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void fetchPending();
-  }, [role]);
+    void dispatch(fetchPendingApprovals(role));
+  }, [dispatch, role]);
 
   const decide = async (request: PendingApprovalRequestDto, approve: boolean) => {
-    let body: string | undefined;
+    let reason: string | undefined;
     if (!approve) {
-      const reason = window.prompt('סיבת הדחייה (תישלח למשתמש במייל):');
-      if (reason === null) return;
-      if (!reason.trim()) {
+      const input = window.prompt('סיבת הדחייה (תישלח למשתמש במייל):');
+      if (input === null) return;
+      if (!input.trim()) {
         alert('יש לציין סיבת דחייה.');
         return;
       }
-      body = JSON.stringify({ reason: reason.trim() });
+      reason = input.trim();
     }
 
-    const res = await fetch(`/api/approvalrequests/${request.id}/${approve ? 'approve' : 'reject'}`, {
-      method: 'POST',
-      headers: authHeaders(!approve),
-      body,
-    });
-
-    if (res.ok) {
+    try {
+      await dispatch(decideApprovalRequest({ requestId: request.id, approve, reason })).unwrap();
       setActionError(null);
       setNotice(approve ? 'הבקשה אושרה ונשלח מייל למשתמש.' : 'הבקשה נדחתה ונשלח מייל למשתמש.');
-      void fetchPending();
-    } else {
+      void dispatch(fetchPendingApprovals(role));
+    } catch (err) {
       // השגיאה מהשרת (למשל רישיון שפג בדיוק עכשיו) מוצגת בעמוד, ליד הבקשה
       setNotice(null);
-      setActionError({ id: request.id, text: await readErrorMessage(res, 'הפעולה נכשלה.') });
+      setActionError({ id: request.id, text: errorMessage(err, 'הפעולה נכשלה.') });
     }
   };
 
@@ -154,7 +139,7 @@ export function AdminUserApprovalsPage() {
               <Button variant="contained" disabled={licenseInvalid(role, item)} onClick={() => void decide(item, true)}>אשר</Button>
               <Button variant="outlined" color="error" onClick={() => void decide(item, false)}>דחה</Button>
               {role === 'Supplier' && item.profileId && item.hasLicenseFile && (
-                <Button variant="text" onClick={() => void openSupplierLicense(item.profileId!)}>
+                <Button variant="text" onClick={() => void openSupplierLicense(dispatch, item.profileId!)}>
                   צפייה ברישיון העסק
                 </Button>
               )}

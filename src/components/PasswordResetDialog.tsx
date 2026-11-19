@@ -11,6 +11,9 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch } from '../store';
+import { requestPasswordReset, resetPassword as resetPasswordThunk } from '../store/accountSlice';
 
 // תיקון 69: איפוס סיסמה בחלון מתוך מסך ההתחברות ("שכחת סיסמה?") - במקום הדפים forgot-password / reset-password.
 //   קישור במייל: נשלח קישור + קוד; הקישור פותח את החלון הזה עם הקוד (initialToken), ואפשר גם להדביק את הקוד ידנית.
@@ -29,18 +32,15 @@ interface PasswordResetDialogProps {
   onDone: (message: string) => void;
 }
 
-async function postJson(url: string, data: unknown) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const body = await response.json().catch(() => null);
-  const firstError = body?.errors ? Object.values(body.errors as Record<string, string[]>)[0]?.[0] : null;
-  return { ok: response.ok, message: (firstError || body?.message) as string | undefined };
-}
+/** כמו קודם: ההודעה הראשונה מהולידציה (errors), אחרת ה-message מהשרת */
+const failureText = (err: unknown, fallback: string): string => {
+  const payload = toErrorPayload(err, fallback);
+  const firstError = payload.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
+  return firstError || payload.message;
+};
 
 export default function PasswordResetDialog({ open, initialEmail, initialToken, onClose, onDone }: PasswordResetDialogProps) {
+  const dispatch = useAppDispatch();
   const [channel, setChannel] = useState<Channel>('email');
   const [email, setEmail] = useState('');
   const [codeStep, setCodeStep] = useState(false);   // false = בקשת קוד, true = הזנת קוד + סיסמה חדשה
@@ -81,18 +81,14 @@ export default function PasswordResetDialog({ open, initialEmail, initialToken, 
     setBusy(method);
     setStatus(null);
     try {
-      const result = method === 'email'
-        ? await postJson('/api/auth/forgot-password', { email })
-        : await postJson('/api/auth/forgot-password-phone', { email, method });
-      if (result.ok) {
-        setCodeStep(true);
-        // השרת מחזיר תמיד אותה הודעה כללית - כדי לא לחשוף אילו כתובות רשומות
-        setStatus({ ok: true, text: result.message ?? 'אם החשבון קיים, נשלח אליו קוד לאיפוס.' });
-      } else {
-        setStatus({ ok: false, text: result.message ?? 'לא ניתן לשלוח את הקוד כרגע.' });
-      }
-    } catch {
-      setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+      // forgot-password (מייל) או forgot-password-phone (מסרון / שיחה) - ב-thunk
+      const result = await dispatch(requestPasswordReset({ email, method })).unwrap();
+      setCodeStep(true);
+      // השרת מחזיר תמיד אותה הודעה כללית - כדי לא לחשוף אילו כתובות רשומות
+      setStatus({ ok: true, text: result?.message ?? 'אם החשבון קיים, נשלח אליו קוד לאיפוס.' });
+    } catch (err) {
+      // אין תקשורת -> 'אין תקשורת עם השרת.'
+      setStatus({ ok: false, text: failureText(err, 'לא ניתן לשלוח את הקוד כרגע.') });
     } finally {
       setBusy(null);
     }
@@ -108,16 +104,12 @@ export default function PasswordResetDialog({ open, initialEmail, initialToken, 
 
     setBusy('reset');
     try {
-      const result = channel === 'email'
-        ? await postJson('/api/auth/reset-password', { token: code.trim(), newPassword })
-        : await postJson('/api/auth/reset-password-phone', { email, code: code.trim(), newPassword });
-      if (result.ok) {
-        onDone(result.message ?? 'הסיסמה אופסה בהצלחה. אפשר להתחבר עם הסיסמה החדשה.');
-      } else {
-        setStatus({ ok: false, text: result.message ?? 'איפוס הסיסמה נכשל.' });
-      }
-    } catch {
-      setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+      const result = await dispatch(resetPasswordThunk(channel === 'email'
+        ? { channel: 'email', token: code.trim(), newPassword }
+        : { channel: 'phone', email, code: code.trim(), newPassword })).unwrap();
+      onDone(result?.message ?? 'הסיסמה אופסה בהצלחה. אפשר להתחבר עם הסיסמה החדשה.');
+    } catch (err) {
+      setStatus({ ok: false, text: failureText(err, 'איפוס הסיסמה נכשל.') });
     } finally {
       setBusy(null);
     }

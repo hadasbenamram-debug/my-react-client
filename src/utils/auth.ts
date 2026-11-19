@@ -1,17 +1,14 @@
 import axios from 'axios';
 import type {AuthResponseDto} from '../types/api';
 import type {StoredUser} from '../types';
+import {store} from '../store';
+import {activeRoleSet, rolesSynced, selectCurrentUser, selectToken, sessionCleared, sessionSaved} from '../store/authSlice';
 
-// כל הטיפול בטוקן ובמשתמש המחובר במקום אחד (בעבר כל עמוד קרא localStorage בעצמו,
-// וחלק מהעמודים אף שמרו טוקן מהכתובת כטוקן התחברות).
+// כל הטיפול בטוקן ובמשתמש המחובר במקום אחד. המצב עצמו נמצא ב-Redux (store/authSlice.ts) ונשמר
+// ל-localStorage משם. רכיבי React קוראים אותו עם useAppSelector(selectCurrentUser) כדי להתעדכן בשינויים;
+// הפונקציות כאן מיועדות לקוד שאינו רכיב (בקשות fetch, מטפלי אירועים).
 
-export const getToken = (): string | null => {
-    try {
-        return localStorage.getItem('token');
-    } catch {
-        return null;
-    }
-};
+export const getToken = (): string | null => selectToken(store.getState());
 
 /** כותרות לבקשה מאומתת. מוסיף Content-Type רק כשמבקשים (לא ב-FormData). */
 export const authHeaders = (json = false): Record<string, string> => {
@@ -22,14 +19,7 @@ export const authHeaders = (json = false): Record<string, string> => {
     return headers;
 };
 
-export const getCurrentUser = (): StoredUser => {
-    try {
-        const stored = localStorage.getItem('currentUser');
-        return stored ? (JSON.parse(stored) as StoredUser) : {role: 'guest'};
-    } catch {
-        return {role: 'guest'};
-    }
-};
+export const getCurrentUser = (): StoredUser => selectCurrentUser(store.getState());
 
 const sameRole = (a: string | undefined, b: string | undefined) =>
     String(a || '').toLowerCase() === String(b || '').toLowerCase();
@@ -43,7 +33,6 @@ export const saveSession = (
     email?: string,
     keepActiveRole = false,
 ): void => {
-    localStorage.setItem('token', auth.token);
     const previous = getCurrentUser();
     const roles: string[] = auth.roles && auth.roles.length > 0 ? auth.roles : [auth.role];
     const keep = keepActiveRole && roles.some((r) => sameRole(r, previous.role));
@@ -54,7 +43,7 @@ export const saveSession = (
         roles,
         mustChangePassword: auth.mustChangePassword === true,
     };
-    localStorage.setItem('currentUser', JSON.stringify(user));
+    store.dispatch(sessionSaved({token: auth.token, user}));
 };
 
 // ───────── תיקון 10: חשבון אחד עם כמה תפקידים (למשל ספק שהוא גם מתנדב) ─────────
@@ -77,9 +66,7 @@ export const otherRoles = (): string[] => {
 
 /** עדכון רשימת התפקידים המאושרים מהשרת (למשל אחרי שהמנהל אישר תפקיד נוסף) */
 export const syncRoles = (approved: string[]): void => {
-    if (approved.length === 0) return;
-    const user = getCurrentUser();
-    localStorage.setItem('currentUser', JSON.stringify({ ...user, roles: approved }));
+    store.dispatch(rolesSynced(approved));
 };
 
 /**
@@ -89,7 +76,7 @@ export const syncRoles = (approved: string[]): void => {
 export const switchRole = (role: string, path?: string): void => {
     const user = getCurrentUser();
     if (!(user.roles ?? []).some((r) => sameRole(r, role))) return;
-    localStorage.setItem('currentUser', JSON.stringify({ ...user, role }));
+    store.dispatch(activeRoleSet(role));
     window.location.assign(path ?? homePathForRole(role));
 };
 
@@ -111,8 +98,7 @@ export const otherRoleForPath = (path: string): string | null => {
 };
 
 export const clearSession = (): void => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('currentUser');
+    store.dispatch(sessionCleared());
 };
 
 export const mustChangePassword = (): boolean => getCurrentUser().mustChangePassword === true;

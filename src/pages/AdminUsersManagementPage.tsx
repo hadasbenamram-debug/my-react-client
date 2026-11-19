@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -18,9 +18,11 @@ import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import PageTitle from '../components/PageTitle';
 import { EmptyState } from '../components/PageParts';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
-import type { UpdateVerificationDto, UserDto, UserListItemView } from '../types/api';
-import { authHeaders, getToken, roleTitle } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import type { UpdateVerificationDto, UserListItemView } from '../types/api';
+import { roleTitle } from '../utils/auth';
+import { errorMessage, toErrorPayload } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchAdminUsers, isFirstLoad, restoreUserAccount, selectAdminUsers, updateUserVerification } from '../store/adminSlice';
 import { formatDateTime } from '../utils/format';
 
 type Channel = 'email' | 'phone';
@@ -34,49 +36,30 @@ interface PendingVerification {
 }
 
 // תיקון 63: גם לשונית בעמוד "משתמשים" (AdminPeoplePage) - אז בלי כותרת משלו
-export function AdminUsersManagementPage({ embedded = false }: { embedded?: boolean }) {
-  const [users, setUsers] = useState<UserListItemView[]>([]);
+interface AdminUsersManagementPageProps {
+  /** בתוך עמוד "משתמשים" - בלי כותרת משלו */
+  embedded?: boolean;
+}
+
+export function AdminUsersManagementPage({ embedded = false }: AdminUsersManagementPageProps) {
+  const dispatch = useAppDispatch();
+  const usersState = useAppSelector(selectAdminUsers);
+  const users = usersState.items ?? [];
+  const total = usersState.total;
+  const loading = isFirstLoad(usersState, usersState.items !== null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingVerification | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   // תיקון 78: שחזור חשבון שהמשתמש מחק
   const [restoreTarget, setRestoreTarget] = useState<UserListItemView | null>(null);
 
-  const fetchUsers = () => {
-    const token = getToken();
-
-    // הרשימה מעומדת בשרת; סך המשתמשים מגיע בכותרת X-Total-Count
-    fetch('/api/users?page=1&pageSize=500', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('שגיאה בטעינת משתמשים');
-        const totalHeader = res.headers.get('X-Total-Count');
-        setTotal(totalHeader ? Number(totalHeader) : null);
-        return res.json();
-      })
-      .then((data: UserListItemView[]) => {
-        if (Array.isArray(data)) {
-          setUsers(data);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('שגיאה בטעינת משתמשים:', err);
-        setLoading(false);
-      });
-  };
-
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    // הרשימה מעומדת בשרת; סך המשתמשים מגיע בכותרת X-Total-Count (נקרא ב-thunk)
+    dispatch(fetchAdminUsers())
+      .unwrap()
+      .catch((err: unknown) => console.error('שגיאה בטעינת משתמשים:', err));
+  }, [dispatch]);
 
   // תיקון 51: מנהל מסמן ידנית שהמייל / הטלפון אומתו (למשל אחרי שיחה עם המשתמש), או מבטל סימון שגוי
   const saveVerification = async () => {
@@ -86,26 +69,15 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
       ? { isEmailVerified: pending.verify }
       : { isPhoneVerified: pending.verify };
     try {
-      const response = await fetch(`/api/users/${pending.user.id}/verification`, {
-        method: 'PUT',
-        headers: authHeaders(true),
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        setStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לעדכן את האימות כרגע.') });
-        return;
-      }
-      const updated = (await response.json()) as UserDto;
-      setUsers((list) => list.map((u) => (u.id === updated.id
-        ? { ...u, isEmailVerified: updated.isEmailVerified, isPhoneVerified: updated.isPhoneVerified }
-        : u)));
+      // המשתמש המעודכן נכנס לרשימה שבסלייס (extraReducers)
+      await dispatch(updateUserVerification({ userId: pending.user.id, body })).unwrap();
       setStatus({
         ok: true,
         text: `${CHANNEL_LABEL[pending.channel]} של ${pending.user.name} ${pending.verify ? 'סומן כמאומת' : 'סומן כלא מאומת'}.`,
       });
       setPending(null);
-    } catch {
-      setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+    } catch (err) {
+      setStatus({ ok: false, text: errorMessage(err, 'לא ניתן לעדכן את האימות כרגע.') });
     } finally {
       setSaving(false);
     }
@@ -116,26 +88,18 @@ export function AdminUsersManagementPage({ embedded = false }: { embedded?: bool
     if (!restoreTarget) return;
     setSaving(true);
     try {
-      const response = await fetch(`/api/users/${restoreTarget.id}/restore`, {
-        method: 'POST',
-        headers: authHeaders(),
-      });
-      if (!response.ok) {
-        setStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לשחזר את החשבון כרגע.') });
-        setRestoreTarget(null);
-        return;
-      }
-      const updated = (await response.json()) as UserDto;
-      setUsers((list) => list.map((u) => (u.id === updated.id
-        ? { ...u, isActive: updated.isActive, deactivatedAt: updated.deactivatedAt }
-        : u)));
+      // החשבון המשוחזר מתעדכן ברשימה שבסלייס (extraReducers)
+      await dispatch(restoreUserAccount(restoreTarget.id)).unwrap();
       setStatus({
         ok: true,
         text: `החשבון של ${restoreTarget.name} שוחזר. אפשר להתחבר אליו שוב עם אותו מייל ואותה סיסמה.`,
       });
       setRestoreTarget(null);
-    } catch {
-      setStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+    } catch (err) {
+      const payload = toErrorPayload(err, 'לא ניתן לשחזר את החשבון כרגע.');
+      setStatus({ ok: false, text: payload.message });
+      // תשובת שגיאה מהשרת סוגרת את הדיאלוג (כמו קודם); בלי תקשורת הוא נשאר פתוח
+      if (payload.status !== 0) setRestoreTarget(null);
     } finally {
       setSaving(false);
     }

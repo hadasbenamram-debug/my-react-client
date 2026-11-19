@@ -11,8 +11,9 @@ import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
 import { AddRoleNotice, KnownIdNumberBox } from '../components/AddRoleNotice';
 import { useAddRoleMode } from '../hooks/useAddRoleMode';
-import { readErrorMessage } from '../utils/apiError';
-import { authHeaders } from '../utils/auth';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch } from '../store';
+import { registerSupplier } from '../store/supplierSlice';
 
 // האורכים תואמים לעמודות במסד (בעבר שם העסק עד 150 ו-ח.פ עד 50, בזמן שהמסד מקבל 100 ו-20)
 interface FieldDef { name: string; label: string; type?: string; maxLength?: number; minLength?: number; }
@@ -43,6 +44,7 @@ const emptyForm = {
 };
 
 export function SupplierRegisterPage() {
+  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState(emptyForm);
 
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
@@ -118,30 +120,23 @@ export function SupplierRegisterPage() {
 
     try {
       // מחוברים: התפקיד מצורף לחשבון הקיים (POST api/suppliers), אחרת - הרשמה חדשה
-      const response = await fetch(loggedIn ? '/api/suppliers' : '/api/suppliers/register', {
-        method: 'POST',
-        // אין לציין 'Content-Type': 'application/json' משום שהדפדפן מגדיר זאת אוטומטית עבור FormData
-        headers: loggedIn ? authHeaders() : undefined,
-        body: data,
-      });
+      // אין לציין 'Content-Type': 'application/json' משום שהדפדפן מגדיר זאת אוטומטית עבור FormData (apiRequest מטפל בזה)
+      const body = await dispatch(registerSupplier({ data, loggedIn })).unwrap();
 
-      if (response.ok && loggedIn) {
-        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (loggedIn) {
         setMessage(body?.message || 'הבקשה נשלחה לאישור מנהל.');
         setSuccess(true);
         setRoleRequested(true);
-      } else if (response.ok) {
+      } else {
         // השרת מחזיר אותה הודעה גם כשהמייל כבר רשום (כדי לא לחשוף אילו מיילים קיימים) - הפרטים נשלחים למייל
-        const body = (await response.json().catch(() => null)) as { message?: string } | null;
         setMessage(body?.message || 'הבקשה נקלטה. פרטי ההמשך נשלחו לכתובת המייל שהזנת.');
         setSuccess(true);
         setFormData(emptyForm);
         setLicenseFile(null);
-      } else {
-        setMessage(await readErrorMessage(response, 'אירעה שגיאה בעת הרישום. נסה שוב.'));
       }
-    } catch (error) {
-      setMessage('שגיאת תקשורת מול השרת.');
+    } catch (err) {
+      const { status, message } = toErrorPayload(err, 'אירעה שגיאה בעת הרישום. נסה שוב.');
+      setMessage(status === 0 ? 'שגיאת תקשורת מול השרת.' : message);
     } finally {
       setLoading(false);
     }
@@ -153,7 +148,7 @@ export function SupplierRegisterPage() {
       name={f.name}
       label={f.label}
       type={f.type || 'text'}
-      value={(formData as Record<string, any>)[f.name]}
+      value={formData[f.name as keyof typeof formData]}
       onChange={handleChange}
       required
       slotProps={{ htmlInput: { maxLength: f.maxLength, minLength: f.minLength } }}

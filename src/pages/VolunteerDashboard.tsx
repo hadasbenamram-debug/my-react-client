@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -10,36 +10,26 @@ import DashboardGreeting from '../components/DashboardGreeting';
 import {LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
 import {useAutoRefresh} from '../components/LiveUpdates';
-import {authHeaders} from '../utils/auth';
-import type {RouteDto} from '../types/api';
+import {useAppDispatch, useAppSelector} from '../store';
+import {fetchMyActiveRoute, selectActiveRoute, selectActiveRouteError, selectActiveRouteStatus} from '../store/volunteerSlice';
 
 export function VolunteerDashboard() {
     const navigate = useNavigate();
-    const [route, setRoute] = useState<RouteDto | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const load = useCallback(() => {
-        fetch('/api/matches/routes/my-active', {headers: authHeaders()})
-            .then(async (res) => {
-                if (res.status === 204) return null;
-                if (!res.ok) throw new Error();
-                return (await res.json()) as RouteDto;
-            })
-            .then((next) => {
-                setRoute(next);
-                setError(null);
-            })
-            .catch(() => setError('שגיאה בטעינת הנתונים.'))
-            .finally(() => setLoading(false));
-    }, []);
+    const dispatch = useAppDispatch();
+    const route = useAppSelector(selectActiveRoute);
+    const status = useAppSelector(selectActiveRouteStatus);
+    const error = useAppSelector(selectActiveRouteError);
+    const loading = status === 'idle' || status === 'loading';
 
     useEffect(() => {
-        load();
-    }, [load]);
+        void dispatch(fetchMyActiveRoute({silent: false}));
+    }, [dispatch]);
 
     // תיקון 50: בקשה חדשה / שינוי במסלול מתעדכנים לבד (התראה מהשרת, כל דקה, וכשחוזרים ללשונית)
-    useAutoRefresh(load);
+    const refreshSilently = useCallback(() => {
+        void dispatch(fetchMyActiveRoute({silent: true}));
+    }, [dispatch]);
+    useAutoRefresh(refreshSilently);
 
     if (loading) return <LoadingBlock text="טוען..." />;
 

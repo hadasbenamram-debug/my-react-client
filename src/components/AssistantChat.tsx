@@ -4,7 +4,8 @@ import type {ReactNode} from 'react';
 import {useLocation} from 'react-router-dom';
 import useAssistantChat from '../hooks/useAssistantChat';
 import type {ChatEntry} from '../hooks/useAssistantChat';
-import {getCurrentUser, getToken, mustChangePassword} from '../utils/auth';
+import {useAppSelector} from '../store';
+import {selectActiveRole, selectCurrentUser, selectIsLoggedIn} from '../store/authSlice';
 import {MAX_MESSAGE_LENGTH} from '../utils/assistantStream';
 import AssistantMessageText from './AssistantMessageText';
 import '../styles/assistant-chat.css';
@@ -160,7 +161,11 @@ const formatSentAt = (at: number, now: number = Date.now()): string => {
 const wasSeen = (next: ChatEntry | undefined): boolean =>
     !!next && (next.text !== '' || (!next.streaming && !next.error));
 
-function Ticks({seen}: {seen: boolean}) {
+interface TicksProps {
+    seen: boolean;
+}
+
+function Ticks({seen}: TicksProps) {
     return (
         <svg
             className={`lb-ticks${seen ? ' seen' : ''}`}
@@ -180,7 +185,13 @@ function Ticks({seen}: {seen: boolean}) {
     );
 }
 
-function MessageBubble({entry, onNavigate, seen}: {entry: ChatEntry; onNavigate: () => void; seen: boolean}) {
+interface MessageBubbleProps {
+    entry: ChatEntry;
+    onNavigate: () => void;
+    seen: boolean;
+}
+
+function MessageBubble({entry, onNavigate, seen}: MessageBubbleProps) {
     const mine = entry.role === 'user';
 
     const showMeta = mine || entry.text || entry.error;
@@ -223,8 +234,11 @@ function MessageBubble({entry, onNavigate, seen}: {entry: ChatEntry; onNavigate:
 }
 
 export default function AssistantChat() {
-    // מתעדכן בכל מעבר מסך (למשל אחרי התחברות או החלפת סיסמה)
+    // מתעדכן בכל מעבר מסך ובכל שינוי בסשן (Redux) - למשל אחרי התחברות או החלפת סיסמה
     useLocation();
+    const loggedIn = useAppSelector(selectIsLoggedIn);
+    const role = useAppSelector(selectActiveRole);
+    const mustChangePassword = useAppSelector(selectCurrentUser).mustChangePassword === true;
 
     const [open, setOpen] = useState(false);
     const [input, setInput] = useState('');
@@ -254,11 +268,8 @@ export default function AssistantChat() {
         wasOpen.current = open;
     }, [open]);
 
-    const user = getCurrentUser();
-    const role = String(user.role || user.type || 'guest').toLowerCase();
-
     // רק למשתמש מחובר שכבר החליף את הסיסמה הזמנית (השרת ממילא דוחה אחרים)
-    if (!getToken() || role === 'guest' || mustChangePassword()) return null;
+    if (!loggedIn || mustChangePassword) return null;
 
     const roleKey = roleKeyOf(role);
     const closeOnSmallScreen = () => {

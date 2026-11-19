@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
@@ -7,22 +7,26 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import type { SupplierDonationSummaryDto } from '../types/api';
-import { authHeaders } from '../utils/auth';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchSupplierDonations, selectSupplierDonations, selectSupplierDonationsStatus } from '../store/supplierSlice';
 import { DONATION_STATUS_LABELS, formatDateTime } from '../utils/format';
 import DonationLink from '../components/DonationLink';
 
 // היסטוריית תרומות. תוקן: העמוד ציפה לרשימת תרומות בתוך api/suppliers/current (שלא קיימת שם).
 export function SupplierHistoryPage() {
-  const [history, setHistory] = useState<SupplierDonationSummaryDto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const all = useAppSelector(selectSupplierDonations);
+  const status = useAppSelector(selectSupplierDonationsStatus);
+  // שגיאה בטעינה - מוצגת רשימה ריקה (כמו קודם)
+  const history = useMemo<SupplierDonationSummaryDto[]>(
+    () => (all ?? []).filter((d) => ['Completed', 'Expired', 'Cancelled'].includes(d.status)),
+    [all],
+  );
+  const loading = all === null && status !== 'failed';
 
   useEffect(() => {
-    fetch('/api/donations/my-supplier-donations', { headers: authHeaders() })
-      .then(async (res) => (res.ok ? ((await res.json()) as SupplierDonationSummaryDto[]) : []))
-      .then((all) => setHistory(all.filter((d) => ['Completed', 'Expired', 'Cancelled'].includes(d.status))))
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
-  }, []);
+    void dispatch(fetchSupplierDonations());
+  }, [dispatch]);
 
   if (loading) return <LoadingBlock text="טוען היסטוריית תרומות..." />;
 

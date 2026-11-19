@@ -25,11 +25,13 @@ const W = 1000;
 const H = 620;
 const PAD = 70;
 
-export default function ControlRoomSchematic({routes, selectedId, onSelect}: {
+export interface ControlRoomSchematicProps {
     routes: SchematicRoute[];
     selectedId: number | null;
     onSelect: (id: number | null) => void;
-}) {
+}
+
+export default function ControlRoomSchematic({routes, selectedId, onSelect}: ControlRoomSchematicProps) {
     const focus = routes.filter((r) => selectedId == null || r.id === selectedId);
     const all: LatLng[] = focus.flatMap((r) => [
         ...r.planned, ...r.trail, ...r.stops.map((s) => s.position),

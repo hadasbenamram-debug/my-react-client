@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -10,8 +10,13 @@ import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import type { MatchResponseDto, MatchStatusName } from '../types/api';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { useAppDispatch, useAppSelector } from '../store';
+import {
+  fetchAssignmentHistory,
+  selectAssignmentHistory,
+  selectAssignmentHistoryError,
+  selectAssignmentHistoryStatus,
+} from '../store/volunteerSlice';
 import { MATCH_STATUS_LABELS, formatDateTime } from '../utils/format';
 
 // היסטוריית השיבוצים של המתנדב.
@@ -38,7 +43,11 @@ const completedText = (count: number) => {
   return `עד היום השלמתם ${count} משלוחים.`;
 };
 
-function HistoryCard({ item }: { item: MatchResponseDto }) {
+interface HistoryCardProps {
+  item: MatchResponseDto;
+}
+
+function HistoryCard({ item }: HistoryCardProps) {
   const inProgress = IN_PROGRESS.includes(item.statusName);
   return (
     <Card
@@ -99,23 +108,15 @@ function HistoryCard({ item }: { item: MatchResponseDto }) {
 }
 
 export function AssignmentHistoryPage() {
-  const [history, setHistory] = useState<MatchResponseDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const dispatch = useAppDispatch();
+  const history = useAppSelector(selectAssignmentHistory);
+  const status = useAppSelector(selectAssignmentHistoryStatus);
+  const error = useAppSelector(selectAssignmentHistoryError) ?? '';
+  const loading = status === 'idle' || status === 'loading';
 
   useEffect(() => {
-    fetch('/api/matches/my-history', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) {
-          setError(await readErrorMessage(res, 'לא הצלחנו לטעון את ההיסטוריה. נא לרענן את הדף.'));
-          return;
-        }
-        const data = (await res.json()) as MatchResponseDto[];
-        setHistory(Array.isArray(data) ? data : []);
-      })
-      .catch(() => setError('לא הצלחנו לטעון את ההיסטוריה. נא לבדוק את החיבור ולרענן את הדף.'))
-      .finally(() => setLoading(false));
-  }, []);
+    void dispatch(fetchAssignmentHistory());
+  }, [dispatch]);
 
   if (loading) return <LoadingBlock text="טוען היסטוריה מהשרת..." />;
 

@@ -258,6 +258,7 @@ export interface AdminVolunteerListItemDto {
 }
 
 export interface TopVolunteerDto {
+    volunteerId: number;
     name: string;
     /** משלוחים שהושלמו */
     deliveriesCount: number;

@@ -7,7 +7,8 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import HeartShape from './HeartShape';
 import {useLiveUpdates} from './LiveUpdates';
-import {getCurrentUser, getToken} from '../utils/auth';
+import {useAppSelector} from '../store';
+import {selectIsLoggedIn} from '../store/authSlice';
 
 interface HeaderProps {
     menuOpen: boolean;
@@ -33,7 +34,7 @@ function NotificationBell() {
 
 export default function Header({menuOpen, onToggle}: HeaderProps) {
     const navigate = useNavigate();
-    const loggedIn = !!getToken() && String(getCurrentUser().role || 'guest').toLowerCase() !== 'guest';
+    const loggedIn = useAppSelector(selectIsLoggedIn);
 
     const goHome = (event: MouseEvent<HTMLAnchorElement>) => {
         event.preventDefault();

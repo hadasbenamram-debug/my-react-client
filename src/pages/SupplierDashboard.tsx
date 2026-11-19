@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -20,8 +20,8 @@ import DonationImage from '../components/DonationImage';
 import { LoadingBlock } from '../components/PageParts';
 import { useAutoRefresh } from '../components/LiveUpdates';
 import type { SupplierDonationSummaryDto } from '../types/api';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchSupplierDonations, selectSupplierDonations, selectSupplierDonationsError } from '../store/supplierSlice';
 import { DONATION_STATUS_LABELS, MATCH_STATUS_LABELS, formatDateTime, formatPickupWindow, formatTime } from '../utils/format';
 import DonationLink from '../components/DonationLink';
 
@@ -40,21 +40,13 @@ const itemsOf = (d: SupplierDonationSummaryDto) =>
 // תיקון 50: מתעדכן לבד - בכל התראה מהשרת (מתנדב אישר / יצא / אסף / מסר), כל דקה, וכשחוזרים ללשונית.
 export function SupplierDashboard() {
   const navigate = useNavigate();
-  const [donations, setDonations] = useState<SupplierDonationSummaryDto[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const donations = useAppSelector(selectSupplierDonations);
+  const error = useAppSelector(selectSupplierDonationsError);
 
   const load = useCallback(() => {
-    fetch('/api/donations/my-supplier-donations', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await readErrorMessage(res, 'שגיאה בטעינת הנתונים מהשרת.'));
-        return (await res.json()) as SupplierDonationSummaryDto[];
-      })
-      .then((data) => {
-        setDonations(Array.isArray(data) ? data : []);
-        setError(null);
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'שגיאת תקשורת מול השרת.'));
-  }, []);
+    void dispatch(fetchSupplierDonations());
+  }, [dispatch]);
 
   useEffect(() => {
     load();
@@ -160,7 +152,13 @@ export function SupplierDashboard() {
   );
 }
 
-function Section({ title, empty, children }: { title: string; empty?: string; children: React.ReactNode }) {
+interface SectionProps {
+  title: string;
+  empty?: string;
+  children: React.ReactNode;
+}
+
+function Section({ title, empty, children }: SectionProps) {
   const hasItems = React.Children.count(children) > 0;
   return (
     <Box sx={{ mt: 4 }}>
@@ -170,12 +168,14 @@ function Section({ title, empty, children }: { title: string; empty?: string; ch
   );
 }
 
-function DonationCard({ donation, onOpen, onTrack, children }: {
+interface DonationCardProps {
   donation: SupplierDonationSummaryDto;
   onOpen: () => void;
   onTrack?: () => void;
   children?: React.ReactNode;
-}) {
+}
+
+function DonationCard({ donation, onOpen, onTrack, children }: DonationCardProps) {
   const statusLabel = donation.matchStatus && donation.status === 'Matched'
     ? MATCH_STATUS_LABELS[donation.matchStatus] ?? DONATION_STATUS_LABELS[donation.status]
     : DONATION_STATUS_LABELS[donation.status] ?? donation.status;

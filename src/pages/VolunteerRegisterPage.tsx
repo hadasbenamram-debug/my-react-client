@@ -8,8 +8,9 @@ import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
 import { AddRoleNotice, KnownIdNumberBox } from '../components/AddRoleNotice';
 import { useAddRoleMode } from '../hooks/useAddRoleMode';
-import { readErrorMessage } from '../utils/apiError';
-import { authHeaders } from '../utils/auth';
+import { toErrorPayload } from '../api/http';
+import { useAppDispatch } from '../store';
+import { registerVolunteer } from '../store/volunteerSlice';
 
 // הגדרת השדות במקום אחד - קל להוסיף/להסיר שדה
 // האורכים תואמים לעמודות במסד (השרת בודק את אותו דבר)
@@ -57,8 +58,11 @@ const emptyForm = {
   dateOfBirth: '',
 };
 
+type RegisterForm = typeof emptyForm;
+
 export function VolunteerRegisterPage() {
-  const [formData, setFormData] = useState(emptyForm);
+  const dispatch = useAppDispatch();
+  const [formData, setFormData] = useState<RegisterForm>(emptyForm);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -94,12 +98,11 @@ export function VolunteerRegisterPage() {
 
     setLoading(true);
     try {
-      const response = loggedIn
-        // מחוברים: רק פרטי ההתנדבות - התפקיד מצורף לחשבון הקיים
-        ? await fetch('/api/volunteers', {
-          method: 'POST',
-          headers: authHeaders(true),
-          body: JSON.stringify({
+      const serverMessage = await dispatch(registerVolunteer({
+        loggedIn,
+        body: loggedIn
+          // מחוברים: רק פרטי ההתנדבות - התפקיד מצורף לחשבון הקיים
+          ? {
             vehicleType: formData.vehicleType,
             maxCapacityKg: Number(formData.maxCapacityKg),
             isAvailable: true,
@@ -108,33 +111,27 @@ export function VolunteerRegisterPage() {
             driverLicenseNumber: formData.driverLicenseNumber,
             driverLicenseExpiry: formData.driverLicenseExpiry,
             dateOfBirth: formData.dateOfBirth,
-          }),
-        })
-        : await fetch('/api/volunteers/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          }
+          : {
             ...formData,
             maxCapacityKg: Number(formData.maxCapacityKg),
-          }),
-        });
+          },
+      })).unwrap();
 
-      if (response.ok && loggedIn) {
-        const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        setMessage(body?.message || 'הבקשה נשלחה לאישור מנהל.');
+      if (loggedIn) {
+        setMessage(serverMessage || 'הבקשה נשלחה לאישור מנהל.');
         setSuccess(true);
         setRoleRequested(true);
-      } else if (response.ok) {
+      } else {
         // השרת מחזיר אותה הודעה גם כשהמייל כבר רשום (כדי לא לחשוף אילו מיילים קיימים) - הפרטים נשלחים למייל
-        const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        setMessage(body?.message || 'הבקשה נקלטה. פרטי ההמשך נשלחו לכתובת המייל שהזנת.');
+        setMessage(serverMessage || 'הבקשה נקלטה. פרטי ההמשך נשלחו לכתובת המייל שהזנת.');
         setSuccess(true);
         setFormData(emptyForm);
-      } else {
-        setMessage(await readErrorMessage(response, 'אירעה שגיאה בעת הרישום. נסה שוב.'));
       }
     } catch (error) {
-      setMessage('שגיאת תקשורת מול השרת.');
+      const payload = toErrorPayload(error, 'אירעה שגיאה בעת הרישום. נסה שוב.');
+      // status 0 = אין תקשורת עם השרת
+      setMessage(payload.status === 0 ? 'שגיאת תקשורת מול השרת.' : payload.message);
     } finally {
       setLoading(false);
     }
@@ -146,7 +143,7 @@ export function VolunteerRegisterPage() {
       name={f.name}
       label={f.label}
       type={f.type || 'text'}
-      value={(formData as Record<string, any>)[f.name]}
+      value={formData[f.name as keyof RegisterForm]}
       onChange={handleChange}
       required
       helperText={f.helperText}

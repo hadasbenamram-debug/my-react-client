@@ -16,68 +16,46 @@ import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock } from '../components/PageParts';
 
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
 import { formatDateTime } from '../utils/format';
-import type { EngineRunResultDto, EngineStatusDto } from '../types/api';
-import { MODE_LABELS, type RouteDecisionSummaryDto } from '../types/decisions';
+import type { EngineRunResultDto } from '../types/api';
+import { MODE_LABELS } from '../types/decisions';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import {
+  fetchEngineDecisions, fetchEngineStatus, isFirstLoad, runMatchingEngine, selectEngineDecisions, selectEngineStatus,
+} from '../store/adminSlice';
 import '../styles/decision.css';
 
 // תוקן: engine-status החזיר ערכים קבועים, ו"הפעל מנוע" לא שמר כלום.
 // עכשיו: הנתונים של הריצה האחרונה בפועל + מספרים מהמסד, וההפעלה הידנית היא אותה ריצה של המנוע המתוזמן.
 
 export function AdminMatchingEnginePage() {
-  const [engineStatus, setEngineStatus] = useState<EngineStatusDto | null>(null);
+  const dispatch = useAppDispatch();
+  const engineState = useAppSelector(selectEngineStatus);
+  const engineStatus = engineState.item;
+  const loading = isFirstLoad(engineState, engineStatus !== null);
+  // תיקון 75: ההחלטות האחרונות של המנוע - כל אחת עם הסבר "למה" (null = עוד נטען)
+  const decisions = useAppSelector(selectEngineDecisions).items;
   const [lastRun, setLastRun] = useState<EngineRunResultDto | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [running, setRunning] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  // תיקון 75: ההחלטות האחרונות של המנוע - כל אחת עם הסבר "למה"
-  const [decisions, setDecisions] = useState<RouteDecisionSummaryDto[] | null>(null);
-
-  const fetchDecisions = async () => {
-    try {
-      const res = await fetch('/api/matches/decisions?take=12', { headers: authHeaders() });
-      setDecisions(res.ok ? ((await res.json()) as RouteDecisionSummaryDto[]) : []);
-    } catch {
-      setDecisions([]);
-    }
-  };
-
-  const fetchEngineStatus = async () => {
-    try {
-      setError(null);
-      const res = await fetch('/api/matches/engine-status', { headers: authHeaders() });
-      if (!res.ok) throw new Error('שגיאה בטעינת הנתונים מהשרת');
-      setEngineStatus((await res.json()) as EngineStatusDto);
-    } catch (err: unknown) {
-      console.error('שגיאה בטעינת סטטוס מנוע השידוכים:', err);
-      setError('לא ניתן להתחבר לשרת או לטעון את נתוני המנוע. ודא שהשרת פועל.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [runError, setRunError] = useState<string | null>(null);
+  const error = runError ?? engineState.error;
 
   useEffect(() => {
-    fetchEngineStatus();
-    fetchDecisions();
-  }, []);
+    void dispatch(fetchEngineStatus());
+    void dispatch(fetchEngineDecisions());
+  }, [dispatch]);
 
   const handleManualRun = async () => {
     setRunning(true);
-    setError(null);
+    setRunError(null);
     try {
-      const res = await fetch('/api/matches/run-engine', { method: 'POST', headers: authHeaders() });
-      // 409 = ריצה אחרת פעילה כרגע (השרת מחזיר את אותו מבנה עם started=false)
-      if (res.ok || res.status === 409) {
-        setLastRun((await res.json()) as EngineRunResultDto);
-        await fetchEngineStatus();
-        await fetchDecisions();
-      } else {
-        throw new Error(await readErrorMessage(res, 'שגיאה בהפעלת מנוע השידוכים בשרת.'));
-      }
+      // 409 = ריצה אחרת פעילה כרגע (השרת מחזיר את אותו מבנה עם started=false) - מטופל ב-thunk
+      setLastRun(await dispatch(runMatchingEngine()).unwrap());
+      await dispatch(fetchEngineStatus());
+      await dispatch(fetchEngineDecisions());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'שגיאה בהפעלת מנוע השידוכים.');
+      setRunError(errorMessage(err, 'שגיאה בהפעלת מנוע השידוכים.'));
     } finally {
       setRunning(false);
     }
@@ -170,8 +148,8 @@ export function AdminMatchingEnginePage() {
           <Typography color="text.secondary">אין כשלים באילוצים בריצה האחרונה.</Typography>
         ) : (
           <List dense>
-            {engineStatus.failedConstraints.map((item: string, index: number) => (
-              <ListItem key={index} disableGutters>
+            {engineStatus.failedConstraints.map((item: string) => (
+              <ListItem key={item} disableGutters>
                 <ListItemIcon sx={{ minWidth: 36, color: 'error.main' }}>
                   <ErrorOutlinedIcon fontSize="small" />
                 </ListItemIcon>

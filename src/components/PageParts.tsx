@@ -45,7 +45,12 @@ export interface EmptyStateProps {
     secondaryAction?: EmptyStateAction;
 }
 
-function EmptyStateButton({action, primary}: {action: EmptyStateAction; primary: boolean}) {
+interface EmptyStateButtonProps {
+    action: EmptyStateAction;
+    primary: boolean;
+}
+
+function EmptyStateButton({action, primary}: EmptyStateButtonProps) {
     const variant = primary ? 'contained' : 'outlined';
     if (action.to) {
         return (

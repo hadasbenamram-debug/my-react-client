@@ -17,10 +17,11 @@ import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
-import {authHeaders} from '../utils/auth';
-import {readErrorMessage} from '../utils/apiError';
 import {formatTime} from '../utils/format';
-import type {AssignDonationResultDto, ManualAssignDto, ManualAssignmentOptionsDto, ManualVolunteerOptionDto} from '../types/api';
+import type {ManualAssignDto, ManualVolunteerOptionDto} from '../types/api';
+import {errorMessage} from '../api/http';
+import {useAppDispatch, useAppSelector} from '../store';
+import {assignDonationToVolunteer, fetchAssignCandidates, selectAssignCandidates} from '../store/adminSlice';
 
 interface ManualAssignDialogProps {
     /** התרומה לשיבוץ. null = הדיאלוג סגור */
@@ -37,46 +38,44 @@ interface ManualAssignDialogProps {
  * כשהמנהל תיאם איתו ("תיאמתי עם המתנדב").
  */
 export default function ManualAssignDialog({donationId, onClose, onAssigned}: ManualAssignDialogProps) {
-    const [options, setOptions] = useState<ManualAssignmentOptionsDto | null>(null);
-    const [loading, setLoading] = useState(false);
+    const dispatch = useAppDispatch();
+    const candidates = useAppSelector(selectAssignCandidates);
+    // רק הרשימה של התרומה הזו (בסלייס יכולה להישאר רשימה של תרומה קודמת)
+    const isCurrent = donationId !== null && candidates.key === String(donationId);
+    const options = isCurrent ? candidates.item : null;
+    const loading = isCurrent && candidates.status === 'loading';
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [ignoreSchedule, setIgnoreSchedule] = useState(false);
     const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [assignError, setAssignError] = useState<string | null>(null);
+    const error = assignError ?? (isCurrent ? candidates.error : null);
 
     useEffect(() => {
         if (donationId === null) return undefined;
 
         let cancelled = false;
-        setOptions(null);
         setSelectedId(null);
         setIgnoreSchedule(false);
-        setError(null);
-        setLoading(true);
+        setAssignError(null);
 
-        fetch(`/api/matches/assign-donation/${donationId}/candidates`, {headers: authHeaders()})
-            .then(async (res) => {
-                if (!res.ok) throw new Error(await readErrorMessage(res, 'לא ניתן לטעון את רשימת המתנדבים.'));
-                return (await res.json()) as ManualAssignmentOptionsDto;
-            })
+        const request = dispatch(fetchAssignCandidates(donationId));
+        request
+            .unwrap()
             .then((data) => {
                 if (cancelled) return;
-                setOptions(data);
                 // המתאים ביותר מסומן מראש (השרת מחזיר אותם מהמתאים ביותר)
                 const first = data.volunteers.find((v) => v.canAssign);
                 if (first) setSelectedId(first.volunteerId);
             })
-            .catch((err: unknown) => {
-                if (!cancelled) setError(err instanceof Error ? err.message : 'לא ניתן לטעון את רשימת המתנדבים.');
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
+            .catch(() => {
+                // השגיאה נשמרת בסלייס ומוצגת בדיאלוג
             });
 
         return () => {
             cancelled = true;
+            request.abort();
         };
-    }, [donationId]);
+    }, [dispatch, donationId]);
 
     const selected = options?.volunteers.find((v) => v.volunteerId === selectedId) ?? null;
     const needsCoordination = selected !== null && !selected.availableBySchedule;
@@ -84,26 +83,18 @@ export default function ManualAssignDialog({donationId, onClose, onAssigned}: Ma
     const assign = async () => {
         if (donationId === null || !selected) return;
         setBusy(true);
-        setError(null);
+        setAssignError(null);
         try {
             const body: ManualAssignDto = {ignoreSchedule};
-            const res = await fetch(`/api/matches/assign-donation/${donationId}/volunteer/${selected.volunteerId}`, {
-                method: 'POST',
-                headers: authHeaders(true),
-                body: JSON.stringify(body),
-            });
-            if (!res.ok) {
-                setError(await readErrorMessage(res, 'השיבוץ נכשל.'));
-                return;
-            }
-            const result = (await res.json()) as AssignDonationResultDto;
+            const result = await dispatch(assignDonationToVolunteer({donationId, volunteerId: selected.volunteerId, body})).unwrap();
             if (result.matched) {
                 onAssigned(result.message);
             } else {
-                setError(result.message || 'לא ניתן לשבץ את המתנדב הזה.');
+                setAssignError(result.message || 'לא ניתן לשבץ את המתנדב הזה.');
             }
-        } catch {
-            setError('שגיאת תקשורת מול השרת.');
+        } catch (err) {
+            // הודעת השרת, "השיבוץ נכשל." או "שגיאת תקשורת מול השרת." (נקבע ב-thunk)
+            setAssignError(errorMessage(err, 'השיבוץ נכשל.'));
         } finally {
             setBusy(false);
         }

@@ -12,11 +12,12 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import {APIProvider, AdvancedMarker, InfoWindow, Map, Pin, Polyline, useMap} from '@vis.gl/react-google-maps';
-import type {BrowserMapConfigDto} from '../types/api';
 import type {LatLng} from '../types';
-import {authHeaders, getCurrentUser} from '../utils/auth';
-import {readErrorMessage} from '../utils/apiError';
-import {googleMapsAuthFailed, googleMapsAuthProblem, loadBrowserMapConfig, onGoogleMapsAuthFailure} from '../utils/googleMaps';
+import {getCurrentUser} from '../utils/auth';
+import {errorMessage} from '../api/http';
+import {useAppDispatch, useAppSelector} from '../store';
+import {fetchBrowserMapConfig, fetchMapImage, selectBrowserMapConfig} from '../store/routesSlice';
+import {googleMapsAuthFailed, googleMapsAuthProblem, onGoogleMapsAuthFailure} from '../utils/googleMaps';
 import type {GoogleMapsAuthProblem} from '../utils/googleMaps';
 
 // שני סוגי מפות:
@@ -48,6 +49,8 @@ export interface StaticMapProps {
 
 // מביא את תמונת המפה מהשרת עם הטוקן (תגית img לא יכולה לשלוח כותרת Authorization) ומציג אותה
 export function StaticMap({src, alt, height = 480}: StaticMapProps) {
+    const dispatch = useAppDispatch();
+    // כתובת התמונה (object URL) שייכת לרכיב הזה בלבד - לכן היא ב-state מקומי ולא בסלייס
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -57,27 +60,26 @@ export function StaticMap({src, alt, height = 480}: StaticMapProps) {
         setImageUrl(null);
         setError(null);
 
-        fetch(src, {headers: authHeaders()})
-            .then(async (res) => {
-                if (!res.ok) {
-                    throw new Error(await readErrorMessage(res, 'לא ניתן להציג את המפה כרגע.'));
+        dispatch(fetchMapImage(src))
+            .unwrap()
+            .then((url) => {
+                // הרכיב כבר לא מציג את התמונה הזו - משחררים אותה מיד
+                if (cancelled) {
+                    URL.revokeObjectURL(url);
+                    return;
                 }
-                return res.blob();
-            })
-            .then((blob) => {
-                if (cancelled) return;
-                objectUrl = URL.createObjectURL(blob);
-                setImageUrl(objectUrl);
+                objectUrl = url;
+                setImageUrl(url);
             })
             .catch((err: unknown) => {
-                if (!cancelled) setError(err instanceof Error ? err.message : 'לא ניתן להציג את המפה כרגע.');
+                if (!cancelled) setError(errorMessage(err, 'לא ניתן להציג את המפה כרגע.'));
             });
 
         return () => {
             cancelled = true;
             if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
-    }, [src]);
+    }, [src, dispatch]);
 
     if (error) {
         return <Alert severity="warning" sx={{mb: 3}}>{error}</Alert>;
@@ -178,7 +180,11 @@ const KEY_SETUP_STEPS = (origin: string) => (
     </>
 );
 
-const Ltr = ({children}: {children: ReactNode}) => <Box component="span" dir="ltr">{children}</Box>;
+interface LtrProps {
+    children: ReactNode;
+}
+
+const Ltr = ({children}: LtrProps) =><Box component="span" dir="ltr">{children}</Box>;
 
 // תיקון 40: מה לתקן ב-Google Cloud לפי קוד השגיאה ש-Google כתב בקונסול. null = אין הסבר ייעודי לקוד
 function authFailureFix(code: string | null, origin: string, blockedUrl: string | null): ReactNode {
@@ -228,13 +234,15 @@ function authFailureFix(code: string | null, origin: string, blockedUrl: string 
     }
 }
 
-export function MapFallbackNotice({reason, problem = null, keyHint = null}: {
+export interface MapFallbackNoticeProps {
     reason: MapFallbackReason;
     /** מה Google כתב בקונסול כשדחה את המפתח (רק ב-AuthFailed) */
     problem?: GoogleMapsAuthProblem | null;
     /** 4 התווים האחרונים של מפתח הדפדפן - כדי לזהות ב-Google Cloud איזה מפתח בשימוש */
     keyHint?: string | null;
-}) {
+}
+
+export function MapFallbackNotice({reason, problem = null, keyHint = null}: MapFallbackNoticeProps) {
     if (!isAdminUser()) {
         return (
             <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>
@@ -309,8 +317,9 @@ export function InteractiveMap({
     fitPositions,
     onShowAll,
 }: InteractiveMapProps) {
+    const dispatch = useAppDispatch();
     // undefined = עוד טוען את ההגדרות, null = אין מפה אינטראקטיבית
-    const [config, setConfig] = useState<BrowserMapConfigDto | null | undefined>(undefined);
+    const config = useAppSelector(selectBrowserMapConfig);
     const [failure, setFailure] = useState<MapFallbackReason | null>(googleMapsAuthFailed() ? 'AuthFailed' : null);
     const [authProblem, setAuthProblem] = useState<GoogleMapsAuthProblem>(googleMapsAuthProblem);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -318,20 +327,17 @@ export function InteractiveMap({
     const [following, setFollowing] = useState<boolean>(false);
 
     useEffect(() => {
-        let cancelled = false;
-        void loadBrowserMapConfig().then((loaded) => {
-            if (!cancelled) setConfig(loaded);
-        });
+        // פעם אחת לכל האפליקציה - ה-thunk מדלג אם ההגדרות כבר נטענו או בטעינה
+        void dispatch(fetchBrowserMapConfig());
         // נקרא כש-Google דוחה את המפתח, ושוב אם הסיבה (קוד השגיאה מהקונסול) מגיעה אחרי זה
         const unsubscribe = onGoogleMapsAuthFailure(() => {
             setFailure('AuthFailed');
             setAuthProblem(googleMapsAuthProblem());
         });
         return () => {
-            cancelled = true;
             unsubscribe();
         };
-    }, []);
+    }, [dispatch]);
 
     const boxHeight = {xs: Math.min(height, 380), md: height};
 
@@ -444,7 +450,12 @@ export function InteractiveMap({
 
 // מתמקד בכל הסמנים: בפעם הראשונה שיש סמנים, וכל פעם ש-fitKey משתנה (למשל לחיצה על "הצג הכול").
 // עדכון מיקום של המתנדב לא מזיז את המפה - מי שגולל / עושה זום לא "נזרק" חזרה.
-function FitToMarkers({positions, fitKey}: {positions: LatLng[]; fitKey: string}) {
+interface FitToMarkersProps {
+    positions: LatLng[];
+    fitKey: string;
+}
+
+function FitToMarkers({positions, fitKey}: FitToMarkersProps) {
     const map = useMap();
     const latest = useRef<LatLng[]>(positions);
     const hasPositions = positions.length > 0;
@@ -469,7 +480,11 @@ function FitToMarkers({positions, fitKey}: {positions: LatLng[]; fitKey: string}
     return null;
 }
 
-function FollowPosition({position}: {position: LatLng | null}) {
+interface FollowPositionProps {
+    position: LatLng | null;
+}
+
+function FollowPosition({position}: FollowPositionProps) {
     const map = useMap();
     const lat = position?.lat;
     const lng = position?.lng;
@@ -482,7 +497,15 @@ function FollowPosition({position}: {position: LatLng | null}) {
 }
 
 /** תיקון 61: תחנת איסוף עגולה - לבנה עם מסגרת בצבע המסלול, ונצבעת (עם ✓) כשאוספים אותה */
-export function StopBadge({color, glyph, done, next, muted}: {color: string; glyph?: string; done?: boolean; next?: boolean; muted?: boolean}) {
+export interface StopBadgeProps {
+    color: string;
+    glyph?: string;
+    done?: boolean;
+    next?: boolean;
+    muted?: boolean;
+}
+
+export function StopBadge({color, glyph, done, next, muted}: StopBadgeProps) {
     return (
         <Box
             key={done ? 'done' : 'open'}
@@ -520,7 +543,12 @@ export function StopBadge({color, glyph, done, next, muted}: {color: string; gly
     );
 }
 
-function MarkerView({marker, onSelect}: {marker: MapMarker; onSelect: () => void}) {
+interface MarkerViewProps {
+    marker: MapMarker;
+    onSelect: () => void;
+}
+
+function MarkerView({marker, onSelect}: MarkerViewProps) {
     if (marker.variant === 'stop') {
         return (
             <AdvancedMarker
@@ -599,7 +627,11 @@ function MarkerView({marker, onSelect}: {marker: MapMarker; onSelect: () => void
     );
 }
 
-function MapLineView({line}: {line: MapLine}) {
+interface MapLineViewProps {
+    line: MapLine;
+}
+
+function MapLineView({line}: MapLineViewProps) {
     const weight = line.weight ?? 4;
     const opacity = line.opacity ?? 0.9;
 

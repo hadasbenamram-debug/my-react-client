@@ -10,9 +10,10 @@ import LockResetIcon from '@mui/icons-material/LockReset';
 import PageTitle from '../components/PageTitle';
 import { FormSection } from '../components/FormParts';
 import { LoadingBlock } from '../components/PageParts';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
 import type { SystemSettingsDto } from '../types/api';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchSystemSettings, isFirstLoad, saveSystemSettings, selectSystemSettings } from '../store/adminSlice';
 
 // הגדרות מנוע השידוכים. תוקן: (1) הכתובת הייתה https://localhost:7295 קבועה - עכשיו נתיב יחסי;
 // (2) ההגדרות נשמרו בזיכרון השרת ולא השפיעו על המנוע - עכשיו הן נשמרות במסד והמנוע משתמש בהן מהריצה הבאה.
@@ -51,19 +52,24 @@ const FIELDS: { section: string; items: { key: Key; label: string; step?: number
 
 export function AdminSettingsPage() {
   const navigate = useNavigate();
-  const [settings, setSettings] = useState<SystemSettingsDto | null>(null);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const settingsState = useAppSelector(selectSystemSettings);
+  const loading = isFirstLoad(settingsState, settingsState.item !== null);
+  // הטופס עצמו - עותק מקומי של ההגדרות מהסלייס, שהמנהל עורך עד השמירה
+  const [settings, setSettings] = useState<SystemSettingsDto | null>(settingsState.item);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
-    fetch('/api/settings', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await readErrorMessage(res, 'שגיאה בטעינת ההגדרות.'));
-        setSettings((await res.json()) as SystemSettingsDto);
-      })
-      .catch((err: unknown) => setStatus({ ok: false, text: err instanceof Error ? err.message : 'שגיאה בטעינת ההגדרות.' }))
-      .finally(() => setLoading(false));
-  }, []);
+    void dispatch(fetchSystemSettings());
+  }, [dispatch]);
+
+  // הגדרות חדשות מהשרת (טעינה או שמירה) - ממלאים את הטופס
+  useEffect(() => {
+    if (settingsState.item) setSettings(settingsState.item);
+  }, [settingsState.item]);
+
+  // שגיאת טעינה מוצגת באותה הודעה כמו קודם
+  const shownStatus = status ?? (settingsState.error && !settingsState.item ? { ok: false, text: settingsState.error } : null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -74,12 +80,12 @@ export function AdminSettingsPage() {
     e.preventDefault();
     if (!settings) return;
     setStatus(null);
-    const res = await fetch('/api/settings', { method: 'PUT', headers: authHeaders(true), body: JSON.stringify(settings) });
-    if (res.ok) {
-      setSettings((await res.json()) as SystemSettingsDto);
+    try {
+      // ההגדרות השמורות מהשרת נכנסות לסלייס, ומשם לטופס
+      await dispatch(saveSystemSettings(settings)).unwrap();
       setStatus({ ok: true, text: 'ההגדרות נשמרו ויחולו מהריצה הבאה של המנוע.' });
-    } else {
-      setStatus({ ok: false, text: await readErrorMessage(res, 'שגיאה בשמירת ההגדרות.') });
+    } catch (err) {
+      setStatus({ ok: false, text: errorMessage(err, 'שגיאה בשמירת ההגדרות.') });
     }
   };
 
@@ -93,7 +99,7 @@ export function AdminSettingsPage() {
         subtitle="פרמטרים של מנוע השידוכים: זמני תגובה, משקלי הציון וטווחי חיפוש."
       />
 
-      {status && <Alert severity={status.ok ? 'success' : 'error'} sx={{ mb: 2 }}>{status.text}</Alert>}
+      {shownStatus && <Alert severity={shownStatus.ok ? 'success' : 'error'} sx={{ mb: 2 }}>{shownStatus.text}</Alert>}
 
       {settings && (
         <Card sx={{ p: { xs: 3, md: 5 } }}>

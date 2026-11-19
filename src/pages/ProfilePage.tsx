@@ -13,9 +13,19 @@ import PhoneInTalkOutlinedIcon from '@mui/icons-material/PhoneInTalkOutlined';
 import PageTitle from '../components/PageTitle';
 import { FormSection, StatusAlert } from '../components/FormParts';
 import { DeleteAccountSection } from '../components/DeleteAccountSection';
-import { authHeaders, getCurrentUser, homePathForRole, roleTitle, saveSession, switchRole, syncRoles } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
-import type { AccountRoleDto, ChangePasswordResponse, MyProfileDto } from '../types/api';
+import { getCurrentUser, homePathForRole, roleTitle, saveSession, switchRole, syncRoles } from '../utils/auth';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { selectCurrentUser, userUpdated } from '../store/authSlice';
+import {
+  changePassword,
+  fetchMyProfile,
+  selectMyProfile,
+  sendVerificationCode,
+  updateMyProfile,
+  verifyContactCode,
+} from '../store/accountSlice';
+import type { AccountRoleDto } from '../types/api';
 
 // תיקון 10: חשבון אחד יכול להחזיק כמה תפקידים. אלה התפקידים שאפשר להוסיף, וטופס ההצטרפות של כל אחד
 // (כשמחוברים, הטופס מצרף את התפקיד לחשבון הזה - בלי פרטי משתמש ובלי סיסמה נוספת).
@@ -37,9 +47,12 @@ type PhoneMethod = 'sms' | 'call';
 
 export function ProfilePage() {
   const mustChangeFromUrl = new URLSearchParams(window.location.search).get('mustChange') === '1';
+  const dispatch = useAppDispatch();
 
+  // הפרופיל מהשרת נמצא ב-store (store/accountSlice.ts); כאן נשארים רק שדות הטופס והודעות המסך
+  const myProfile = useAppSelector(selectMyProfile);
   const [profile, setProfile] = useState({ name: '', email: '', phone: '' });
-  const [verified, setVerified] = useState({ email: false, phone: false });
+  const verified = { email: myProfile?.isEmailVerified === true, phone: myProfile?.isPhoneVerified === true };
   const [mustChange, setMustChange] = useState(mustChangeFromUrl || getCurrentUser().mustChangePassword === true);
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [codes, setCodes] = useState<Record<Channel, string>>({ email: '', phone: '' });
@@ -51,29 +64,22 @@ export function ProfilePage() {
   const [passwordStatus, setPasswordStatus] = useState<Status>(null);
   const [verifyStatus, setVerifyStatus] = useState<Status>(null);
   const [sending, setSending] = useState<'email' | PhoneMethod | null>(null);
-  const [roles, setRoles] = useState<AccountRoleDto[]>([]);
-  const [canAddRoles, setCanAddRoles] = useState(false);
-  const activeRole = getCurrentUser().role;
+  const roles: AccountRoleDto[] = myProfile?.roles ?? [];
+  const canAddRoles = myProfile?.canAddRoles === true;
+  const activeRole = useAppSelector(selectCurrentUser).role;
   // תיקון 77: לחשבון מנהל אין אפשרות מחיקה עצמית
   const isAdmin = String(activeRole ?? '').toLowerCase() === 'admin' || roles.some((r) => r.role === 'Admin');
 
   const loadProfile = async () => {
     try {
-      const response = await fetch('/api/users/me', { headers: authHeaders() });
-      if (!response.ok) {
-        setProfileStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לטעון את הפרופיל.') });
-        return;
-      }
-      const data = (await response.json()) as MyProfileDto;
+      const data = await dispatch(fetchMyProfile()).unwrap();
       setProfile({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '' });
-      setVerified({ email: data.isEmailVerified, phone: data.isPhoneVerified });
       setMustChange(data.mustChangePassword);
-      setRoles(data.roles ?? []);
-      setCanAddRoles(data.canAddRoles === true);
       // תפקיד שהמנהל אישר בינתיים מופיע מיד גם בתפריט (מעבר בין תפקידים)
       syncRoles((data.roles ?? []).filter((r) => r.status === 'Approved').map((r) => r.role));
-    } catch {
-      setProfileStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+    } catch (err) {
+      // ההודעה מהשרת, או 'אין תקשורת עם השרת.'
+      setProfileStatus({ ok: false, text: errorMessage(err, 'לא ניתן לטעון את הפרופיל.') });
     }
   };
 
@@ -106,25 +112,12 @@ export function ProfilePage() {
     setProfileStatus(null);
 
     try {
-      const response = await fetch('/api/users/me', {
-        method: 'PUT',
-        headers: authHeaders(true),
-        body: JSON.stringify({ name: profile.name, phone: profile.phone }),
-      });
-
-      if (response.ok) {
-        const data = (await response.json()) as MyProfileDto;
-        setVerified({ email: data.isEmailVerified, phone: data.isPhoneVerified });
-        setProfileStatus({ ok: true, text: 'הפרופיל עודכן בהצלחה!' });
-        try {
-          const stored = JSON.parse(localStorage.getItem('currentUser') ?? '{}');
-          localStorage.setItem('currentUser', JSON.stringify({ ...stored, name: profile.name }));
-        } catch { /* לא קריטי */ }
-      } else {
-        setProfileStatus({ ok: false, text: await readErrorMessage(response, 'שגיאה בעדכון הפרופיל.') });
-      }
-    } catch {
-      setProfileStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+      // השרת מחזיר את הפרופיל המעודכן (גם סטטוס האימות) - הוא נשמר ב-store
+      await dispatch(updateMyProfile({ name: profile.name, phone: profile.phone })).unwrap();
+      setProfileStatus({ ok: true, text: 'הפרופיל עודכן בהצלחה!' });
+      dispatch(userUpdated({ name: profile.name }));
+    } catch (err) {
+      setProfileStatus({ ok: false, text: errorMessage(err, 'שגיאה בעדכון הפרופיל.') });
     } finally {
       setLoading(false);
     }
@@ -141,36 +134,27 @@ export function ProfilePage() {
 
     setPasswordLoading(true);
     try {
-      const response = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: authHeaders(true),
-        body: JSON.stringify({
-          currentPassword: passwords.currentPassword,
-          newPassword: passwords.newPassword,
-        }),
-      });
+      const data = await dispatch(changePassword({
+        currentPassword: passwords.currentPassword,
+        newPassword: passwords.newPassword,
+      })).unwrap();
 
-      if (response.ok) {
-        // כל הטוקנים הקודמים בוטלו - שומרים את הטוקן החדש שהשרת החזיר
-        const data = (await response.json()) as ChangePasswordResponse;
-        if (data.token && data.role) {
-          // נשארים בתפקיד שנבחר (לחשבון יכולים להיות כמה תפקידים)
-          saveSession({ token: data.token, role: data.role, roles: data.roles, mustChangePassword: false }, undefined, true);
-        }
-        setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
-
-        if (mustChange) {
-          setPasswordStatus({ ok: true, text: 'הסיסמה נקבעה בהצלחה! מעבירים אותך למערכת...' });
-          setTimeout(() => { window.location.href = homePathForRole(getCurrentUser().role); }, 1000);
-        } else {
-          setPasswordStatus({ ok: true, text: 'הסיסמה שונתה בהצלחה. החיבורים בשאר המכשירים נותקו.' });
-        }
-        setMustChange(false);
-      } else {
-        setPasswordStatus({ ok: false, text: await readErrorMessage(response, 'שגיאה בשינוי הסיסמה.') });
+      // כל הטוקנים הקודמים בוטלו - שומרים את הטוקן החדש שהשרת החזיר
+      if (data.token && data.role) {
+        // נשארים בתפקיד שנבחר (לחשבון יכולים להיות כמה תפקידים)
+        saveSession({ token: data.token, role: data.role, roles: data.roles, mustChangePassword: false }, undefined, true);
       }
-    } catch {
-      setPasswordStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+      setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+      if (mustChange) {
+        setPasswordStatus({ ok: true, text: 'הסיסמה נקבעה בהצלחה! מעבירים אותך למערכת...' });
+        setTimeout(() => { window.location.href = homePathForRole(getCurrentUser().role); }, 1000);
+      } else {
+        setPasswordStatus({ ok: true, text: 'הסיסמה שונתה בהצלחה. החיבורים בשאר המכשירים נותקו.' });
+      }
+      setMustChange(false);
+    } catch (err) {
+      setPasswordStatus({ ok: false, text: errorMessage(err, 'שגיאה בשינוי הסיסמה.') });
     } finally {
       setPasswordLoading(false);
     }
@@ -182,20 +166,13 @@ export function ProfilePage() {
     setVerifyStatus(null);
     setSending(channel === 'email' ? 'email' : method);
     try {
-      const response = await fetch(`/api/auth/send-${channel}-verification`, channel === 'phone'
-        ? { method: 'POST', headers: authHeaders(true), body: JSON.stringify({ method }) }
-        : { method: 'POST', headers: authHeaders() });
-      if (response.ok) {
-        // ההודעה מהשרת: "נשלח במסרון" / "תכף נתקשר", או בסביבת פיתוח בלי ספק - שהקוד נכתב ביומן השרת ולא נשלח בפועל
-        const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        const fallback = channel === 'email' ? 'קוד נשלח למייל.' : method === 'call' ? 'תכף נתקשר אליך ונקריא את הקוד.' : 'קוד נשלח במסרון.';
-        setCodeSent({ ...codeSent, [channel]: true });
-        setVerifyStatus({ ok: true, text: body?.message || fallback });
-      } else {
-        setVerifyStatus({ ok: false, text: await readErrorMessage(response, 'לא ניתן לשלוח קוד כרגע.') });
-      }
-    } catch {
-      setVerifyStatus({ ok: false, text: 'אין תקשורת עם השרת.' });
+      const body = await dispatch(sendVerificationCode({ channel, method })).unwrap();
+      // ההודעה מהשרת: "נשלח במסרון" / "תכף נתקשר", או בסביבת פיתוח בלי ספק - שהקוד נכתב ביומן השרת ולא נשלח בפועל
+      const fallback = channel === 'email' ? 'קוד נשלח למייל.' : method === 'call' ? 'תכף נתקשר אליך ונקריא את הקוד.' : 'קוד נשלח במסרון.';
+      setCodeSent({ ...codeSent, [channel]: true });
+      setVerifyStatus({ ok: true, text: body?.message || fallback });
+    } catch (err) {
+      setVerifyStatus({ ok: false, text: errorMessage(err, 'לא ניתן לשלוח קוד כרגע.') });
     } finally {
       setSending(null);
     }
@@ -203,18 +180,14 @@ export function ProfilePage() {
 
   const verifyCode = async (channel: Channel) => {
     setVerifyStatus(null);
-    const response = await fetch(`/api/auth/verify-${channel}`, {
-      method: 'POST',
-      headers: authHeaders(true),
-      body: JSON.stringify({ code: codes[channel] }),
-    });
-    if (response.ok) {
-      setVerified({ ...verified, [channel]: true });
+    try {
+      // בהצלחה הפרופיל ב-store מסומן כמאומת
+      await dispatch(verifyContactCode({ channel, code: codes[channel] })).unwrap();
       setCodeSent({ ...codeSent, [channel]: false });
       setCodes({ ...codes, [channel]: '' });
       setVerifyStatus({ ok: true, text: channel === 'email' ? 'המייל אומת בהצלחה!' : 'הטלפון אומת בהצלחה!' });
-    } else {
-      setVerifyStatus({ ok: false, text: await readErrorMessage(response, 'הקוד שגוי או שפג תוקפו.') });
+    } catch (err) {
+      setVerifyStatus({ ok: false, text: errorMessage(err, 'הקוד שגוי או שפג תוקפו.') });
     }
   };
 

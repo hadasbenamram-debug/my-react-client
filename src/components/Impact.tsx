@@ -1,39 +1,27 @@
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef} from 'react';
 import StatCard from './StatCard';
 import {STATS} from '../data';
-import type {PublicStatsDto} from '../types/api';
 import useHeaderOverScene from '../hooks/useHeaderOverScene';
+import {useAppDispatch, useAppSelector} from '../store';
+import {fetchPublicStats, selectPublicStats, selectPublicStatsStatus} from '../store/publicSlice';
 
 // תיקון 31: המספרים אמיתיים - השרת סופר אותם מהמסד (GET api/stats/public, פתוח גם לאורחים, מטמון של 5 דקות).
 // עד שהנתונים מגיעים מוצג "—", ואם השרת לא זמין - "—" והודעה קטנה (במקום מספרים מומצאים).
 // תיקון 56: עיצוב חדש - רקע טורקיז בהיר, "כיפה" לבנה גדולה, הנתונים ככפתורים מעוגלים (pills),
 // ועיגול טורקיז בתחתית הכיפה. מתחת לכיפה מתחילות הקשתות של העיגול הגדול באזור "מצטרפים לקהילה" (JoinSection).
 export default function Impact() {
-    const [stats, setStats] = useState<PublicStatsDto | null>(null);
-    const [failed, setFailed] = useState(false);
+    const dispatch = useAppDispatch();
+    const stats = useAppSelector(selectPublicStats);
+    const failed = useAppSelector(selectPublicStatsStatus) === 'failed';
     const ref = useRef<HTMLElement>(null);
 
     useHeaderOverScene(ref, 'on-sky-impact');
 
     useEffect(() => {
-        const controller = new AbortController();
-
-        fetch('/api/stats/public', {signal: controller.signal})
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                return response.json() as Promise<PublicStatsDto>;
-            })
-            .then((data) => setStats(data))
-            .catch(() => {
-                if (!controller.signal.aborted) {
-                    setFailed(true);
-                }
-            });
-
-        return () => controller.abort();
-    }, []);
+        // הטעינה ב-thunk; ביציאה מהדף לפני שהנתונים הגיעו - מבטלים את הבקשה
+        const request = dispatch(fetchPublicStats());
+        return () => request.abort();
+    }, [dispatch]);
 
     return (
         <section className="impact" id="impact" ref={ref}>

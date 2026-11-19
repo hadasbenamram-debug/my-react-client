@@ -1,4 +1,5 @@
-import {BrowserRouter, Route, Routes, Navigate, useSearchParams} from 'react-router-dom';
+import {BrowserRouter, Route, Routes, Navigate, useLocation, useSearchParams} from 'react-router-dom';
+import {NotFoundPage} from './pages/NotFoundPage';
 import Layout from './components/Layout';
 import HomePage from './components/HomePage';
 import AppPageLayout from './components/AppPageLayout';
@@ -60,8 +61,8 @@ import {SupplierRegisterPage} from './pages/SupplierRegisterPage';
 import {GeneralMapPage} from './pages/GeneralMapPage';
 // מעקב חי אחרי משלוח (עמותה / ספק / מנהל) - מיומן המשלוח בשרת
 import {RouteTrackingPage} from './pages/RouteTrackingPage';
-import type {StoredUser} from './types';
-import {getCurrentUser} from './utils/auth';
+import {useAppSelector} from './store';
+import {selectActiveRole} from './store/authSlice';
 import RoleFallback from './components/RoleFallback';
 
 // תיקון 63: "פרטי תרומה" של הספק (?id=) הוחלף במסך התרומה - קישורים ישנים עוברים אליו
@@ -78,10 +79,15 @@ function LegacyResetPasswordRedirect() {
     return <Navigate to={token ? `/app/login?reset=${encodeURIComponent(token)}` : '/app/login?forgot=1'} replace />;
 }
 
-export default function App() {
-    const currentUser: StoredUser = getCurrentUser();
+// אורח שנכנס לכתובת לא מוכרת: מסך של המערכת (/app/...) דורש התחברות, וכל כתובת אחרת - עמוד 404
+function GuestFallback() {
+    const {pathname} = useLocation();
+    return pathname.startsWith('/app/') ? <Navigate to="/app/login" replace /> : <NotFoundPage />;
+}
 
-    const role = (currentUser.role || currentUser.type || 'guest').toLowerCase();
+export default function App() {
+    // התפקיד הפעיל מתוך Redux - הנתיבים מתעדכנים מיד אחרי התחברות / יציאה
+    const role = useAppSelector(selectActiveRole);
 
     return (
         <BrowserRouter>
@@ -215,7 +221,7 @@ export default function App() {
 
                         {/* --- אורח / לא מחובר --- */}
                         {role === 'guest' && (
-                            <Route path="*" element={<Navigate to="/app/login" replace />} />
+                            <Route path="*" element={<GuestFallback />} />
                         )}
                     </Route>
                 </Route>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Alert from '@mui/material/Alert';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
@@ -14,9 +14,8 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import PageTitle from '../components/PageTitle';
 import StatGrid from '../components/StatGrid';
 import { LoadingBlock } from '../components/PageParts';
-import type { SystemReportDto } from '../types/api';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchSystemReports, isFirstLoad, selectSystemReports } from '../store/adminSlice';
 
 // דוחות וסטטיסטיקות למנהל.
 // תיקון 17: "מובילי ביצועי מתנדבים" הציג 0 משלוחים מוצלחים גם אחרי משלוח שהושלם - המספר היה קבוע בשרת.
@@ -26,22 +25,16 @@ import { readErrorMessage } from '../utils/apiError';
 const deliveriesText = (count: number) => (count === 1 ? 'משלוח מוצלח אחד' : `${count} משלוחים מוצלחים`);
 
 export function AdminReportsPage() {
-  const [reports, setReports] = useState<SystemReportDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const dispatch = useAppDispatch();
+  const reportsState = useAppSelector(selectSystemReports);
+  const reports = reportsState.item;
+  const loading = isFirstLoad(reportsState, reports !== null);
+  const error = reportsState.error ?? '';
 
   useEffect(() => {
-    fetch('/api/admin/volunteers/reports', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) {
-          setError(await readErrorMessage(res, 'לא הצלחנו לטעון את הדוחות. נא לרענן את הדף.'));
-          return;
-        }
-        setReports((await res.json()) as SystemReportDto);
-      })
-      .catch(() => setError('לא הצלחנו לטעון את הדוחות. נא לבדוק את החיבור ולרענן את הדף.'))
-      .finally(() => setLoading(false));
-  }, []);
+    // השגיאה (מהשרת, או "נא לבדוק את החיבור" כשאין תקשורת) נשמרת בסלייס
+    void dispatch(fetchSystemReports());
+  }, [dispatch]);
 
   if (loading) return <LoadingBlock text="טוען דוחות מערכתיים..." />;
 
@@ -74,7 +67,7 @@ export function AdminReportsPage() {
             ) : (
               <List>
                 {reports.topVolunteers.map((vol, index) => (
-                  <ListItem key={`${index}-${vol.name}`} disableGutters>
+                  <ListItem key={vol.volunteerId} disableGutters>
                     <ListItemAvatar>
                       <Avatar sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 700 }}>
                         {index + 1}

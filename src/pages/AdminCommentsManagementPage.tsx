@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -7,38 +7,31 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '../components/PageTitle';
 import { LoadingBlock, EmptyState } from '../components/PageParts';
 import { CommentRow } from '../components/CommentParts';
-import { authHeaders } from '../utils/auth';
-import { readErrorMessage } from '../utils/apiError';
 import type { CommentDto } from '../types/api';
+import { errorMessage } from '../api/http';
+import { useAppDispatch, useAppSelector } from '../store';
+import { deleteAdminComment, fetchAdminComments, isFirstLoad, selectAdminComments } from '../store/adminSlice';
 
 // ניהול תגובות (מנהל). תוקן: העמוד פנה ל-api/admin/comments שלא קיים ובלי טוקן.
 // עכשיו: GET api/comments ו-DELETE api/comments/{id} (מוחק גם את כל התשובות שמתחתיה).
 export function AdminCommentsManagementPage() {
-  const [comments, setComments] = useState<CommentDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchComments = () => {
-    fetch('/api/comments', { headers: authHeaders() })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await readErrorMessage(res, 'שגיאה בטעינת התגובות.'));
-        setComments((await res.json()) as CommentDto[]);
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'שגיאה בטעינת התגובות.'))
-      .finally(() => setLoading(false));
-  };
+  const dispatch = useAppDispatch();
+  const commentsState = useAppSelector(selectAdminComments);
+  const comments = commentsState.items ?? [];
+  const loading = isFirstLoad(commentsState, commentsState.items !== null);
+  const error = commentsState.error ?? '';
 
   useEffect(() => {
-    fetchComments();
-  }, []);
+    void dispatch(fetchAdminComments());
+  }, [dispatch]);
 
   const handleDeleteComment = async (comment: CommentDto) => {
     if (!window.confirm('למחוק את התגובה ואת כל התשובות אליה?')) return;
-    const res = await fetch(`/api/comments/${comment.id}`, { method: 'DELETE', headers: authHeaders() });
-    if (res.ok) {
-      fetchComments();
-    } else {
-      alert(await readErrorMessage(res, 'שגיאה במחיקת התגובה.'));
+    try {
+      await dispatch(deleteAdminComment(comment.id)).unwrap();
+      void dispatch(fetchAdminComments());
+    } catch (err) {
+      alert(errorMessage(err, 'שגיאה במחיקת התגובה.'));
     }
   };
 

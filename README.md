@@ -27,6 +27,7 @@
 ## טכנולוגיות
 
 - **React 18** + **TypeScript** + **Vite**
+- **Redux Toolkit** + **React Redux** לניהול המצב: store אחד עם slice לכל תחום, וכל הקריאות לשרת עוברות דרך thunks (`createAsyncThunk`)
 - **MUI** עם תמיכה מלאה בעברית ובכיווניות RTL (`stylis-plugin-rtl`)
 - **React Router** לניתוב לפי תפקיד
 - **SignalR** (`@microsoft/signalr`) להתראות ולמיקום המתנדבים בזמן אמת
@@ -60,12 +61,30 @@ npm run dev
 
 ---
 
+## ניהול מצב (Redux)
+
+| Slice | מה הוא מחזיק |
+|---|---|
+| `auth` | הטוקן והמשתמש המחובר (נשמר ב-localStorage ומסונכרן בין לשוניות) |
+| `liveUpdates` | התראות שלא נקראו, בקשת איסוף ממתינה למתנדב, רענון דפים בזמן אמת |
+| `ui` | מצב התפריט הצדדי |
+| `account`, `notifications`, `public` | פרופיל, התחברות וסיסמה, מרכז ההתראות, נתונים ציבוריים ועוזר חכם |
+| `donations`, `supplier`, `ngo` | תרומות, נתוני הספק ונתוני העמותה |
+| `volunteer`, `routes` | זמינות, בקשות ומסלולים של מתנדבים, מעקב משלוחים |
+| `admin` | מסכי הניהול |
+
+רכיב קורא נתונים עם `useAppSelector` וטוען / משנה אותם עם `useAppDispatch` ו-thunk, למשל `dispatch(fetchSomething())`.
+
+---
+
 ## מבנה הפרויקט
 
 ```
 src/
 ├── App.tsx            # הניתוב: דפים לפי תפקיד והפניות מכתובות ישנות
-├── pages/             # מסך לכל נתיב
+├── store/             # Redux: ה-store, ה-slices (state + reducers + thunks) ו-selectors
+├── api/               # http.ts - לקוח ה-HTTP שה-thunks משתמשים בו (טוקן, JSON, הודעות שגיאה)
+├── pages/             # מסך לכל נתיב (כולל NotFoundPage - עמוד 404)
 ├── components/        # רכיבים משותפים: מפות, מסך תרומה, התראות, עוזר חכם, אנימציות
 ├── hooks/             # מעקב חי, אנימציית מיקומים, צ'אט, אנימציות גלילה
 ├── utils/             # אימות, שגיאות API, עיצוב תאריכים, Google Maps, זמני הגעה

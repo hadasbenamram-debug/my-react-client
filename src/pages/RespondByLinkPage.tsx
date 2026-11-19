@@ -6,9 +6,20 @@ import Stack from '@mui/material/Stack';
 import PageTitle from '../components/PageTitle';
 import {LoadingBlock} from '../components/PageParts';
 import RouteSummary, {DeadlineCountdown} from '../components/RouteSummary';
-import {readApiError, RESPONSE_WINDOW_CODES} from '../utils/apiError';
-import {authHeaders, clearSession, getCurrentUser, getToken, saveSession} from '../utils/auth';
-import type {RespondByLinkResultDto, RouteDto} from '../types/api';
+import {RESPONSE_WINDOW_CODES} from '../utils/apiError';
+import {clearSession, getCurrentUser, getToken, saveSession} from '../utils/auth';
+import {toErrorPayload} from '../api/http';
+import {useAppDispatch, useAppSelector} from '../store';
+import {
+    byLinkClosed,
+    byLinkReset,
+    fetchMyActiveRoute,
+    fetchRouteByLink,
+    respondByLink,
+    selectByLinkRoute,
+    selectByLinkStatus,
+} from '../store/volunteerSlice';
+import type {RespondByLinkResultDto} from '../types/api';
 
 const ACTIVE_ROUTE = '/app/volunteer/active-route';
 
@@ -21,8 +32,11 @@ type AfterAnswer = {text: string; path: string; button: string};
 // הטוקן חד-פעמי ומוגבל למסלול הזה בלבד - הוא לא טוקן התחברות ולא נשמר בדפדפן.
 export function RespondByLinkPage() {
     const [token] = useState(() => new URLSearchParams(window.location.search).get('token') ?? '');
-    const [route, setRoute] = useState<RouteDto | null>(null);
-    const [loading, setLoading] = useState(true);
+    const dispatch = useAppDispatch();
+    const route = useAppSelector(selectByLinkRoute);
+    const linkStatus = useAppSelector(selectByLinkStatus);
+    // בלי טוקן אין מה לטעון
+    const loading = !!token && (linkStatus === 'idle' || linkStatus === 'loading');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     // תיקון 12: קישור שכבר לא בתוקף / זמן התגובה עבר - הודעה רגילה ולא שגיאה
@@ -50,8 +64,7 @@ export function RespondByLinkPage() {
             });
             return;
         }
-        const res = await fetch('/api/matches/routes/my-active', {headers: authHeaders()}).catch(() => null);
-        const active = res && res.status === 200 ? ((await res.json()) as RouteDto) : null;
+        const active = await dispatch(fetchMyActiveRoute({silent: true})).unwrap().catch(() => null);
         if (active && !active.awaitingResponse) {
             setAfter({text: 'הבקשה כבר אושרה באתר - המסלול שלך פעיל.', path: ACTIVE_ROUTE, button: 'למסלול שלי'});
         } else if (active) {
@@ -59,63 +72,52 @@ export function RespondByLinkPage() {
         } else {
             setAfter({text: 'אם כבר ענית לבקשה באתר - אין צורך לעשות דבר נוסף.', path: '/app/volunteer/dashboard', button: 'לאזור האישי'});
         }
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         // הטוקן לא נשאר בשורת הכתובת (היסטוריה / שיתוף מסך)
         window.history.replaceState({}, document.title, window.location.pathname);
 
         if (!token) {
+            dispatch(byLinkReset());
             setError('הקישור אינו תקין.');
-            setLoading(false);
             return;
         }
 
-        fetch('/api/matches/by-link', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({token, accept: false}),
-        })
-            .then(async (res) => {
-                if (!res.ok) {
-                    const {message, code} = await readApiError(res, 'הקישור אינו בתוקף.');
-                    if (code && RESPONSE_WINDOW_CODES.includes(code)) {
-                        setInfo(message);
-                        if (ALREADY_ANSWERED_CODES.includes(code)) void explainAlreadyAnswered();
-                        return;
-                    }
-                    throw new Error(message);
+        dispatch(fetchRouteByLink(token))
+            .unwrap()
+            .catch((err: unknown) => {
+                const {message, code} = toErrorPayload(err, 'הקישור אינו בתוקף.');
+                if (code && RESPONSE_WINDOW_CODES.includes(code)) {
+                    setInfo(message);
+                    if (ALREADY_ANSWERED_CODES.includes(code)) void explainAlreadyAnswered();
+                    return;
                 }
-                setRoute((await res.json()) as RouteDto);
-            })
-            .catch((err: unknown) => setError(err instanceof Error ? err.message : 'הקישור אינו בתוקף.'))
-            .finally(() => setLoading(false));
-    }, [token, explainAlreadyAnswered]);
+                setError(message);
+            });
+    }, [token, explainAlreadyAnswered, dispatch]);
 
     const respond = async (accept: boolean) => {
         setBusy(true);
         setError('');
-        const res = await fetch('/api/matches/respond-by-link', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({token, accept}),
-        });
-        setBusy(false);
-
-        if (!res.ok) {
-            const {message, code} = await readApiError(res, 'הפעולה נכשלה.');
+        let result: RespondByLinkResultDto;
+        try {
+            // בהצלחה המסלול המעודכן (result.route) נשמר בסלייס
+            result = await dispatch(respondByLink({token, accept})).unwrap();
+        } catch (err) {
+            setBusy(false);
+            const {message, code} = toErrorPayload(err, 'הפעולה נכשלה.');
             if (code && RESPONSE_WINDOW_CODES.includes(code)) {
                 // למשל אחרי שזמן התגובה עבר: הבקשה הועברה למתנדב אחר - כבר אין מה לאשר
                 setInfo(message);
-                setRoute((r) => (r ? {...r, awaitingResponse: false} : r));
+                dispatch(byLinkClosed());
                 if (ALREADY_ANSWERED_CODES.includes(code)) void explainAlreadyAnswered();
             } else {
                 setError(message);
             }
             return;
         }
-        const result = (await res.json()) as RespondByLinkResultDto;
-        setRoute(result.route);
+        setBusy(false);
 
         if (!accept) {
             setDone('הבקשה נדחתה והועברה למתנדב אחר. תודה על העדכון!');
